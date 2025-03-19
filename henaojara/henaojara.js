@@ -1,107 +1,88 @@
-// ========== SEARCH ==========
 async function searchResults(keyword) {
     try {
-        const url = `https://henaojara.com/?s=${encodeURIComponent(keyword)}`;
-        const response = await fetch(url);
-        const html = await response;
+        const encodedKeyword = encodeURIComponent(keyword);
+        const responseText = await fetch(`https://api.animemundo.net/api/v2/henaojara/search?q=${encodedKeyword}&language=sub`);
+        const data = JSON.parse(responseText);
+
+        const transformedResults = data.data.animes.map(anime => ({
+            title: anime.name,
+            image: anime.poster,
+            href: `https://henaojara.com/watch/${anime.id}`
+        }));
         
-        const results = [];
-        const regex = /<article class="TPost C">[^]*?<a href="(.*?)"[^]*?data-src="(.*?)"[^]*?<h3 class="Title">(.*?)<\/h3>/g;
+        return JSON.stringify(transformedResults);
         
-        let match;
-        while((match = regex.exec(html)) !== null) {
-            const title = decodeEntities(match[3]);
-            results.push({
-                title: title.replace(/ Temporada \d+| Latino| Sub| Español/gi, "").trim(),
-                image: match[2].replace("-185x278", ""),
-                href: match[1]
-            });
-        }
-        
-        return JSON.stringify(results.slice(0, 15));
-        
-    } catch(error) {
-        return JSON.stringify([{ 
-            title: "Error de conexión", 
-            image: "https://i.imgur.com/9E8uF1d.png", 
-            href: "#" 
-        }]);
+    } catch (error) {
+        console.log('Fetch error:', error);
+        return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
     }
 }
 
-// ========== DETAILS ==========
+
 async function extractDetails(url) {
     try {
-        const response = await fetch(url);
-        const html = await response;
+        const match = url.match(/https:\/\/henaojara\.com\/watch\/(.+)$/);
+        const encodedID = match[1];
+        const response = await fetch(`https://api.animemundo.net/api/v2/henaojara/anime/${encodedID}`);
+        const data = JSON.parse(response);
         
-        const description = html.match(/<meta property="og:description" content="([^"]+)"/)?.[1] || "Descripción no disponible";
-        const year = html.match(/<span class="Year">(\d+)<\/span>/)?.[1] || "N/A";
+        const animeInfo = data.data.anime.info;
+        const moreInfo = data.data.anime.moreInfo;
+
+        const transformedResults = [{
+            description: animeInfo.description || 'No description available',
+            aliases: `Duration: ${animeInfo.stats?.duration || 'Unknown'}`,
+            airdate: `Aired: ${moreInfo?.aired || 'Unknown'}`
+        }];
         
+        return JSON.stringify(transformedResults);
+    } catch (error) {
+        console.log('Details error:', error);
         return JSON.stringify([{
-            description: description,
-            aliases: `Año: ${year}`,
-            airdate: "Actualizado diariamente"
+        description: 'Error loading description',
+        aliases: 'Duration: Unknown',
+        airdate: 'Aired: Unknown'
         }]);
-        
-    } catch {
-        return JSON.stringify([{ 
-            description: "Error al cargar detalles", 
-            aliases: "N/A", 
-            airdate: "N/A" 
-        }]);
-    }
+  }
 }
 
-// ========== EPISODES ==========
 async function extractEpisodes(url) {
     try {
-        const response = await fetch(url);
-        const html = await response;
+        const match = url.match(/https:\/\/henaojara\.com\/watch\/(.+)$/);
+        const encodedID = match[1];
+        const response = await fetch(`https://api.animemundo.net/api/v2/henaojara/anime/${encodedID}/episodes`);
+        const data = JSON.parse(response);
+
+        const transformedResults = data.data.episodes.map(episode => ({
+            href: `https://henaojara.com/watch/${encodedID}?ep=${episode.episodeId.split('?ep=')[1]}`,
+            number: episode.number
+        }));
         
-        const episodes = [];
-        const regex = /<a class="[^"]*infovan[^"]*"[^]*?href="(.*?)"[^]*?<div class="centerv">(\d+)<\/div>/g;
+        return JSON.stringify(transformedResults);
         
-        let match;
-        while((match = regex.exec(html)) !== null) {
-            episodes.push({
-                href: match[1].startsWith("http") ? match[1] : `https://henaojara.com${match[1]}`,
-                number: match[2]
-            });
-        }
-        
-        return JSON.stringify(episodes.reverse());
-        
-    } catch {
-        return JSON.stringify([]);
-    }
+    } catch (error) {
+        console.log('Fetch error:', error);
+    }    
 }
 
-// ========== STREAM ==========
 async function extractStreamUrl(url) {
     try {
-        const response = await fetch(url);
-        const html = await response;
+       const match = url.match(/https:\/\/henaojara\.com\/watch\/(.+)$/);
+       const encodedID = match[1];
+       const response = await fetch(`https://api.animemundo.net/api/v2/henaojara/episode/sources?animeEpisodeId=${encodedID}&category=sub`);
+       const data = JSON.parse(response);
+       
+       const hlsSource = data.data.sources.find(source => source.type === 'hls');
+        const subtitleTrack = data.data.tracks.find(track => track.label === 'English' && track.kind === 'captions');
         
-        const streamMatch = html.match(/<iframe[^>]+src="(https:\/\/henaojara\.com\/player[^"]+)"/);
-        if(!streamMatch) throw new Error();
-        
-        const playerResponse = await fetch(streamMatch[1]);
-        const playerHtml = await playerResponse;
-        
-        const m3u8Url = playerHtml.match(/file:\s*"([^"]+\.m3u8)"/)?.[1];
-        return m3u8Url || null;
-        
-    } catch {
-        return null;
+        const result = {
+            stream: hlsSource ? hlsSource.url : null,
+            subtitles: subtitleTrack ? subtitleTrack.file : null
+        };
+        console.log(result);
+        return JSON.stringify(result);
+    } catch (error) {
+        console.log('Fetch error:', error);
+        return JSON.stringify({ stream: null, subtitles: null });
     }
-}
-
-// ========== UTILS ==========
-function decodeEntities(text) {
-    return text.replace(/&amp;/g, "&")
-              .replace(/&quot;/g, '"')
-              .replace(/&#039;/g, "'")
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">");
 }
