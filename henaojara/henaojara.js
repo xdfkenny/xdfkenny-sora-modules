@@ -1,62 +1,52 @@
 async function searchResults(keyword) {
     try {
-        const response = await fetch(`https://jkanime.net/buscar/${encodeURIComponent(keyword)}/`);
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+            'Referer': 'https://jkanime.net/'
+        };
+
+        const response = await fetch(`https://jkanime.net/buscar/${encodeURIComponent(keyword)}/`, { headers });
         const html = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        
-        const results = Array.from(doc.querySelectorAll('.col-lg-2.col-md-6.col-sm-6')).map(item => {
-            const anime = item.querySelector('.anime__item');
+
+        const results = Array.from(doc.querySelectorAll('.col-lg-2.col-md-6')).map(item => {
+            const container = item.querySelector('.anime__item');
             return {
-                title: anime.querySelector('h5 a')?.textContent?.trim() || 'Sin título',
-                image: anime.querySelector('.set-bg')?.getAttribute('data-setbg') || '',
-                href: anime.querySelector('a')?.href || ''
+                title: container?.querySelector('h5')?.textContent?.trim() || 'Sin título',
+                image: container?.querySelector('.set-bg')?.dataset?.setbg || '',
+                href: container?.querySelector('a')?.href || ''
             };
-        });
-        
-        return JSON.stringify(results.filter(r => r.href));
+        }).filter(item => item.href);
+
+        return JSON.stringify(results);
 
     } catch (error) {
         return JSON.stringify([]);
     }
 }
 
-async function extractDetails(url) {
+async function extractEpisodes(url) {
     try {
-        const response = await fetch(url);
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+            'Referer': url
+        };
+
+        const response = await fetch(url, { headers });
         const html = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        
-        return JSON.stringify([{
-            description: doc.querySelector('.tab.sinopsis')?.textContent?.trim() || 'Descripción no disponible',
-            aliases: Array.from(doc.querySelectorAll('#ainfo p')).map(p => p.textContent).join(' ') || 'Sin información adicional',
-            airdate: doc.querySelector('.fechas')?.textContent?.trim() || 'Fecha desconocida'
-        }]);
-        
-    } catch (error) {
-        return JSON.stringify([{description: 'Error al cargar detalles'}]);
-    }
-}
 
-async function extractEpisodes(url) {
-    try {
-        const response = await fetch(url);
-        const html = await response.text();
-        
-        const episodes = [];
-        const regex = /<a href="(https:\/\/jkanime\.net\/[^"]+?)"[^>]*>.*?<span>([^<]+)/gs;
-        let match;
-        
-        while ((match = regex.exec(html)) !== null) {
-            episodes.push({
-                href: match[1],
-                number: match[2].replace('Capitulo ', '').trim()
-            });
-        }
-        
-        return JSON.stringify(episodes.reverse());
-        
+        const episodes = Array.from(doc.querySelectorAll('#episodes-content .epcontent')).map(ep => {
+            return {
+                href: ep.querySelector('a')?.href || '',
+                number: ep.querySelector('span')?.textContent?.replace('Capitulo ', '') || '0'
+            };
+        }).reverse();
+
+        return JSON.stringify(episodes);
+
     } catch (error) {
         return JSON.stringify([]);
     }
@@ -64,19 +54,24 @@ async function extractEpisodes(url) {
 
 async function extractStreamUrl(url) {
     try {
-        const response = await fetch(url);
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+            'Referer': url
+        };
+
+        const response = await fetch(url, { headers });
         const html = await response.text();
         
-        // Extraer URL del reproductor
-        const videoMatch = html.match(/file:\s*["'](https:\/\/[^"']+\.m3u8)["']/);
-        if (!videoMatch) throw new Error('URL no encontrada');
-        
+        // New improved video URL extraction
+        const videoMatch = html.match(/file:\s*"([^"]+\.m3u8)"/);
+        const streamUrl = videoMatch ? videoMatch[1] : null;
+
         return JSON.stringify({
-            stream: videoMatch[1],
+            stream: streamUrl,
             subtitles: null
         });
-        
+
     } catch (error) {
-        return JSON.stringify({stream: null, subtitles: null});
+        return JSON.stringify({ stream: null, subtitles: null });
     }
 }
