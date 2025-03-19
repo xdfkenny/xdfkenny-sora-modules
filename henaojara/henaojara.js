@@ -1,116 +1,87 @@
 async function searchResults(keyword) {
     try {
-        // Encode the keyword for use in the URL
-        const encodedKeyword = encodeURIComponent(keyword);
-
-        // Fetch the search results page
-        const response = await fetch(`https://henaojara.com/?s=${encodedKeyword}`);
-        const responseText = await response.text(); // Get HTML as text
-
-        // Parse the HTML into a DOM object
+        const response = await fetch(`https://henaojara.com/?s=${encodeURIComponent(keyword)}`);
+        const html = await response.text();
         const parser = new DOMParser();
-        const doc = parser.parseFromString(responseText, "text/html");
-
-        // Extract results from the DOM
-        const transformedResults = [...doc.querySelectorAll("li.TPostMv")].map(item => {
-            const titleElement = item.querySelector("h3.Title");
-            const imageElement = item.querySelector("img");
-            const linkElement = item.querySelector("a");
-
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const results = Array.from(doc.querySelectorAll('.MovieList .TPostMv')).map(anime => {
             return {
-                title: titleElement ? titleElement.textContent.trim() : "Unknown Title",
-                image: imageElement ? imageElement.getAttribute("src") : "",
-                href: linkElement ? linkElement.getAttribute("href") : "#"
+                title: anime.querySelector('.Title').textContent.trim(),
+                image: anime.querySelector('img').dataset.src,
+                href: anime.querySelector('a').href
             };
         });
-
-        // Return the results as a JSON string
-        return JSON.stringify(transformedResults);
-
+        
+        return JSON.stringify(results);
     } catch (error) {
-        console.log("Fetch error:", error);
-
-        // Return an error object as a JSON string
-        return JSON.stringify([{ title: "Error", image: "", href: "" }]);
+        return JSON.stringify([]);
     }
 }
 
-async function extractDetails(id) {
+async function extractDetails(url) {
     try {
-        // Fetch details for the given ID
-        const response = await fetch(`https://henaojara.com/?p=${id}`);
-        const responseText = await response.text(); // Get HTML as text
-
-        // Parse the HTML into a DOM object
+        const response = await fetch(url);
+        const html = await response.text();
         const parser = new DOMParser();
-        const doc = parser.parseFromString(responseText, "text/html");
-
-        // Extract details from the DOM
-        const descriptionElement = doc.querySelector(".Description");
-        const aliasesElement = doc.querySelector(".Aliases");
-        const airdateElement = doc.querySelector(".Airdate");
-
-        const transformedResults = [{
-            description: descriptionElement ? descriptionElement.textContent.trim() : "No description available",
-            aliases: aliasesElement ? aliasesElement.textContent.trim() : "Alias: Unknown",
-            airdate: airdateElement ? airdateElement.textContent.trim() : "Aired: Unknown"
-        }];
-
-        // Return the details as a JSON string
-        return JSON.stringify(transformedResults);
-
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const details = {
+            description: doc.querySelector('meta[property="og:description"]').content,
+            aliases: Array.from(doc.querySelectorAll('.Info span')).map(el => el.textContent).join(', '),
+            airdate: doc.querySelector('.Year').textContent.trim()
+        };
+        
+        return JSON.stringify([details]);
     } catch (error) {
-        console.log("Details error:", error);
-
-        // Return an error object as a JSON string
-        return JSON.stringify([{
-            description: "Error loading description",
-            aliases: "Alias: Unknown",
-            airdate: "Aired: Unknown"
-        }]);
+        return JSON.stringify([{ description: 'Descripción no disponible' }]);
     }
 }
 
-async function extractEpisodes(id) {
+async function extractEpisodes(url) {
     try {
-        // Fetch episodes for the given ID
-        const response = await fetch(`https://henaojara.com/?p=${id}`);
-        const responseText = await response.text(); // Get HTML as text
-
-        // Parse the HTML into a DOM object
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(responseText, "text/html");
-
-        // Extract episodes from the DOM
-        const transformedResults = [...doc.querySelectorAll(".EpisodeList li")].map(episode => {
-            const linkElement = episode.querySelector("a");
-            const numberElement = episode.querySelector(".EpisodeNumber");
-
+        const response = await fetch(url);
+        const html = await response.text();
+        const seasonMatch = url.match(/season\/(.+?)\/$/);
+        const season = seasonMatch ? seasonMatch[1] : '1';
+        
+        const episodes = Array.from(html.matchAll(/<a href="(https:\/\/henaojara.com\/animeonline\/episode\/[^"]+?)".*?<span class="ClB">([^<]+)/gs)).map(match => {
             return {
-                href: linkElement ? linkElement.getAttribute("href") : "#",
-                number: numberElement ? numberElement.textContent.trim() : "Unknown"
+                href: match[1],
+                number: match[2].replace('Capitulo ', '').trim()
             };
         });
-
-        // Return the episodes as a JSON string
-        return JSON.stringify(transformedResults);
-
+        
+        return JSON.stringify(episodes.reverse());
     } catch (error) {
-        console.log("Episodes error:", error);
-
-        // Return an empty array in case of error
         return JSON.stringify([]);
     }
 }
 
 async function extractStreamUrl(url) {
     try {
-        // Return the stream URL directly (no fetching needed)
-        return url;
+        const response = await fetch(url);
+        const html = await response.text();
+        
+        // Extract encoded video URL
+        const encodedUrlMatch = html.match(/var sources = ({.*?});/s);
+        if (!encodedUrlMatch) throw new Error('No video found');
+        
+        const sources = JSON.parse(encodedUrlMatch[1]);
+        const hlsUrl = base64Decode(sources.hls);
+        
+        return JSON.stringify({
+            stream: hlsUrl,
+            subtitles: null // Subtitles embedded in stream
+        });
     } catch (error) {
-        console.log("Stream URL error:", error);
-
-        // Return null in case of error
-        return null;
+        return JSON.stringify({ stream: null, subtitles: null });
     }
+}
+
+// Base64 decoder for video URLs
+function base64Decode(str) {
+    return decodeURIComponent(atob(str).split('').map(c => 
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
 }
