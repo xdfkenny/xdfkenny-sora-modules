@@ -1,6 +1,6 @@
 {
     "sourceName": "HenaoJara",
-    "iconUrl": "https://i.ibb.co/XYZ123/henaojara-icon.png",
+    "iconUrl": "https://i.ibb.co/XYZ123/jkanime-icon.png",
     "author": {
         "name": "YourName",
         "icon": "https://i.ibb.co/ABC456/author-icon.png"
@@ -9,9 +9,9 @@
     "language": "Español (LAT/SUB)",
     "streamType": "HLS",
     "quality": "1080p",
-    "baseUrl": "https://henaojara.com/",
-    "searchBaseUrl": "https://henaojara.com/?s=%s",
-    "scriptUrl": "https://raw.githubusercontent.com/yourrepo/main/henaojara.js",
+    "baseUrl": "https://jkanime.net/",
+    "searchBaseUrl": "https://jkanime.net/buscar/%s/",
+    "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
     "asyncJS": true,
     "softsub": true
 }
