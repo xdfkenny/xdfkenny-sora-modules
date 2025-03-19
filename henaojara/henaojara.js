@@ -1,27 +1,42 @@
 async function searchResults(keyword) {
     try {
-        // 1. URL directa con formato 2024
-        const url = `https://jkanime.net/buscar/${encodeURIComponent(keyword)}/`;
+        // 1. Configuración ultra-rápida con timeout
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 3000);
         
-        // 2. Fetch ultra-rápido con cache forzada
-        const html = await fetch(url, {
+        // 2. URL codificada para Jkanime 2024
+        const searchUrl = `https://jkanime.net/buscar/${encodeURIComponent(keyword).replace(/%20/g, '_')}/`;
+        
+        // 3. Fetch optimizado para iOS
+        const response = await fetch(searchUrl, {
+            signal: controller.signal,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                'Cache-Control': 'max-age=0'
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+                'Referer': 'https://jkanime.net/',
+                'Accept-Language': 'es-ES,es;q=0.9'
             }
-        }).then(r => r.text());
-
-        // 3. Selectores de velocidad (0ms delay)
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        });
         
-        return JSON.stringify(Array.from(doc.querySelectorAll('.col-lg-2.col-md-6')).map(item => ({
-            title: item.querySelector('h5')?.textContent?.trim(),
-            image: item.querySelector('img')?.dataset?.src,
-            href: item.querySelector('a')?.href
-        })).filter(i => i.href));
+        // 4. Parseo seguro
+        const html = await response.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // 5. Selectores actualizados (Junio 2024)
+        const results = Array.from(doc.querySelectorAll('.col-lg-2.col-md-6')).map(item => {
+            const anchor = item.querySelector('.anime__item a');
+            const image = item.querySelector('.anime__item [data-src]');
+            const title = item.querySelector('.anime__item h5');
+            
+            return anchor && image && title ? {
+                title: title.textContent.trim(),
+                image: image.dataset.src,
+                href: anchor.href
+            } : null;
+        }).filter(Boolean);
+        
+        return JSON.stringify(results.slice(0, 15));
 
-    } catch {
+    } catch (error) {
         return JSON.stringify([]);
     }
 }
