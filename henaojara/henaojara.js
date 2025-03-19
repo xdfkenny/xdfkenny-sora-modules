@@ -1,26 +1,24 @@
+const fetch = require("node-fetch");
+const cheerio = require("cheerio");
+
 async function searchResults(keyword) {
     try {
         const encodedKeyword = encodeURIComponent(keyword);
         const response = await fetch(`https://henaojara.com/?s=${encodedKeyword}`);
-        const responseText = await response.text(); // Get HTML as text
+        const responseText = await response.text(); // Get raw HTML
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(responseText, "text/html");
+        const $ = cheerio.load(responseText); // Load HTML into Cheerio
 
-        const transformedResults = [...doc.querySelectorAll("li.TPostMv")].map(item => {
-            const titleElement = item.querySelector("h3.Title");
-            const imageElement = item.querySelector("img");
-            const linkElement = item.querySelector("a");
+        const transformedResults = $("li.TPostMv").map((_, element) => {
+            const title = $(element).find("h3.Title").text().trim();
+            const image = $(element).find("img").attr("src");
+            const href = $(element).find("a").attr("href");
 
-            return {
-                title: titleElement ? titleElement.textContent.trim() : "Unknown Title",
-                image: imageElement ? imageElement.getAttribute("src") : "",
-                href: linkElement ? linkElement.getAttribute("href") : "#"
-            };
-        });
+            return { title: title || "Unknown Title", image: image || "", href: href || "#" };
+        }).get(); // Convert Cheerio object to array
 
         return JSON.stringify(transformedResults);
-        
+
     } catch (error) {
         console.log("Fetch error:", error);
         return JSON.stringify([{ title: "Error", image: "", href: "" }]);
