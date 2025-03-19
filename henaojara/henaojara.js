@@ -7,7 +7,7 @@ async function searchResults(keyword) {
         const regex = /<a href="(https:\/\/jkanime\.net\/[^"]+)"[^>]*>\s*<img[^>]+data-src="([^"]+)[^>]+>\s*<h5[^>]*>([^<]+)/g;
         
         let match;
-        while ((match = regex.exec(html)) {  // ← ¡Aquí estaba el error!
+        while ((match = regex.exec(html)) !== null) {  // ← ¡Solución aplicada!
             results.push({
                 title: match[3].trim(),
                 image: match[2],
