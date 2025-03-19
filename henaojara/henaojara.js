@@ -1,38 +1,44 @@
 async function searchResults(keyword) {
     try {
-        const safeKeyword = encodeURIComponent(keyword).replace(/%20/g, '+');
-        const url = `https://jkanime.net/buscar/${safeKeyword}/`;
+        // 1. Configurar URL con parámetros actualizados
+        const searchUrl = new URL('https://jkanime.net/');
+        searchUrl.pathname = `/buscar/${encodeURIComponent(keyword).replace(/%20/g, '_')}/`;
 
-        // Configuración anti-crash
+        // 2. Headers para evitar bloqueos
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept-Language': 'es-ES,es;q=0.9',
+            'Referer': 'https://jkanime.net/',
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+
+        // 3. Fetch con timeout y validación
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(searchUrl, {
+            headers,
+            signal: controller.signal,
+            cache: 'no-store'
+        });
 
-        clearTimeout(timeoutId);
+        // 4. Parsear HTML con nueva estructura
         const html = await response.text();
-
-        // Parseo seguro con validación de nodos
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const items = Array.from(doc.querySelectorAll('div.anime__item'));
-
-        if (!items.length) return JSON.stringify([]);
-
-        const results = items.map(item => {
-            const link = item.querySelector('a[href]');
-            const image = item.querySelector('[data-setbg]');
-            const title = item.querySelector('h5');
-
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // 5. Selectores actualizados (Marzo 2024)
+        const results = Array.from(doc.querySelectorAll('.col-lg-2.col-md-6.col-sm-6')).map(item => {
+            const animeBlock = item.querySelector('.anime__item');
             return {
-                title: title?.textContent?.trim() || 'Título no disponible',
-                image: image?.dataset?.setbg || 'https://via.placeholder.com/300x400',
-                href: link?.href || ''
+                title: animeBlock?.querySelector('.anime__item__text h5')?.textContent?.trim(),
+                image: animeBlock?.querySelector('[data-setbg]')?.dataset?.setbg,
+                href: animeBlock?.querySelector('.anime__item__text a')?.href
             };
-        }).filter(item => item.href);
+        }).filter(item => item.href && item.title);
 
-        return JSON.stringify(results.slice(0, 25)); // Limitar resultados
+        return JSON.stringify(results.slice(0, 25));
 
     } catch (error) {
-        console.error('Búsqueda fallida:', error);
         return JSON.stringify([]);
     }
 }
