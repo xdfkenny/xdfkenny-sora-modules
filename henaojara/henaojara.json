@@ -1,17 +1,18 @@
-{
-    "sourceName": "HenaoJara",
-    "iconUrl": "https://henaojara.com/favicon.ico",
-    "author": {
-        "name": "xdfkenny",
-        "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
-    },
-    "version": "1.0",
-    "language": "Spanish",
-    "streamType": "HLS",
-    "quality": "720p",
-    "baseUrl": "https://henaojara.com/",
-    "searchBaseUrl": "https://henaojara.com/?s=",
-    "scriptUrl": "https://github.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
-    "asyncJS": true
- }
- 
+[
+    {
+        "sourceName": "HenaoJara",
+        "iconUrl": "https://henaojara.com/favicon.ico",
+        "author": {
+            "name": "xdfkenny",
+            "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
+        },
+        "version": "1.0",
+        "language": "Spanish",
+        "streamType": "HLS",
+        "quality": "720p",
+        "baseUrl": "https://henaojara.com/",
+        "searchBaseUrl": "https://henaojara.com/?s=",
+        "scriptUrl": "https://github.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
+        "asyncJS": true
+    }
+]
