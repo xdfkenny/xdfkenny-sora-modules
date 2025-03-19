@@ -15,7 +15,7 @@ async function searchResults(keyword) {
         
         return JSON.stringify(results);
     } catch (error) {
-        console.error('Error en searchResults:', error);
+        // Eliminamos console.error ya que no está disponible en Sora
         return JSON.stringify([]);
     }
 }
@@ -33,7 +33,6 @@ async function extractDetails(url) {
         
         return JSON.stringify([{ description, aliases, airdate }]);
     } catch (error) {
-        console.error('Error en extractDetails:', error);
         return JSON.stringify([{ description: 'Error al cargar detalles' }]);
     }
 }
@@ -56,7 +55,6 @@ async function extractEpisodes(url) {
         
         return JSON.stringify(episodes.reverse());
     } catch (error) {
-        console.error('Error en extractEpisodes:', error);
         return JSON.stringify([]);
     }
 }
@@ -77,7 +75,6 @@ async function extractStreamUrl(url) {
             subtitles: null
         });
     } catch (error) {
-        console.error('Error en extractStreamUrl:', error);
         return JSON.stringify({ stream: null, subtitles: null });
     }
 }
