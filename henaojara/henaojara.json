@@ -1,17 +1,18 @@
 {
-    "sourceName": "HenaoJara",
-    "iconUrl": "https://i.ibb.co/XYZ123/jkanime-icon.png",
-    "author": {
-        "name": "YourName",
-        "icon": "https://i.ibb.co/ABC456/author-icon.png"
-    },
-    "version": "1.0.0",
-    "language": "Español (LAT/SUB)",
-    "streamType": "HLS",
-    "quality": "1080p",
-    "baseUrl": "https://jkanime.net/",
-    "searchBaseUrl": "https://jkanime.net/buscar/%s/",
-    "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
-    "asyncJS": true,
-    "softsub": true
+  "sourceName": "HenaoJara",
+  "iconUrl": "https://henaojara.com/wp-content/uploads/2020/02/cropped-HJ-192x192.png",
+  "author": {
+    "name": "HenaoJara Team",
+    "icon": "https://henaojara.com/wp-content/uploads/2020/02/cropped-HJ-32x32.png"
+  },
+  "version": "2.1.3",
+  "language": "Español Latino",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://henaojara.com/",
+  "searchBaseUrl": "https://henaojara.com/?s=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/tu_usuario/henaojara-sora/main/henaojara.js",
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": false
 }
