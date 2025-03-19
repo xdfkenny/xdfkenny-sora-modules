@@ -1,22 +1,30 @@
 async function searchResults(keyword) {
     try {
-        const encodedKeyword = encodeURIComponent(keyword);
+        const encodedKeyword = encodeURIComponent(keyword.replace(/\s+/g, '+'));
         const response = await fetch(`https://henaojara.com/?s=${encodedKeyword}`);
         const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const animeElements = doc.querySelectorAll('.anime-list-item');
 
-        const results = Array.from(animeElements).map(anime => {
-            const title = anime.querySelector('.anime-title').textContent.trim();
-            const image = anime.querySelector('img').src;
-            const href = anime.querySelector('a').href;
-            return { title, image, href };
+        // Use DOMParser to parse the HTML response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        const results = [];
+        const elements = doc.querySelectorAll(".result-item"); // Adjust selector based on site structure
+
+        elements.forEach(el => {
+            const title = el.querySelector(".post-title a")?.textContent.trim();
+            const image = el.querySelector(".post-thumbnail img")?.src;
+            const href = el.querySelector(".post-title a")?.href;
+            
+            if (title && href) {
+                results.push({ title, image: image || '', href });
+            }
         });
 
         return JSON.stringify(results);
+        
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.log('Search error:', error);
         return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
     }
 }
@@ -25,76 +33,60 @@ async function extractDetails(url) {
     try {
         const response = await fetch(url);
         const html = await response.text();
+
         const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        const doc = parser.parseFromString(html, "text/html");
 
-        const description = doc.querySelector('.anime-description')?.textContent.trim() || 'No description available';
-        const duration = doc.querySelector('.anime-duration')?.textContent.trim() || 'Unknown';
-        const aired = doc.querySelector('.anime-aired')?.textContent.trim() || 'Unknown';
-
-        const details = [{
-            description,
-            aliases: `Duration: ${duration}`,
-            airdate: `Aired: ${aired}`
+        const description = doc.querySelector(".post-content p")?.textContent.trim() || "No description available";
+        
+        const transformedResults = [{
+            description: description,
+            aliases: `Alias: Unknown`, 
+            airdate: `Aired: Unknown`
         }];
-
-        return JSON.stringify(details);
+        
+        return JSON.stringify(transformedResults);
     } catch (error) {
         console.log('Details error:', error);
         return JSON.stringify([{
             description: 'Error loading description',
-            aliases: 'Duration: Unknown',
+            aliases: 'Alias: Unknown',
             airdate: 'Aired: Unknown'
         }]);
     }
 }
 
-async function extractEpisodes(animeUrl) {
-    try {
-        const response = await fetch(animeUrl);
+async function extractEpisodes(url) {
+    try {        
+        const response = await fetch(url);
         const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const episodeElements = doc.querySelectorAll('.episode-list-item a');
 
-        const episodes = Array.from(episodeElements).map(episode => {
-            return {
-                href: episode.href,
-                number: episode.textContent.trim()
-            };
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        const results = [];
+        const episodes = doc.querySelectorAll(".episodes-list a"); // Adjust selector
+
+        episodes.forEach(episode => {
+            const href = episode.href;
+            const number = episode.textContent.trim();
+            
+            results.push({ href, number });
         });
 
-        return JSON.stringify(episodes);
+        return JSON.stringify(results);
+        
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.log('Episodes fetch error:', error);
         return JSON.stringify([]);
     }
 }
 
-async function extractStreamUrl(episodeUrl) {
+async function extractStreamUrl(url) {
     try {
-        const response = await fetch(episodeUrl);
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        const iframe = doc.querySelector('iframe');
-        if (iframe) {
-            return iframe.src; // Returns the streaming URL
-        } else {
-            console.log('No iframe found, trying alternative method...');
-            return null;
-        }
+       return url;  // HenaoJara likely serves direct stream URLs
     } catch (error) {
-        console.log('Fetch error:', error);
-        return null;
+       console.log('Stream URL fetch error:', error);
+       return null;
     }
 }
-
-// Export the functions for Node.js
-module.exports = {
-    searchResults,
-    extractDetails,
-    extractEpisodes,
-    extractStreamUrl
-};
