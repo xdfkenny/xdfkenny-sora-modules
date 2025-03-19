@@ -11,6 +11,6 @@
     "quality": ["360p", "720p", "1080p"], 
     "baseUrl": "https://henaojara.com/",
     "searchBaseUrl": "https://henaojara.com/?s=%s", 
-    "scriptUrl": "https://github.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
+    "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/refs/heads/main/henaojara/henaojara.js",
     "asyncJS": true
 }
