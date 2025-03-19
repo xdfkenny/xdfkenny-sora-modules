@@ -1,16 +1,17 @@
 {
     "sourceName": "HenaoJara",
-    "iconUrl": "https://henaojara.com/favicon.ico",
+    "iconUrl": "https://i.ibb.co/XYZ123/henaojara-icon.png",
     "author": {
-        "name": "xdfkenny",
-        "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
+        "name": "YourName",
+        "icon": "https://i.ibb.co/ABC456/author-icon.png"
     },
     "version": "1.0.0",
-    "language": "es", 
-    "streamType": "HLS", "MP4",
-    "quality": "360p", "720p", "1080p", 
+    "language": "Español (LAT/SUB)",
+    "streamType": "HLS",
+    "quality": "1080p",
     "baseUrl": "https://henaojara.com/",
-    "searchBaseUrl": "https://henaojara.com/?s=%s", 
-    "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/refs/heads/main/henaojara/henaojara.js",
-    "asyncJS": true
+    "searchBaseUrl": "https://henaojara.com/?s=%s",
+    "scriptUrl": "https://raw.githubusercontent.com/yourrepo/main/henaojara.js",
+    "asyncJS": true,
+    "softsub": true
 }
