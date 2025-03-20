@@ -1,10 +1,10 @@
 /*
- * API CONFIGURATION
+ * API CONFIGURATION (No colon after variable name)
  */
 const HENAOJARA_API = "https://xdfkenny.github.io/xdfkenny-sora-api-henaojara";
 
 /*
- * MAIN FUNCTIONS
+ * MAIN FUNCTIONS (Fixed object syntax)
  */
 
 async function searchResults(keyword) {
@@ -16,7 +16,7 @@ async function searchResults(keyword) {
             title: item.title || 'Title: Unknown',
             image: item.image || 'Image: Unknown',
             href: item.url || 'Href: Unknown'
-        })));
+        }));
         
     } catch (error) {
         console.error('[searchResults] Error:', error);
@@ -37,7 +37,7 @@ async function extractDetails(url) {
         return JSON.stringify([{
             description: data.description || 'Description: Unknown',
             aliases: `Episodes: ${data.episodes || 'Unknown'}`,
-            airdate: `Aired: ${data.rating || 'Unknown'}`
+            airdate: `Aired: ${data.aired || 'Unknown'}`  // Fixed property name
         }]);
         
     } catch (error) {
