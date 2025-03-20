@@ -4,7 +4,7 @@
 
 async function searchResults(keyword) {
     try {
-        const searchUrl = `https://henaojara.com/buscar?q=${encodeURIComponent(keyword)}`;
+        const searchUrl = `https://henaojara.com/?q=${encodeURIComponent(keyword)}`;
         const response = await fetch(searchUrl);
         const html = await response.text();
 
