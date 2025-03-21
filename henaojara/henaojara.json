@@ -1,9 +1,9 @@
-{
+y{
   "sourceName": "HenaoJara",
   "iconUrl": "https://henaojara.com/wp-content/uploads/2020/02/cropped-HJ-192x192.png",
   "author": {
-    "name": "HenaoJara Team",
-    "icon": "https://henaojara.com/wp-content/uploads/2020/02/cropped-HJ-32x32.png"
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
   },
   "version": "2.1.3",
   "language": "Español Latino",
@@ -11,7 +11,7 @@
   "quality": "1080p",
   "baseUrl": "https://henaojara.com/",
   "searchBaseUrl": "https://henaojara.com/?s=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/tu_usuario/henaojara-sora/main/henaojara.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/henaojara-sora-module/main/henaojara.js",
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": false
