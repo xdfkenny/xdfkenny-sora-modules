@@ -128,7 +128,7 @@ function extractAliases(html) {
 /* UNPACKER (Modified from original animeflv implementation) */
 function unpack(packed) {
     try {
-        return (new Function(`"use strict"; ${packed}; return p;`))();
+        return new Function(`"use strict"; var p=''; ${packed}; return p;`)();
     } catch (e) {
         console.error('Unpack error:', e);
         return '';
