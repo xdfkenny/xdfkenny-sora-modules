@@ -1,181 +1,135 @@
-/**
- * Searches the website for anime with the given keyword and returns the results
- * @param {string} keyword The keyword to search for
- * @returns {Promise<string>} A promise that resolves with a JSON string containing the search results in the format: `[{"title": "Title", "image": "Image URL", "href": "URL"}, ...]`
- */
+const BASE_URL = 'https://henaojara.com';
+const SEARCH_URL = `${BASE_URL}/?s=`;
+
+/* MAIN FUNCTIONS */
+
 async function searchResults(keyword) {
-    const BASE_URL = 'https://www.henaojara.com';
-    const SEARCH_URL = 'https://www.henaojara.com/search?q=';
-    const REGEX = /a href="(\/anime\/[^"]+)[\s\S]+?src="([^"]+)[\s\S]+?div[\s\S]+?[\s\S]+?div[\s\S]+?>([^<]+)/g;
-    var shows = [];
-
     try {
-        const response = await fetch(`${SEARCH_URL}${encodeURI(keyword)}`);
-        const html = typeof response === 'object' ? await response.text() : await response;
+        const response = await fetch(`${SEARCH_URL}${encodeURIComponent(keyword)}`);
+        const html = await response.text();
+        
+        const results = [];
+        const regex = /<article[\s\S]*?href="([^"]+)[\s\S]*?<img.*?src="([^"]+)[\s\S]*?<h2.*?>(.*?)<\/h2>/g;
+        const matches = html.matchAll(regex);
 
-        const matches = html.matchAll(REGEX);
-
-        for (let match of matches) {
-            shows.push({
-                title: match[3],
+        for (const match of matches) {
+            results.push({
+                title: cleanText(match[3]),
                 image: match[2],
-                href: BASE_URL + match[1]
+                href: match[1]
             });
         }
 
-        return JSON.stringify(shows);
+        return JSON.stringify(results);
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.error('Search error:', error);
         return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
     }
 }
 
-/**
- * Extracts the details (description, aliases, airdate) from the given url
- * @param {string} url The id required to fetch the details
- * @returns {Promise<string>} A promise that resolves with a JSON string containing the details in the format: `[{"description": "Description", "aliases": "Aliases", "airdate": "Airdate"}]`
- */
 async function extractDetails(url) {
-    const REGEX = /style_specs_header_year.+?>.+([0-9]{4})[\s\S]+style_specs_container_middle.+?>([\s\S]+?)</g;
-
     try {
         const response = await fetch(url);
-        const html = typeof response === 'object' ? await response.text() : await response;
-
-        const json = getNextData(html);
-        if (json == null) throw('Error parsing NEXT_DATA json');
-
-        const data = json?.props?.pageProps?.data;
-        if(data == null) throw('Error obtaining data');
-
-        let aliasArray = data?.synonyms;
-        if(aliasArray != null && aliasArray.length > 5) {
-            aliasArray = aliasArray.slice(0, 5);
-        }
-        const aliases = aliasArray.join(', ');
-
+        const html = await response.text();
+        
         const details = {
-            description: data?.synopsys,
-            aliases: aliases,
-            airdate: data?.animeSeason?.season + ' ' + data?.animeSeason?.year
-        }
+            description: extractMeta(html, 'description'),
+            airdate: extractAirdate(html),
+            aliases: extractAliases(html)
+        };
 
         return JSON.stringify([details]);
-
     } catch (error) {
-        console.log('Details error:', error);
+        console.error('Details error:', error);
         return JSON.stringify([{
             description: 'Error loading description',
-            aliases: 'Duration: Unknown',
-            airdate: 'Aired: Unknown'
+            aliases: 'Unknown',
+            airdate: 'Unknown'
         }]);
     }
 }
 
-/**
- * Extracts the episodes from the given url.
- * @param {string} url - The id required to fetch the episodes
- * @returns {Promise<string>} A promise that resolves with a JSON string containing the episodes in the format: `[{ "href": "Episode URL", "number": Episode Number }, ...]`.
- * If an error occurs during the fetch operation, an empty array is returned in JSON format.
- */
 async function extractEpisodes(url) {
-    const BASE_URL = 'https://henaojara.com/animeonline/episode/';
-
     try {
         const response = await fetch(url);
-        const html = typeof response === 'object' ? await response.text() : await response;
-        var episodes = [];
-
-        const json = getNextData(html);
-        if (json == null) throw ('Error parsing NEXT_DATA json');
-
-        const origin = json?.props?.pageProps?.data?._id;
-
-        const episodesList = json?.props?.pageProps?.data?.ep;
-        if(episodesList == null) throw('Error obtaining episodes');
+        const html = await response.text();
         
-        // We use this to fetch all the data from the JSON from episode 1, rather than fetching the data for each episode
-        episodes = await getEpisodesWithLanguageSubs(`${ BASE_URL }${ episodesList[0] }?origin=${ origin }`, 'Spanish', 'vtt');
-        if(episodes.length <= 0) throw('No episodes with Spanish subtitles found.');
+        const episodes = [];
+        const regex = /<a href="(https:\/\/henaojara.com\/animeonline\/episode\/[^"]+-(\d+)x(\d+)\/)[^"]*sub-espanol[^"]*"/gi;
+        const matches = html.matchAll(regex);
+
+        for (const match of matches) {
+            episodes.push({
+                href: match[1],
+                number: `S${match[2]}E${match[3]}`,
+                season: parseInt(match[2]),
+                episode: parseInt(match[3])
+            });
+        }
 
         return JSON.stringify(episodes);
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.error('Episodes error:', error);
         return JSON.stringify([]);
     }
 }
 
-/**
- * Extracts the stream URL from the given url, using a utility function on ac-api.ofchaos.com.
- * @param {string} url - The url to extract the stream URL from.
- * @returns {Promise<string|null>} A promise that resolves with the stream URL if successful, or null if an error occurs during the fetch operation.
- */
 async function extractStreamUrl(url) {
     try {
         const response = await fetch(url);
-        const html = typeof response === 'object' ? await response.text() : await response;
+        const html = await response.text();
+        
+        // First try direct Streamtape iframe
+        const iframeRegex = /<iframe.*?src="(https:\/\/streamtape\.com\/[^"]+)"/i;
+        const iframeMatch = html.match(iframeRegex);
+        if (iframeMatch) return JSON.stringify({ stream: iframeMatch[1] });
 
-        const json = getNextData(html);
-        if (json == null) throw ('Error parsing NEXT_DATA json');
-
-        const streamUrl = json?.props?.pageProps?.episode?.streamLink;
-        const subtitles = json?.props?.pageProps?.episode?.subData.find(sub => sub.type === 'vtt' && sub.label === 'Spanish');
-        if(subtitles == null) throw('No Spanish subtitles found');
-
-        return JSON.stringify({ stream: streamUrl, subtitles: subtitles?.src });
-
-    } catch (e) {
-        console.log('Error:', e);
-        return JSON.stringify({ stream: null, subtitles: null });
-    }
-}
-
-async function getEpisodesWithLanguageSubs(episodeUrl, language = 'English', type = 'vtt') {
-    const BASE_URL = 'https://henaojara.com/animeonline/episode/';
-
-    try {
-        const response = await fetch(episodeUrl);
-        const html = typeof response === 'object' ? await response.text() : await response;
-        var episodes = [];
-
-        const json = getNextData(html);
-        if (json == null) throw ('Error parsing NEXT_DATA json');
-
-        const origin = json?.props?.pageProps?.animeData?._id;
-        const episodesList = json?.props?.pageProps?.episodeList;
-
-        for(let ep of episodesList) {
-            let subtitles = ep.subData.find(sub => sub.type === type && sub.label === language);
-            if(subtitles == null) continue;
-
-            episodes.push({
-                href: `${ BASE_URL }${ ep?.uid }?origin=${ origin }`,
-                number: parseInt(ep.number)
-            });
+        // Fallback to animeflv-style unpacker
+        const scriptRegex = /<script[^>]*>\s*(eval.*?)\s*<\/script>/s;
+        const scriptMatch = html.match(scriptRegex);
+        if (scriptMatch) {
+            const unpacked = unpack(scriptMatch[1]);
+            const streamMatch = unpacked.match(/(https?:\/\/[^\s'"]+\.(mp4|m3u8))/i);
+            if (streamMatch) return JSON.stringify({ stream: streamMatch[0] });
         }
 
-        return episodes;
-    } catch(e) {
-        console.log('Error:', e);
-        return [];
+        return JSON.stringify({ stream: null });
+    } catch (error) {
+        console.error('Stream error:', error);
+        return JSON.stringify({ stream: null });
     }
 }
 
-function getNextData(html) {
-    const trimmedHtml = trimHtml(html, '__NEXT_DATA__', '</script>');
-    const jsonString = trimmedHtml.slice(39);
+/* HELPER FUNCTIONS */
 
+function cleanText(text) {
+    return text.replace(/<\/?[^>]+(>|$)/g, '').trim();
+}
+
+function extractMeta(html, metaName) {
+    const regex = new RegExp(`<meta name="${metaName}" content="([^"]+)"`);
+    const match = html.match(regex);
+    return match ? cleanText(match[1]) : 'No description available';
+}
+
+function extractAirdate(html) {
+    const dateRegex = /<span class="date">([^<]+)</i;
+    const dateMatch = html.match(dateRegex);
+    return dateMatch ? cleanText(dateMatch[1]) : 'Unknown air date';
+}
+
+function extractAliases(html) {
+    const aliasRegex = /<h2>También conocida como:<\/h2>\s*<p>([^<]+)</i;
+    const aliasMatch = html.match(aliasRegex);
+    return aliasMatch ? cleanText(aliasMatch[1]) : 'No alternative titles';
+}
+
+/* UNPACKER (Modified from original animeflv implementation) */
+function unpack(packed) {
     try {
-        return JSON.parse(jsonString);
+        return (new Function(packed + ';return p}'))().replace(/\\/g, '');
     } catch (e) {
-        console.log('Error parsing NEXT_DATA json');
-        return null;
+        console.error('Unpack error:', e);
+        return '';
     }
-}
-
-// Trims around the content, leaving only the area between the start and end string
-function trimHtml(html, startString, endString) {
-    const startIndex = html.indexOf(startString);
-    const endIndex = html.indexOf(endString, startIndex);
-    return html.substring(startIndex, endIndex);
 }
