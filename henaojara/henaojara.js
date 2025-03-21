@@ -6,8 +6,9 @@ const SEARCH_URL = `${BASE_URL}/?s=`;
 async function searchResults(keyword) {
     try {
         const response = await fetch(`${SEARCH_URL}${encodeURIComponent(keyword)}`);
-        const html = await response.text();
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         
+        const html = await response.text();
         const results = [];
         const regex = /<article[\s\S]*?href="([^"]+)[\s\S]*?<img.*?src="([^"]+)[\s\S]*?<h2.*?>(.*?)<\/h2>/g;
         const matches = html.matchAll(regex);
@@ -30,6 +31,8 @@ async function searchResults(keyword) {
 async function extractDetails(url) {
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
         const html = await response.text();
         
         const details = {
@@ -41,21 +44,19 @@ async function extractDetails(url) {
         return JSON.stringify([details]);
     } catch (error) {
         console.error('Details error:', error);
-        return JSON.stringify([{
-            description: 'Error loading description',
-            aliases: 'Unknown',
-            airdate: 'Unknown'
-        }]);
+        return JSON.stringify([{ description: 'Error loading description', aliases: 'Unknown', airdate: 'Unknown' }]);
     }
 }
 
 async function extractEpisodes(url) {
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
         const html = await response.text();
         
         const episodes = [];
-        const regex = /<a href="(https:\/\/henaojara.com\/animeonline\/episode\/[^"]+-(\d+)x(\d+)\/)[^"]*sub-espanol[^"]*"/gi;
+        const regex = /<a\s+[^>]*href="(https:\/\/henaojara\.com\/animeonline\/episode\/[^"]+-(\d+)x(\d+)\/)[^"]*sub-espanol[^"]*"/gi;
         const matches = html.matchAll(regex);
 
         for (const match of matches) {
@@ -77,19 +78,19 @@ async function extractEpisodes(url) {
 async function extractStreamUrl(url) {
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
         const html = await response.text();
         
-        // First try direct Streamtape iframe
-        const iframeRegex = /<iframe.*?src="(https:\/\/streamtape\.com\/[^"]+)"/i;
+        const iframeRegex = /<iframe.*?src="(https:\/\/streamtape\.com\/[^\"]+)"/i;
         const iframeMatch = html.match(iframeRegex);
         if (iframeMatch) return JSON.stringify({ stream: iframeMatch[1] });
 
-        // Fallback to animeflv-style unpacker
-        const scriptRegex = /<script[^>]*>\s*(eval.*?)\s*<\/script>/s;
+        const scriptRegex = /<script[^>]*>\s*(eval\(.*?\))\s*<\/script>/s;
         const scriptMatch = html.match(scriptRegex);
         if (scriptMatch) {
             const unpacked = unpack(scriptMatch[1]);
-            const streamMatch = unpacked.match(/(https?:\/\/[^\s'"]+\.(mp4|m3u8))/i);
+            const streamMatch = unpacked.match(/(https?:\/\/[^\s'"\)]+\.(mp4|m3u8))/i);
             if (streamMatch) return JSON.stringify({ stream: streamMatch[0] });
         }
 
@@ -113,13 +114,13 @@ function extractMeta(html, metaName) {
 }
 
 function extractAirdate(html) {
-    const dateRegex = /<span class="date">([^<]+)</i;
+    const dateRegex = /<span class="date">([^<]+)<\/span>/i;
     const dateMatch = html.match(dateRegex);
     return dateMatch ? cleanText(dateMatch[1]) : 'Unknown air date';
 }
 
 function extractAliases(html) {
-    const aliasRegex = /<h2>También conocida como:<\/h2>\s*<p>([^<]+)</i;
+    const aliasRegex = /<h2>También conocida como:<\/h2>\s*<p>([^<]+)<\/p>/i;
     const aliasMatch = html.match(aliasRegex);
     return aliasMatch ? cleanText(aliasMatch[1]) : 'No alternative titles';
 }
@@ -127,7 +128,7 @@ function extractAliases(html) {
 /* UNPACKER (Modified from original animeflv implementation) */
 function unpack(packed) {
     try {
-        return (new Function(packed + ';return p}'))().replace(/\\/g, '');
+        return (new Function(`"use strict"; ${packed}; return p;`))();
     } catch (e) {
         console.error('Unpack error:', e);
         return '';
