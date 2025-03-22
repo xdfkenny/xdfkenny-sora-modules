@@ -11,7 +11,7 @@
   "quality": "1080p",
   "baseUrl": "https://henaojara.com/",
   "searchBaseUrl": "https://henaojara.com/?s=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/henaojara-sora-module/main/henaojara.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": false
