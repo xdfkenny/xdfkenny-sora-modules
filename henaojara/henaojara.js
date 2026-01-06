@@ -84,20 +84,20 @@ async function extractStreamUrl(url) {
         
         const iframeRegex = /<iframe.*?src="(https:\/\/streamtape\.com\/[^\"]+)"/i;
         const iframeMatch = html.match(iframeRegex);
-        if (iframeMatch) return JSON.stringify({ stream: iframeMatch[1] });
+        if (iframeMatch) return { stream: iframeMatch[1] };
 
         const scriptRegex = /<script[^>]*>\s*(eval\(.*?\))\s*<\/script>/s;
         const scriptMatch = html.match(scriptRegex);
         if (scriptMatch) {
             const unpacked = unpack(scriptMatch[1]);
             const streamMatch = unpacked.match(/(https?:\/\/[^\s'"\)]+\.(mp4|m3u8))/i);
-            if (streamMatch) return JSON.stringify({ stream: streamMatch[0] });
+            if (streamMatch) return { stream: streamMatch[0] };
         }
 
-        return JSON.stringify({ stream: null });
+        return { stream: null };
     } catch (error) {
         console.error('Stream error:', error);
-        return JSON.stringify({ stream: null });
+        return { stream: null };
     }
 }
 
