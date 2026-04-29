@@ -12,7 +12,10 @@
   "baseUrl": "https://animejara.com/",
   "searchBaseUrl": "https://animejara.com/catalogo/?q=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
+  "type": "anime",
   "asyncJS": true,
   "streamAsyncJS": false,
-  "softsub": false
+  "softsub": false,
+  "supportsSora": true,
+  "supportsLuna": true
 }

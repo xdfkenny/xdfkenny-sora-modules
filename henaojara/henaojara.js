@@ -29,7 +29,6 @@ async function searchResults(keyword) {
 async function extractDetails(url) {
     try {
         const response = await soraFetch(url);
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
 
@@ -61,7 +60,6 @@ async function extractDetails(url) {
 async function extractEpisodes(url) {
     try {
         const response = await soraFetch(url);
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
         const episodes = [];
@@ -95,7 +93,6 @@ async function extractEpisodes(url) {
 async function extractStreamUrl(url) {
     try {
         const response = await soraFetch(url);
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
         const iframe = extractFirst(
@@ -141,7 +138,7 @@ async function searchFromAjax(keyword) {
             body
         });
 
-        if (!response.ok) return [];
+        if (!response) return [];
         const json = await response.json();
         const animes = (((json || {}).data || {}).animes) || [];
 
@@ -165,7 +162,7 @@ async function searchFromCatalog(keyword) {
 
         for (let u = 0; u < urls.length; u++) {
             const response = await soraFetch(urls[u]);
-            if (!response.ok) continue;
+            if (!response) continue;
             const html = await response.text();
             const parsed = parseAnimeCardsFromHtml(html);
             if (parsed.length > 0) return parsed;
@@ -181,7 +178,7 @@ async function searchFromCatalog(keyword) {
 async function searchFromWordPress(keyword) {
     try {
         const response = await soraFetch(`${SEARCH_URL}${encodeURIComponent(keyword)}`);
-        if (!response.ok) return [];
+        if (!response) return [];
         const html = await response.text();
         return parseAnimeCardsFromHtml(html);
     } catch (error) {
@@ -193,7 +190,7 @@ async function searchFromWordPress(keyword) {
 async function fetchCatalogHtmlForNonce(keyword) {
     try {
         const response = await soraFetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
-        if (!response.ok) return '';
+        if (!response) return '';
         return await response.text();
     } catch (e) {
         return '';
@@ -245,7 +242,7 @@ async function extractDirectServerFromEmbed(embedUrl) {
         if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
 
         const response = await soraFetch(embedUrl);
-        if (!response.ok) return null;
+        if (!response) return null;
         const html = await response.text();
 
         const servers = [];
