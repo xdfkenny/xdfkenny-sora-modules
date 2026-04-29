@@ -1,6 +1,7 @@
 const BASE_URL = 'https://animejara.com';
 const AJAX_URL = `${BASE_URL}/wp-admin/admin-ajax.php`;
 const CATALOG_URL = `${BASE_URL}/catalogo/?q=`;
+const SEARCH_URL = `${BASE_URL}/?s=`;
 
 /* MAIN FUNCTIONS */
 
@@ -14,6 +15,9 @@ async function searchResults(keyword) {
 
         const ajaxResults = await searchFromAjax(query);
         if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
+
+        const wpResults = await searchFromWordPress(query);
+        if (wpResults.length > 0) return JSON.stringify(wpResults);
 
         return JSON.stringify([]);
     } catch (error) {
@@ -123,12 +127,16 @@ async function extractStreamUrl(url) {
 
 async function searchFromAjax(keyword) {
     try {
-        const body = `action=live_search&s=${encodeURIComponent(keyword)}`;
+        const catalogHtml = await fetchCatalogHtmlForNonce(keyword);
+        const nonce = extractWpNonce(catalogHtml);
+        let body = `action=live_search&s=${encodeURIComponent(keyword)}`;
+        if (nonce) body += `&nonce=${encodeURIComponent(nonce)}`;
 
         const response = await soraFetch(AJAX_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body
         });
@@ -150,39 +158,86 @@ async function searchFromAjax(keyword) {
 
 async function searchFromCatalog(keyword) {
     try {
-        const response = await soraFetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
-        if (!response.ok) return [];
-        const html = await response.text();
+        const urls = [
+            `${CATALOG_URL}${encodeURIComponent(keyword)}`,
+            `${BASE_URL}/catalogo?q=${encodeURIComponent(keyword)}`
+        ];
 
-        const results = [];
-        const seen = new Set();
-        const cardRegex = /<a[^>]*anime-card[^>]*>[\s\S]*?<\/a>/gi;
-        let cardMatch;
-        while ((cardMatch = cardRegex.exec(html)) !== null) {
-            const cardHtml = cardMatch[0];
-            const href = normalizeUrl(extractFirst(cardHtml, /href=(?:"|')(.*?)(?:"|')/i));
-            if (!href || !/\/(anime|movie)\//i.test(href) || seen.has(href)) continue;
-
-            let title = cleanText(extractFirst(cardHtml, /<h3[^>]*card-title[^>]*>([\s\S]*?)<\/h3>/i));
-            let image = decodeHtml(extractFirst(cardHtml, /<img[^>]*card-poster[^>]*src=(?:"|')(.*?)(?:"|')/i)).trim();
-
-            if (!title || !image) {
-                const dataAnimeEncoded = extractFirst(cardHtml, /data-anime=(?:"|')(.*?)(?:"|')/i);
-                const dataAnime = decodeHtml(dataAnimeEncoded);
-                if (!title) title = cleanText(extractFirst(dataAnime, /"titulo"\s*:\s*"([^"]+)"/i));
-                if (!image) image = decodeHtml(extractFirst(dataAnime, /"poster"\s*:\s*"([^"]+)"/i)).replace(/\\\//g, '/').trim();
-            }
-
-            if (!title || !image) continue;
-            seen.add(href);
-            results.push({ title, image, href });
+        for (let u = 0; u < urls.length; u++) {
+            const response = await soraFetch(urls[u]);
+            if (!response.ok) continue;
+            const html = await response.text();
+            const parsed = parseAnimeCardsFromHtml(html);
+            if (parsed.length > 0) return parsed;
         }
 
-        return results;
+        return [];
     } catch (error) {
         console.error('Catalog search error:', error);
         return [];
     }
+}
+
+async function searchFromWordPress(keyword) {
+    try {
+        const response = await soraFetch(`${SEARCH_URL}${encodeURIComponent(keyword)}`);
+        if (!response.ok) return [];
+        const html = await response.text();
+        return parseAnimeCardsFromHtml(html);
+    } catch (error) {
+        console.error('WordPress search error:', error);
+        return [];
+    }
+}
+
+async function fetchCatalogHtmlForNonce(keyword) {
+    try {
+        const response = await soraFetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
+        if (!response.ok) return '';
+        return await response.text();
+    } catch (e) {
+        return '';
+    }
+}
+
+function extractWpNonce(html) {
+    const raw = html || '';
+    const scoped = raw.match(/animejara_ajax\s*=\s*\{[\s\S]*?"nonce"\s*:\s*"([^"]+)"/i);
+    if (scoped && scoped[1]) return scoped[1];
+    const fallback = raw.match(/"nonce"\s*:\s*"([a-f0-9]+)"/i);
+    return fallback ? fallback[1] : '';
+}
+
+function parseAnimeCardsFromHtml(html) {
+    const results = [];
+    const seen = new Set();
+    const cardRegex = /<a[^>]*\banime-card\b[^>]*>[\s\S]*?<\/a>/gi;
+    let cardMatch;
+    while ((cardMatch = cardRegex.exec(html)) !== null) {
+        const cardHtml = cardMatch[0];
+        const href = normalizeUrl(extractFirst(cardHtml, /href=(?:"|')(.*?)(?:"|')/i));
+        if (!href || !/\/(anime|movie)\//i.test(href) || seen.has(href)) continue;
+
+        let title = cleanText(extractFirst(cardHtml, /<h3[^>]*\bcard-title\b[^>]*>([\s\S]*?)<\/h3>/i));
+        let image = decodeHtml(extractFirst(cardHtml, /<img[^>]*\bcard-poster\b[^>]*src=(?:"|')(.*?)(?:"|')/i)).trim();
+        if (!image) {
+            image = decodeHtml(extractFirst(cardHtml, /<img[^>]*src=(?:"|')(.*?)(?:"|')[^>]*\bcard-poster\b/i)).trim();
+        }
+
+        if (!title || !image) {
+            let dataAnimeEncoded = extractFirst(cardHtml, /data-anime="([^"]*)"/i);
+            if (!dataAnimeEncoded) dataAnimeEncoded = extractFirst(cardHtml, /data-anime='([^']*)'/i);
+            const dataAnime = decodeHtml(dataAnimeEncoded);
+            if (!title) title = cleanText(extractFirst(dataAnime, /"titulo"\s*:\s*"([^"]+)"/i));
+            if (!image) image = decodeHtml(extractFirst(dataAnime, /"poster"\s*:\s*"([^"]+)"/i)).replace(/\\\//g, '/').trim();
+        }
+
+        if (!title || !image) continue;
+        seen.add(href);
+        results.push({ title, image, href });
+    }
+
+    return results;
 }
 
 async function extractDirectServerFromEmbed(embedUrl) {
@@ -304,17 +359,45 @@ function cleanText(text) {
 
 async function soraFetch(url, options) {
     const opts = options || {};
-    const headers = opts.headers || {};
+    const mergedHeaders = mergeHeaders(url, opts);
     const method = opts.method || 'GET';
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
     try {
-        return await fetchv2(url, headers, method, body);
+        return await fetchv2(url, mergedHeaders, method, body);
     } catch (e) {
         return await fetch(url, {
             method: method,
-            headers: headers,
+            headers: mergedHeaders,
             body: body
         });
     }
+}
+
+function mergeHeaders(url, opts) {
+    const base = opts.headers || {};
+    if (String(url || '').indexOf('animejara.com') === -1) return base;
+
+    const method = opts.method || 'GET';
+    const isAjaxPost = method === 'POST' && String(url || '').indexOf('/wp-admin/admin-ajax.php') !== -1;
+    let referer = 'https://animejara.com/';
+    if (isAjaxPost) referer = 'https://animejara.com/catalogo/';
+
+    const defaults = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: isAjaxPost ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en-US,en;q=0.8',
+        Referer: referer,
+        Origin: 'https://animejara.com'
+    };
+
+    const out = {};
+    let k;
+    for (k in defaults) {
+        if (Object.prototype.hasOwnProperty.call(defaults, k)) out[k] = defaults[k];
+    }
+    for (k in base) {
+        if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    }
+    return out;
 }
