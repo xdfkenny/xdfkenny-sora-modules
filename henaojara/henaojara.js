@@ -9,11 +9,13 @@ async function searchResults(keyword) {
         const query = (keyword || '').trim();
         if (!query) return JSON.stringify([]);
 
+        const catalogResults = await searchFromCatalog(query);
+        if (catalogResults.length > 0) return JSON.stringify(catalogResults);
+
         const ajaxResults = await searchFromAjax(query);
         if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
 
-        const catalogResults = await searchFromCatalog(query);
-        return JSON.stringify(catalogResults);
+        return JSON.stringify([]);
     } catch (error) {
         console.error('Search error:', error);
         return JSON.stringify([]);
@@ -120,10 +122,7 @@ async function extractStreamUrl(url) {
 
 async function searchFromAjax(keyword) {
     try {
-        const body = new URLSearchParams({
-            action: 'live_search',
-            s: keyword
-        }).toString();
+        const body = `action=live_search&s=${encodeURIComponent(keyword)}`;
 
         const response = await fetch(AJAX_URL, {
             method: 'POST',
@@ -135,7 +134,7 @@ async function searchFromAjax(keyword) {
 
         if (!response.ok) return [];
         const json = await response.json();
-        const animes = json?.data?.animes || [];
+        const animes = (((json || {}).data || {}).animes) || [];
 
         return animes.map((item) => ({
             title: cleanText(item.titulo || ''),
@@ -149,27 +148,33 @@ async function searchFromAjax(keyword) {
 }
 
 async function searchFromCatalog(keyword) {
-    const response = await fetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
-    if (!response.ok) return [];
-    const html = await response.text();
+    try {
+        const response = await fetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
+        if (!response.ok) return [];
+        const html = await response.text();
 
-    const results = [];
-    const seen = new Set();
-    const regex = /<a[^>]+href="(https:\/\/animejara\.com\/(?:anime|movie)\/[^"]+)"[^>]*class="[^"]*anime-card[^"]*"[\s\S]*?<img[^>]+class="[^"]*card-poster[^"]*"[^>]+src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h3>/gi;
+        const results = [];
+        const seen = new Set();
+        const regex = /<a[^>]+class="[^"]*anime-card[^"]*"[^>]+href="([^"]+)"[^>]*>[\s\S]*?<img[^>]+class="[^"]*card-poster[^"]*"[^>]+src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h3>/gi;
 
-    for (const match of html.matchAll(regex)) {
-        const href = normalizeUrl(match[1]);
-        if (seen.has(href)) continue;
-        seen.add(href);
+        for (const match of html.matchAll(regex)) {
+            const href = normalizeUrl(match[1]);
+            if (!/\/(anime|movie)\//i.test(href)) continue;
+            if (seen.has(href)) continue;
+            seen.add(href);
 
-        results.push({
-            title: cleanText(match[3]),
-            image: decodeHtml(match[2]).trim(),
-            href
-        });
+            results.push({
+                title: cleanText(match[3]),
+                image: decodeHtml(match[2]).trim(),
+                href
+            });
+        }
+
+        return results;
+    } catch (error) {
+        console.error('Catalog search error:', error);
+        return [];
     }
-
-    return results;
 }
 
 async function extractDirectServerFromEmbed(embedUrl) {
