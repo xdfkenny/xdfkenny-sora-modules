@@ -1,16 +1,16 @@
 {
   "sourceName": "HenaoJara",
-  "iconUrl": "https://henaojara.com/wp-content/uploads/2020/02/cropped-HJ-192x192.png",
+  "iconUrl": "https://animejara.com/wp-content/uploads/2026/04/cropped-nuevologo3-32x32.webp",
   "author": {
     "name": "xdfkenny",
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
   },
-  "version": "2.1.3",
+  "version": "2.2.0",
   "language": "Español Latino",
   "streamType": "HLS",
   "quality": "1080p",
-  "baseUrl": "https://henaojara.com/",
-  "searchBaseUrl": "https://henaojara.com/?s=%s",
+  "baseUrl": "https://animejara.com/",
+  "searchBaseUrl": "https://animejara.com/catalogo/?q=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
   "asyncJS": true,
   "streamAsyncJS": false,
