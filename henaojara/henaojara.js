@@ -12,9 +12,6 @@ async function searchResults(keyword) {
         const catalogResults = await searchFromCatalog(query);
         if (catalogResults.length > 0) return JSON.stringify(catalogResults);
 
-        const ajaxResults = await searchFromAjax(query);
-        if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
-
         return JSON.stringify([]);
     } catch (error) {
         console.error('Search error:', error);
@@ -155,28 +152,26 @@ async function searchFromCatalog(keyword) {
 
         const results = [];
         const seen = new Set();
-        const cardRegex = /<a\b(?=[^>]*class=(['"])[^'"]*\banime-card\b[^'"]*\1)[^>]*>[\s\S]*?<\/a>/gi;
-
-        for (const cardMatch of html.matchAll(cardRegex)) {
+        const cardRegex = /<a[^>]*anime-card[^>]*>[\s\S]*?<\/a>/gi;
+        let cardMatch;
+        while ((cardMatch = cardRegex.exec(html)) !== null) {
             const cardHtml = cardMatch[0];
-            const hrefRaw = extractFirst(cardHtml, /href=(?:"|')(.*?)(?:"|')/i);
-            const imageRaw = extractFirst(cardHtml, /<img[^>]*class=(?:"|')[^"']*\bcard-poster\b[^"']*(?:"|')[^>]*src=(?:"|')(.*?)(?:"|')/i);
-            const titleRaw = extractFirst(cardHtml, /<h3[^>]*class=(?:"|')[^"']*\bcard-title\b[^"']*(?:"|')[^>]*>([\s\S]*?)<\/h3>/i);
+            const href = normalizeUrl(extractFirst(cardHtml, /href=(?:"|')(.*?)(?:"|')/i));
+            if (!href || !/\/(anime|movie)\//i.test(href) || seen.has(href)) continue;
 
-            const href = normalizeUrl(hrefRaw);
-            if (!/\/(anime|movie)\//i.test(href)) continue;
-            if (seen.has(href)) continue;
-            seen.add(href);
+            let title = cleanText(extractFirst(cardHtml, /<h3[^>]*card-title[^>]*>([\s\S]*?)<\/h3>/i));
+            let image = decodeHtml(extractFirst(cardHtml, /<img[^>]*card-poster[^>]*src=(?:"|')(.*?)(?:"|')/i)).trim();
 
-            const title = cleanText(titleRaw);
-            const image = decodeHtml(imageRaw).trim();
+            if (!title || !image) {
+                const dataAnimeEncoded = extractFirst(cardHtml, /data-anime=(?:"|')(.*?)(?:"|')/i);
+                const dataAnime = decodeHtml(dataAnimeEncoded);
+                if (!title) title = cleanText(extractFirst(dataAnime, /"titulo"\s*:\s*"([^"]+)"/i));
+                if (!image) image = decodeHtml(extractFirst(dataAnime, /"poster"\s*:\s*"([^"]+)"/i)).replace(/\\\//g, '/').trim();
+            }
+
             if (!title || !image) continue;
-
-            results.push({
-                title,
-                image,
-                href
-            });
+            seen.add(href);
+            results.push({ title, image, href });
         }
 
         return results;
