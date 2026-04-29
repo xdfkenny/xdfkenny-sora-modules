@@ -12,6 +12,9 @@ async function searchResults(keyword) {
         const catalogResults = await searchFromCatalog(query);
         if (catalogResults.length > 0) return JSON.stringify(catalogResults);
 
+        const ajaxResults = await searchFromAjax(query);
+        if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
+
         return JSON.stringify([]);
     } catch (error) {
         console.error('Search error:', error);
@@ -21,7 +24,7 @@ async function searchResults(keyword) {
 
 async function extractDetails(url) {
     try {
-        const response = await fetch(url);
+        const response = await soraFetch(url);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
@@ -53,7 +56,7 @@ async function extractDetails(url) {
 
 async function extractEpisodes(url) {
     try {
-        const response = await fetch(url);
+        const response = await soraFetch(url);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
@@ -61,7 +64,8 @@ async function extractEpisodes(url) {
         const seen = new Set();
         const regex = /<a[^>]+href="(https:\/\/animejara\.com\/episode\/[^"]+)"[^>]*class="[^"]*episodio-link[^"]*"[\s\S]*?<div[^>]*>\s*(\d+)x(\d+)\s*<\/div>/gi;
 
-        for (const match of html.matchAll(regex)) {
+        let match;
+        while ((match = regex.exec(html)) !== null) {
             const href = normalizeUrl(match[1]);
             if (seen.has(href)) continue;
             seen.add(href);
@@ -86,7 +90,7 @@ async function extractEpisodes(url) {
 
 async function extractStreamUrl(url) {
     try {
-        const response = await fetch(url);
+        const response = await soraFetch(url);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
@@ -121,7 +125,7 @@ async function searchFromAjax(keyword) {
     try {
         const body = `action=live_search&s=${encodeURIComponent(keyword)}`;
 
-        const response = await fetch(AJAX_URL, {
+        const response = await soraFetch(AJAX_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
@@ -146,7 +150,7 @@ async function searchFromAjax(keyword) {
 
 async function searchFromCatalog(keyword) {
     try {
-        const response = await fetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
+        const response = await soraFetch(`${CATALOG_URL}${encodeURIComponent(keyword)}`);
         if (!response.ok) return [];
         const html = await response.text();
 
@@ -185,13 +189,14 @@ async function extractDirectServerFromEmbed(embedUrl) {
     try {
         if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
 
-        const response = await fetch(embedUrl);
+        const response = await soraFetch(embedUrl);
         if (!response.ok) return null;
         const html = await response.text();
 
         const servers = [];
         const regex = /<li[^>]*onclick="[^"]*playVideo\(&quot;\s*([^"&]+(?:&amp;[^"&]*)*)&quot;\)[^"]*"[\s\S]*?<span[^>]*class="nombre-server"[^>]*>([^<]+)<\/span>/gi;
-        for (const match of html.matchAll(regex)) {
+        let match;
+        while ((match = regex.exec(html)) !== null) {
             servers.push({
                 url: normalizeExternalUrl(match[1]),
                 name: cleanText(match[2]).toLowerCase()
@@ -200,7 +205,7 @@ async function extractDirectServerFromEmbed(embedUrl) {
 
         if (servers.length === 0) {
             const fallbackRegex = /playVideo\(['"]\s*(https?:\/\/[^'"]+)['"]\)/gi;
-            for (const match of html.matchAll(fallbackRegex)) {
+            while ((match = fallbackRegex.exec(html)) !== null) {
                 servers.push({ url: normalizeExternalUrl(match[1]), name: '' });
             }
         }
@@ -295,4 +300,21 @@ function cleanText(text) {
         .replace(/\n\s+/g, '\n')
         .replace(/[ \t]+/g, ' ')
         .trim();
+}
+
+async function soraFetch(url, options) {
+    const opts = options || {};
+    const headers = opts.headers || {};
+    const method = opts.method || 'GET';
+    const body = typeof opts.body === 'undefined' ? null : opts.body;
+
+    try {
+        return await fetchv2(url, headers, method, body);
+    } catch (e) {
+        return await fetch(url, {
+            method: method,
+            headers: headers,
+            body: body
+        });
+    }
 }
