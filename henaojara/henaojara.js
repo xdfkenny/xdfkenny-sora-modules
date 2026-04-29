@@ -155,17 +155,26 @@ async function searchFromCatalog(keyword) {
 
         const results = [];
         const seen = new Set();
-        const regex = /<a[^>]+class="[^"]*anime-card[^"]*"[^>]+href="([^"]+)"[^>]*>[\s\S]*?<img[^>]+class="[^"]*card-poster[^"]*"[^>]+src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h3>/gi;
+        const cardRegex = /<a\b(?=[^>]*class=(['"])[^'"]*\banime-card\b[^'"]*\1)[^>]*>[\s\S]*?<\/a>/gi;
 
-        for (const match of html.matchAll(regex)) {
-            const href = normalizeUrl(match[1]);
+        for (const cardMatch of html.matchAll(cardRegex)) {
+            const cardHtml = cardMatch[0];
+            const hrefRaw = extractFirst(cardHtml, /href=(?:"|')(.*?)(?:"|')/i);
+            const imageRaw = extractFirst(cardHtml, /<img[^>]*class=(?:"|')[^"']*\bcard-poster\b[^"']*(?:"|')[^>]*src=(?:"|')(.*?)(?:"|')/i);
+            const titleRaw = extractFirst(cardHtml, /<h3[^>]*class=(?:"|')[^"']*\bcard-title\b[^"']*(?:"|')[^>]*>([\s\S]*?)<\/h3>/i);
+
+            const href = normalizeUrl(hrefRaw);
             if (!/\/(anime|movie)\//i.test(href)) continue;
             if (seen.has(href)) continue;
             seen.add(href);
 
+            const title = cleanText(titleRaw);
+            const image = decodeHtml(imageRaw).trim();
+            if (!title || !image) continue;
+
             results.push({
-                title: cleanText(match[3]),
-                image: decodeHtml(match[2]).trim(),
+                title,
+                image,
                 href
             });
         }
