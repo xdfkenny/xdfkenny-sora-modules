@@ -146,8 +146,8 @@ async function extractStreamUrl(url) {
         const response = await soraFetch(url);
         const html = await response.text();
         
-        // Extract language URLs from the enlaces array
-        const enlacesMatch = html.match(/const\s+enlaces\s*=\s*\[([\s\S]*?)\]/);
+        // Extract language URLs from the enlaces array (can be const, var, let, or bare)
+        const enlacesMatch = html.match(/(?:const|var|let)?\s*enlaces\s*=\s*\[([\s\S]*?)\]/);
         const langNames = [];
         const langNameRegex = /<div\s+class="lang-name">([^<]+)<\/div>/gi;
         let langMatch;
@@ -155,13 +155,15 @@ async function extractStreamUrl(url) {
             langNames.push(langMatch[1].trim());
         }
         
-        // Parse the embed URLs from the enlaces array
+        // Parse the embed URLs from the enlaces array (handles escaped slashes \/)
         const embedUrls = [];
         if (enlacesMatch) {
-            const urlRegex = /["'](https?:\/\/[^"']+)["']/g;
+            const urlRegex = /["'](https?:[^"']+)["']/g;
             let urlMatch;
             while ((urlMatch = urlRegex.exec(enlacesMatch[1])) !== null) {
-                embedUrls.push(decodeHtml(urlMatch[1]).trim());
+                // Unescape \/ to / and decode HTML entities
+                const cleanUrl = urlMatch[1].replace(/\\\//g, '/');
+                embedUrls.push(decodeHtml(cleanUrl).trim());
             }
         }
         
@@ -170,7 +172,10 @@ async function extractStreamUrl(url) {
             const allStreams = [];
             
             for (let i = 0; i < embedUrls.length; i++) {
-                const langLabel = langNames[i] || ('Lang ' + (i + 1));
+                const rawLang = langNames[i] || ('Lang ' + (i + 1));
+                // Shorten language names for cleaner display
+                const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
+                const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
                 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
