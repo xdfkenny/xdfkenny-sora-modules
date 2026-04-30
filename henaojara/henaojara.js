@@ -146,6 +146,58 @@ async function extractStreamUrl(url) {
         const response = await soraFetch(url);
         const html = await response.text();
         
+        // Extract language URLs from the enlaces array
+        const enlacesMatch = html.match(/const\s+enlaces\s*=\s*\[([\s\S]*?)\]/);
+        const langNames = [];
+        const langNameRegex = /<div\s+class="lang-name">([^<]+)<\/div>/gi;
+        let langMatch;
+        while ((langMatch = langNameRegex.exec(html)) !== null) {
+            langNames.push(langMatch[1].trim());
+        }
+        
+        // Parse the embed URLs from the enlaces array
+        const embedUrls = [];
+        if (enlacesMatch) {
+            const urlRegex = /["'](https?:\/\/[^"']+)["']/g;
+            let urlMatch;
+            while ((urlMatch = urlRegex.exec(enlacesMatch[1])) !== null) {
+                embedUrls.push(decodeHtml(urlMatch[1]).trim());
+            }
+        }
+        
+        // If we found multiple language embeds, process all of them
+        if (embedUrls.length > 0) {
+            const allStreams = [];
+            
+            for (let i = 0; i < embedUrls.length; i++) {
+                const langLabel = langNames[i] || ('Lang ' + (i + 1));
+                const embedUrl = embedUrls[i];
+                
+                const servers = await extractDirectServerFromEmbed(embedUrl);
+                if (!servers || servers.length === 0) continue;
+                
+                for (const server of servers) {
+                    const result = await resolveServerToDirectUrl(server.url, server.name);
+                    if (result) {
+                        // Prefix the stream title with the language
+                        result.title = langLabel + ' · ' + result.title;
+                        allStreams.push(result);
+                    }
+                }
+            }
+            
+            if (allStreams.length > 0) {
+                return JSON.stringify({
+                    streams: allStreams,
+                    subtitles: null
+                });
+            }
+            
+            // Fallback to first embed URL
+            return embedUrls[0];
+        }
+        
+        // Fallback: single iframe (no language buttons)
         const iframe = extractFirst(
             html,
             /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i
@@ -159,14 +211,10 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                // Try to resolve direct playable URLs from each server
                 const streams = [];
-                
                 for (const server of servers) {
                     const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
-                        streams.push(result);
-                    }
+                    if (result) streams.push(result);
                 }
                 
                 if (streams.length > 0) {
@@ -176,11 +224,9 @@ async function extractStreamUrl(url) {
                     });
                 }
                 
-                // If no streams resolved, try returning the first server embed URL directly
                 return servers[0].url;
             }
             
-            // Fallback: return the iframe URL itself
             return iframeUrl;
         }
 
