@@ -163,26 +163,21 @@ async function extractStreamUrl(url) {
                 const streams = [];
                 
                 for (const server of servers) {
-                    const directUrl = await resolveServerToDirectUrl(server.url, server.name);
-                    if (directUrl) {
-                        streams.push({
-                            title: server.name || 'Server',
-                            streamUrl: directUrl,
-                            headers: {}
-                        });
+                    const result = await resolveServerToDirectUrl(server.url, server.name);
+                    if (result) {
+                        streams.push(result);
                     }
                 }
                 
                 if (streams.length > 0) {
                     return JSON.stringify({
                         streams: streams,
-                        subtitles: ''
+                        subtitles: null
                     });
                 }
                 
-                // If no direct URLs could be resolved, return the first embed URL as fallback
-                const preferred = pickPreferredServer(servers);
-                return preferred || servers[0].url;
+                // If no streams resolved, try returning the first server embed URL directly
+                return servers[0].url;
             }
             
             // Fallback: return the iframe URL itself
@@ -199,56 +194,56 @@ async function extractStreamUrl(url) {
     }
 }
 
-// Resolve an embed/server URL to a directly playable video URL
+// Resolve an embed/server URL to a {title, streamUrl, headers} object
 async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
-        const name = (serverName || '').toLowerCase();
-        
-        // nyuu/streamhj servers serve direct MP4 from Cloudflare R2
-        if (/nyuu\.streamhj\.top|hgcloud\.to/i.test(serverUrl)) {
-            const resp = await soraFetch(serverUrl);
-            if (!resp) return null;
-            const html = await resp.text();
-            
-            // Look for direct video source in the page
-            const videoSrc = extractFirst(html, /<source[^>]+src="([^"]+)"/i)
-                || extractFirst(html, /file\s*:\s*["']([^"']+\.mp4[^"']*)/i)
-                || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*)/i)
-                || extractFirst(html, /(https?:\/\/[^\s"'<>]+cloudflarestorage\.com[^\s"'<>]*)/i)
-                || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-            
-            if (videoSrc) return decodeHtml(videoSrc).trim();
-            return null;
-        }
-        
-        // StreamTape - extract direct link
+        // Skip StreamTape - uses anti-hotlink fake domains that cause DNS failures
         if (/streamtape\.com/i.test(serverUrl)) {
-            const resp = await soraFetch(serverUrl);
-            if (!resp) return null;
-            const html = await resp.text();
-            // StreamTape hides the URL in a JS variable
-            const tokenMatch = html.match(/document\.getElementById\('robotlink'\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*\('([^']+)'\)/);
-            if (tokenMatch) {
-                return 'https:' + tokenMatch[1] + tokenMatch[2];
-            }
-            // Alternative pattern
-            const altMatch = html.match(/id="videolink"[^>]*>([^<]+)/i) 
-                || html.match(/id="robotlink"[^>]*>([^<]+)/i);
-            if (altMatch) return altMatch[1].trim();
             return null;
         }
         
-        // Generic: try to fetch and find m3u8/mp4 in the response
+        // Get the origin/referer from the embed URL
+        const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
+        const referer = urlObj ? urlObj[1] + '/' : '';
+        
         const resp = await soraFetch(serverUrl);
         if (!resp) return null;
         const html = await resp.text();
         
-        const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) return decodeHtml(m3u8).trim();
+        // Try to find direct video URL patterns in the HTML
+        const m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+            || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+            || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
         
+        if (m3u8) {
+            return {
+                title: serverName || 'Server',
+                streamUrl: decodeHtml(m3u8).trim(),
+                headers: {
+                    "Referer": referer,
+                    "Origin": referer.replace(/\/$/, ''),
+                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                }
+            };
+        }
+        
+        // Try MP4
         const mp4 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)/i)
-            || extractFirst(html, /<source[^>]+src=["'](https?:\/\/[^"']+\.mp4[^"']*)/i);
-        if (mp4) return decodeHtml(mp4).trim();
+            || extractFirst(html, /<source[^>]+src=["'](https?:\/\/[^"']+\.mp4[^"']*)/i)
+            || extractFirst(html, /(https?:\/\/[^\s"'<>]+cloudflarestorage\.com[^\s"'<>]*)/i)
+            || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*)/i);
+        
+        if (mp4) {
+            return {
+                title: serverName || 'Server',
+                streamUrl: decodeHtml(mp4).trim(),
+                headers: {
+                    "Referer": referer,
+                    "Origin": referer.replace(/\/$/, ''),
+                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                }
+            };
+        }
         
         return null;
     } catch (e) {
@@ -256,6 +251,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         return null;
     }
 }
+
 
 
 /* HELPERS */
