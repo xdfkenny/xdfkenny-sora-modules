@@ -171,9 +171,9 @@ async function extractStreamUrl(url) {
             }
         }
         
-        // If we found multiple language embeds, process all of them
         if (embedUrls.length > 0) {
             const allStreams = [];
+            let globalDownloadUrl = null;
             
             for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
@@ -182,7 +182,15 @@ async function extractStreamUrl(url) {
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
                 
-                const servers = await extractDirectServerFromEmbed(embedUrl);
+                const embedResult = await extractDirectServerFromEmbed(embedUrl);
+                let servers = null;
+                
+                if (embedResult) {
+                    servers = embedResult.servers;
+                    if (embedResult.downloadUrl && !globalDownloadUrl) {
+                        globalDownloadUrl = embedResult.downloadUrl;
+                    }
+                }
                 
                 if (servers && servers.length > 0) {
                     for (const server of servers) {
@@ -204,10 +212,13 @@ async function extractStreamUrl(url) {
             }
             
             if (allStreams.length > 0) {
-                return JSON.stringify({
+                const payload = {
                     streams: allStreams,
                     subtitles: null
-                });
+                };
+                if (globalDownloadUrl) payload.downloadUrl = globalDownloadUrl;
+                
+                return JSON.stringify(payload);
             }
             
             // Fallback to first embed URL
@@ -225,11 +236,11 @@ async function extractStreamUrl(url) {
 
         if (iframe) {
             const iframeUrl = decodeHtml(iframe).trim();
-            const servers = await extractDirectServerFromEmbed(iframeUrl);
+            const embedResult = await extractDirectServerFromEmbed(iframeUrl);
             
-            if (servers && Array.isArray(servers) && servers.length > 0) {
+            if (embedResult && embedResult.servers && Array.isArray(embedResult.servers) && embedResult.servers.length > 0) {
                 const streams = [];
-                for (const server of servers) {
+                for (const server of embedResult.servers) {
                     const displayName = prettifyServerName(server.name, server.url);
                     streams.push({
                         title: displayName,
@@ -239,13 +250,15 @@ async function extractStreamUrl(url) {
                 }
                 
                 if (streams.length > 0) {
-                    return JSON.stringify({
+                    const payload = {
                         streams: streams,
                         subtitles: null
-                    });
+                    };
+                    if (embedResult.downloadUrl) payload.downloadUrl = embedResult.downloadUrl;
+                    return JSON.stringify(payload);
                 }
                 
-                return servers[0].url;
+                return embedResult.servers[0].url;
             }
             
             return iframeUrl;
@@ -431,6 +444,10 @@ async function extractDirectServerFromEmbed(embedUrl) {
         const response = await soraFetch(embedUrl);
         if (!response) return null;
         const html = await response.text();
+        
+        let downloadUrl = null;
+        const dlMatch = html.match(/window\.open\(\s*['"](https?:\/\/descargas[^'"]+)['"]/i);
+        if (dlMatch) downloadUrl = dlMatch[1];
 
         const servers = [];
         // More flexible regex to match playVideo('...') or playVideo("&quot;...&quot;")
@@ -451,7 +468,10 @@ async function extractDirectServerFromEmbed(embedUrl) {
             }
         }
 
-        return (servers.length > 0) ? servers : null;
+        return {
+            servers: (servers.length > 0) ? servers : null,
+            downloadUrl: downloadUrl
+        };
     } catch (error) {
         console.error('Embed server extraction error:', error);
         return null;

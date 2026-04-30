@@ -18,5 +18,5 @@
   "softsub": false,
   "supportsSora": true,
   "supportsLuna": true,
-  "downloadSupport": false
+  "downloadSupport": true
 }
