@@ -192,23 +192,25 @@ async function extractStreamUrl(url) {
                 }
                 
                 if (servers && servers.length > 0) {
-                    const serverPromises = servers.map(async (server) => {
-                        const result = await resolveServerToDirectUrl(server.url, server.name);
-                        if (result) {
-                            return {
-                                title: langLabel + ' · ' + result.title,
-                                url: result.streamUrl,
-                                streamUrl: result.streamUrl,
-                                headers: result.headers
-                            };
+                    for (const server of servers) {
+                        if (isHlsServer(server.url, server.name)) {
+                            const displayName = prettifyServerName(server.name, server.url);
+                            allStreams.push({
+                                title: langLabel + ' · ' + displayName,
+                                url: server.url,
+                                streamUrl: server.url
+                            });
                         }
-                        return null;
-                    });
-                    
-                    const resolved = await Promise.all(serverPromises);
-                    resolved.forEach(rs => {
-                        if (rs) allStreams.push(rs);
-                    });
+                    }
+                } else {
+                    if (isHlsServer(embedUrl, '')) {
+                        const displayName = prettifyServerName('', embedUrl);
+                        allStreams.push({
+                            title: langLabel + ' · ' + displayName,
+                            url: embedUrl,
+                            streamUrl: embedUrl
+                        });
+                    }
                 }
             }
             
@@ -243,23 +245,16 @@ async function extractStreamUrl(url) {
             
             if (embedResult && embedResult.servers && Array.isArray(embedResult.servers) && embedResult.servers.length > 0) {
                 const streams = [];
-                const serverPromises = embedResult.servers.map(async (server) => {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
-                        return {
-                            title: result.title,
-                            url: result.streamUrl,
-                            streamUrl: result.streamUrl,
-                            headers: result.headers
-                        };
+                for (const server of embedResult.servers) {
+                    if (isHlsServer(server.url, server.name)) {
+                        const displayName = prettifyServerName(server.name, server.url);
+                        streams.push({
+                            title: displayName,
+                            url: server.url,
+                            streamUrl: server.url
+                        });
                     }
-                    return null;
-                });
-                
-                const resolved = await Promise.all(serverPromises);
-                resolved.forEach(rs => {
-                    if (rs) streams.push(rs);
-                });
+                }
                 
                 if (streams.length > 0) {
                     const payload = {
@@ -326,63 +321,22 @@ function prettifyServerName(name, url) {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-// Resolve an embed/server URL to a {title, streamUrl, headers} object (HLS only)
-async function resolveServerToDirectUrl(serverUrl, serverName) {
-    try {
-        const displayName = prettifyServerName(serverName, serverUrl);
-        
-        // Skip servers that don't serve standard HLS
-        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
-        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
-        
-        // Get the origin/referer from the embed URL
-        const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
-        const referer = urlObj ? urlObj[1] + '/' : '';
-        
-        const resp = await soraFetch(serverUrl);
-        if (!resp) return null;
-        const html = await resp.text();
-        
-        // 1. Try to find m3u8 directly in the HTML
-        let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-            || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-            || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i);
-        
-        // 2. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
-        if (!m3u8) {
-            const packedMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?\)[\s\S]*?)<\/script>/);
-            if (packedMatch) {
-                try {
-                    const unpacked = unpack(packedMatch[1]);
-                    m3u8 = extractFirst(unpacked, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-                        || extractFirst(unpacked, /"hls2"\s*:\s*"([^"]+)"/i)
-                        || extractFirst(unpacked, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-                } catch (e) {
-                }
-            }
-        }
-        
-        // 3. Last resort: broad regex match for m3u8 URLs
-        if (!m3u8) {
-            m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        }
-        
-        if (m3u8) {
-            return {
-                title: displayName,
-                streamUrl: decodeHtml(m3u8).trim(),
-                headers: {
-                    "Referer": referer,
-                    "Origin": referer.replace(/\/$/, ''),
-                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-                }
-            };
-        }
-        
-        return null;
-    } catch (e) {
-        return null;
+function isHlsServer(url, name) {
+    const s = `${url} ${name}`.toLowerCase();
+    
+    // Explicitly reject non-HLS or download-only servers
+    const nonHlsHosts = ['mega', 'mediafire', 'dood', 'streamtape', 'yourupload', 'mixdrop', 'savefiles', 'mp4upload', 'netu'];
+    for (const non of nonHlsHosts) {
+        if (s.includes(non)) return false;
     }
+    
+    // Whitelist known HLS or fast streaming servers
+    const hlsHosts = ['vidhide', 'filemoon', 'filelions', 'voe', 'lulustream', 'lulu', 'nyuu', 'streamhg', 'burstcloud', 'uqload'];
+    for (const host of hlsHosts) {
+        if (s.includes(host)) return true;
+    }
+    
+    return false;
 }
 
 async function extractRealDownloadUrl(downloadPageUrl) {
@@ -808,98 +762,4 @@ function mergeHeaders(url, opts) {
         if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
     }
     return out;
-}
-
-/***********************************************************
- * UNPACKER MODULE
- * Credit to GitHub user "mnsrulz" for Unpacker Node library
- * https://github.com/mnsrulz/unpacker
- ***********************************************************/
-class Unbaser {
-    constructor(base) {
-        this.ALPHABET = {
-            62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-            95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'",
-        };
-        this.dictionary = {};
-        this.base = base;
-        if (36 < base && base < 62) {
-            this.ALPHABET[base] = this.ALPHABET[base] ||
-                this.ALPHABET[62].substr(0, base);
-        }
-        if (2 <= base && base <= 36) {
-            this.unbase = (value) => parseInt(value, base);
-        } else {
-            try {
-                [...this.ALPHABET[base]].forEach((cipher, index) => {
-                    this.dictionary[cipher] = index;
-                });
-            } catch (er) {
-                throw Error("Unsupported base encoding.");
-            }
-            this.unbase = this._dictunbaser;
-        }
-    }
-    _dictunbaser(value) {
-        let ret = 0;
-        [...value].reverse().forEach((cipher, index) => {
-            ret = ret + ((Math.pow(this.base, index)) * this.dictionary[cipher]);
-        });
-        return ret;
-    }
-}
-
-function detect(source) {
-    return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
-}
-
-function unpack(source) {
-    let { payload, symtab, radix, count } = _filterargs(source);
-    if (count != symtab.length) {
-        throw Error("Malformed p.a.c.k.e.r. symtab.");
-    }
-    let unbase;
-    try {
-        unbase = new Unbaser(radix);
-    } catch (e) {
-        throw Error("Unknown p.a.c.k.e.r. encoding.");
-    }
-    function lookup(match) {
-        const word = match;
-        let word2;
-        if (radix == 1) {
-            word2 = symtab[parseInt(word)];
-        } else {
-            word2 = symtab[unbase.unbase(word)];
-        }
-        return word2 || word;
-    }
-    source = payload.replace(/\b\w+\b/g, lookup);
-    return _replacestrings(source);
-    function _filterargs(source) {
-        const juicers = [
-            /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\), *(\d+), *(.*)\)\)/,
-            /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\)/,
-        ];
-        for (const juicer of juicers) {
-            const args = juicer.exec(source);
-            if (args) {
-                let a = args;
-                try {
-                    return {
-                        payload: a[1],
-                        symtab: a[4].split("|"),
-                        radix: parseInt(a[2]),
-                        count: parseInt(a[3]),
-                    };
-                } catch (ValueError) {
-                    throw Error("Corrupted p.a.c.k.e.r. data.");
-                }
-            }
-        }
-        throw Error("Could not make sense of p.a.c.k.e.r data (unexpected code structure)");
-    }
-    function _replacestrings(source) {
-        return source;
-    }
 }
