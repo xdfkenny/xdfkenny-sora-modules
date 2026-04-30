@@ -177,7 +177,6 @@ async function extractStreamUrl(url) {
             
             for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
-                // Shorten language names for cleaner display
                 const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
@@ -193,20 +192,22 @@ async function extractStreamUrl(url) {
                 }
                 
                 if (servers && servers.length > 0) {
-                    for (const server of servers) {
-                        const displayName = prettifyServerName(server.name, server.url);
-                        allStreams.push({
-                            title: langLabel + ' · ' + displayName,
-                            url: server.url,
-                            streamUrl: server.url
-                        });
-                    }
-                } else {
-                    const displayName = prettifyServerName('', embedUrl);
-                    allStreams.push({
-                        title: langLabel + ' · ' + displayName,
-                        url: embedUrl,
-                        streamUrl: embedUrl
+                    const serverPromises = servers.map(async (server) => {
+                        const result = await resolveServerToDirectUrl(server.url, server.name);
+                        if (result) {
+                            return {
+                                title: langLabel + ' · ' + result.title,
+                                url: result.streamUrl,
+                                streamUrl: result.streamUrl,
+                                headers: result.headers
+                            };
+                        }
+                        return null;
+                    });
+                    
+                    const resolved = await Promise.all(serverPromises);
+                    resolved.forEach(rs => {
+                        if (rs) allStreams.push(rs);
                     });
                 }
             }
@@ -216,16 +217,18 @@ async function extractStreamUrl(url) {
                     streams: allStreams,
                     subtitles: null
                 };
-                if (globalDownloadUrl) payload.downloadUrl = globalDownloadUrl;
+                
+                if (globalDownloadUrl) {
+                    const directDownload = await extractRealDownloadUrl(globalDownloadUrl);
+                    if (directDownload) payload.downloadUrl = directDownload;
+                }
                 
                 return JSON.stringify(payload);
             }
             
-            // Fallback to first embed URL
             return embedUrls[0];
         }
         
-        // Fallback: single iframe (no language buttons)
         const iframe = extractFirst(
             html,
             /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i
@@ -240,21 +243,33 @@ async function extractStreamUrl(url) {
             
             if (embedResult && embedResult.servers && Array.isArray(embedResult.servers) && embedResult.servers.length > 0) {
                 const streams = [];
-                for (const server of embedResult.servers) {
-                    const displayName = prettifyServerName(server.name, server.url);
-                    streams.push({
-                        title: displayName,
-                        url: server.url,
-                        streamUrl: server.url
-                    });
-                }
+                const serverPromises = embedResult.servers.map(async (server) => {
+                    const result = await resolveServerToDirectUrl(server.url, server.name);
+                    if (result) {
+                        return {
+                            title: result.title,
+                            url: result.streamUrl,
+                            streamUrl: result.streamUrl,
+                            headers: result.headers
+                        };
+                    }
+                    return null;
+                });
+                
+                const resolved = await Promise.all(serverPromises);
+                resolved.forEach(rs => {
+                    if (rs) streams.push(rs);
+                });
                 
                 if (streams.length > 0) {
                     const payload = {
                         streams: streams,
                         subtitles: null
                     };
-                    if (embedResult.downloadUrl) payload.downloadUrl = embedResult.downloadUrl;
+                    if (embedResult.downloadUrl) {
+                        const directDownload = await extractRealDownloadUrl(embedResult.downloadUrl);
+                        if (directDownload) payload.downloadUrl = directDownload;
+                    }
                     return JSON.stringify(payload);
                 }
                 
@@ -309,6 +324,193 @@ function prettifyServerName(name, url) {
     }
     
     return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+// Resolve an embed/server URL to a {title, streamUrl, headers} object (HLS only)
+async function resolveServerToDirectUrl(serverUrl, serverName) {
+    try {
+        const displayName = prettifyServerName(serverName, serverUrl);
+        
+        // Skip servers that don't serve standard HLS
+        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
+        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
+        
+        // Get the origin/referer from the embed URL
+        const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
+        const referer = urlObj ? urlObj[1] + '/' : '';
+        
+        const resp = await soraFetch(serverUrl);
+        if (!resp) return null;
+        const html = await resp.text();
+        
+        // 1. Try to find m3u8 directly in the HTML
+        let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+            || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+            || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i);
+        
+        // 2. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
+        if (!m3u8) {
+            const packedMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?\)[\s\S]*?)<\/script>/);
+            if (packedMatch) {
+                try {
+                    const unpacked = unpack(packedMatch[1]);
+                    m3u8 = extractFirst(unpacked, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+                        || extractFirst(unpacked, /"hls2"\s*:\s*"([^"]+)"/i)
+                        || extractFirst(unpacked, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+                } catch (e) {
+                }
+            }
+        }
+        
+        // 3. Last resort: broad regex match for m3u8 URLs
+        if (!m3u8) {
+            m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+        }
+        
+        if (m3u8) {
+            return {
+                title: displayName,
+                streamUrl: decodeHtml(m3u8).trim(),
+                headers: {
+                    "Referer": referer,
+                    "Origin": referer.replace(/\/$/, ''),
+                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                }
+            };
+        }
+        
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function extractRealDownloadUrl(downloadPageUrl) {
+    try {
+        const idMatch = downloadPageUrl.match(/idanime=(\d+)&idcapitulo=(\d+)/i);
+        if (!idMatch) return null;
+        
+        const idAnime = idMatch[1];
+        const idCapitulo = parseInt(idMatch[2], 10);
+        
+        const tokenUrl = `https://descargas.henaojara.com/player/multiplayer/apimultiplayer/generar_token_descarga.php?idanime=${encodeURIComponent(idAnime)}`;
+        const tokenResp = await soraFetch(tokenUrl, { headers: { "Referer": downloadPageUrl } });
+        if (!tokenResp) return null;
+        const tokenData = await tokenResp.json();
+        
+        if (!tokenData || !tokenData.token) return null;
+        
+        const apiUrl = `https://descargas.henaojara.com/player/multiplayer/apimultiplayer/api.php?token=${encodeURIComponent(tokenData.token)}`;
+        const apiResp = await soraFetch(apiUrl, { headers: { "Referer": downloadPageUrl } });
+        if (!apiResp) return null;
+        const chaptersData = await apiResp.json();
+        
+        if (!Array.isArray(chaptersData)) return null;
+        
+        let targetChapter = null;
+        for (const chap of chaptersData) {
+            let num = null;
+            if (chap.id_capitulo !== undefined && chap.id_capitulo !== null) {
+                num = parseInt(chap.id_capitulo, 10);
+            }
+            if (num === null && chap.nombre) {
+                const match = chap.nombre.match(/[Cc]ap[íi]tulo\s+(\d+)|[Cc]ap\s+(\d+)|[Ee]p[íi]sodio\s+(\d+)|\b(\d+)\.?$/);
+                if (match) {
+                    for (let i = 1; i < match.length; i++) {
+                        if (match[i]) {
+                            num = parseInt(match[i], 10);
+                            break;
+                        }
+                    }
+                }
+                if (num === null) {
+                    const firstNum = chap.nombre.match(/\d+/);
+                    if (firstNum) num = parseInt(firstNum[0], 10);
+                }
+            }
+            if (num === idCapitulo) {
+                targetChapter = chap;
+                break;
+            }
+        }
+        
+        if (!targetChapter) return null;
+        
+        const ordenServidores = ['mediafire', 'filemoon', 'vidhide', 'streamtape', 'mp4upload', 'mega', 'mixdrop', 'voe'];
+        for (const server of ordenServidores) {
+            if (targetChapter[server]) {
+                return ajustarEnlace(server, targetChapter[server]);
+            }
+        }
+        
+        return null;
+    } catch (e) {
+        console.error("Download extraction error", e);
+        return null;
+    }
+}
+
+function ajustarEnlace(servidor, enlace) {
+    if (!enlace) return '';
+    let link = enlace;
+    link = link.replace('https://flaswish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://obeywish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://embedwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://flastwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://cdnwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://asnwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://jodwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://swhoi.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://swdyu.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://streamwish.to/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://streamwish.top/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://strwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://wishonly.site/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://playerwish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://hlswish.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://swishsrv.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://iplayerhls.com/e/', 'https://swhoi.com/f/');
+    link = link.replace('https://ghbrisk.com/e/', 'https://swhoi.com/f/');
+
+    link = link.replace('https://filelions.site/v/', 'https://filelions.top/d/');
+    link = link.replace('https://vidhidepro.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://vidhidevip.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://vidhidepre.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://filelions.top/v/', 'https://filelions.top/d/');
+    link = link.replace('https://vidhideplus.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://vidhidehub.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://dhtpre.com/v/', 'https://filelions.top/d/');
+    link = link.replace('https://ryderjet.com/v/', 'https://filelions.top/d/');
+
+    link = link.replace('https://filemoon.sx/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://filemooon.top/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://filemoon.to/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://embedmoon.xyz/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://embedmoon.pro/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://embedme.xyz/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://moonembed.xyz/e/', 'https://bysekoze.com/d/');
+    link = link.replace('https://bysekoze.com/e/', 'https://bysekoze.com/d/');
+
+    link = link.replace('https://streamtape.com/e/', 'https://streamtape.com/v/');
+    link = link.replace('https://www.mp4upload.com/embed-', 'https://www.mp4upload.com/');
+    link = link.replace('https://streamvid.net/embed-', 'https://streamvid.net/');
+    link = link.replace('https://mixdrop.to/e/', 'https://mixdrop.to/f/');
+    link = link.replace('https://mega.nz/embed#', 'https://mega.nz/');
+    link = link.replace('https://mega.nz/embed', 'https://mega.nz/file');
+    link = link.replace('https://mixdropjmk.pw/e/', 'https://mixdropjmk.pw/f/');
+    link = link.replace('https://mixdrop.nu/e/', 'https://mixdropjmk.pw/f/');
+    link = link.replace('https://mixdrop.is/e/', 'https://mixdropjmk.pw/f/');
+    link = link.replace('https://luluvdo.com/e/', 'https://luluvdo.com/d/');
+    link = link.replace('https://lulu.st/e/', 'https://luluvdo.com/d/');
+    link = link.replace('https://voe.sx/e/', 'https://voe.sx/');
+    link = link.replace('https://www.yourupload.com/embed/', 'https://www.yourupload.com/watch/');
+    link = link.replace('https://mxdrop.to/e/', 'https://mxdrop.to/f/');
+
+    link = link.replace('https://vip.henaojara.com/player/multiplayer/hls/jwplayer.php', 'https://vip.henaojara.com/player/multiplayer/hls/descarga.php');
+    link = link.replace('https://nyuu.henaojara.com/player/vip/go.php', 'https://nyuu.streamhj.top/player/multiplayer/hls/download-nyuu.php');
+    link = link.replace('https://savefiles.top/e/', 'https://savefiles.top/');
+    
+    return link;
 }
 
 
