@@ -308,7 +308,8 @@ async function extractDirectServerFromEmbed(embedUrl) {
         const html = await response.text();
 
         const servers = [];
-        const regex = /<li[^>]*onclick="[^"]*playVideo\(&quot;\s*([^"&]+(?:&amp;[^"&]*)*)&quot;\)[^"]*"[\s\S]*?<span[^>]*class="nombre-server"[^>]*>([^<]+)<\/span>/gi;
+        // More flexible regex to match playVideo('...') or playVideo("&quot;...&quot;")
+        const regex = /<li[^>]*onclick="[^"]*playVideo\((?:&quot;|'|")\s*([^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)[^"]*"[\s\S]*?<span[^>]*class="nombre-server"[^>]*>([^<]+)<\/span>/gi;
         let match;
         while ((match = regex.exec(html)) !== null) {
             servers.push({
@@ -318,7 +319,8 @@ async function extractDirectServerFromEmbed(embedUrl) {
         }
 
         if (servers.length === 0) {
-            const fallbackRegex = /playVideo\(['"]\s*(https?:\/\/[^'"]+)['"]\)/gi;
+            // Fallback for different HTML structures
+            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
                 servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
             }
@@ -391,6 +393,7 @@ function extractFirst(text, regex) {
 function decodeHtml(text) {
     return String(text || '')
         .replace(/&amp;/g, '&')
+        .replace(/&#038;/g, '&')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<')
