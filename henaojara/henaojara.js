@@ -172,47 +172,43 @@ async function extractStreamUrl(url) {
         }
 
         if (embedUrls.length > 0) {
+            const allStreams = [];
             let globalDownloadUrl = null;
 
-            // Parallel embed resolution with batching to avoid timeouts
-            const embedResults = await Promise.all(embedUrls.map(async (embedUrl, i) => {
+            for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
                 const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
+                const embedUrl = embedUrls[i];
 
                 const embedResult = await extractDirectServerFromEmbed(embedUrl);
-                if (!embedResult) return [];
+                
+                if (embedResult) {
+                    if (embedResult.downloadUrl && !globalDownloadUrl) {
+                        globalDownloadUrl = embedResult.downloadUrl;
+                    }
 
-                if (embedResult.downloadUrl && !globalDownloadUrl) {
-                    globalDownloadUrl = embedResult.downloadUrl;
-                }
+                    if (embedResult.servers && embedResult.servers.length > 0) {
+                        const serverPromises = embedResult.servers.map(async (server) => {
+                            const result = await resolveServerToDirectUrl(server.url, server.name);
+                            if (result) {
+                                return {
+                                    title: langLabel + ' · ' + result.title,
+                                    url: result.streamUrl,
+                                    streamUrl: result.streamUrl,
+                                    headers: result.headers
+                                };
+                            }
+                            return null;
+                        });
 
-                if (embedResult.servers && embedResult.servers.length > 0) {
-                    const serverPromises = embedResult.servers.map(async (server) => {
-                        const result = await resolveServerToDirectUrl(server.url, server.name);
-                        if (result) {
-                            return {
-                                title: langLabel + ' · ' + result.title,
-                                url: result.streamUrl,
-                                streamUrl: result.streamUrl,
-                                headers: result.headers
-                            };
-                        }
-                        return null;
-                    });
-                    return await Promise.all(serverPromises);
+                        const resolved = await Promise.all(serverPromises);
+                        resolved.forEach(rs => {
+                            if (rs) allStreams.push(rs);
+                        });
+                    }
                 }
-                return [];
-            }));
-
-            var allStreams = [];
-            embedResults.forEach(function(results) {
-                if (Array.isArray(results)) {
-                    results.forEach(function(rs) {
-                        if (rs) allStreams.push(rs);
-                    });
-                }
-            });
+            }
 
             if (allStreams.length > 0) {
                 const payload = { streams: allStreams, subtitles: null };
