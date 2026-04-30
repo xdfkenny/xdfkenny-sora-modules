@@ -1,4 +1,4 @@
-<p align="center"><img src="banner.png" width="100%" /></p>
+<p align="center"><img src="banner.png" width="45%" /></p>
 
 <h1 align="center">xdfkenny modules</h1>
 
