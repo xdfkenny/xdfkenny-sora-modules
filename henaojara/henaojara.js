@@ -309,18 +309,21 @@ function prettifyServerName(name, url) {
         'uqload': '🔵 UqLoad',
     };
 
+    // If the embed page told us the server name, always trust it
     if (nameMap[raw]) return nameMap[raw];
 
-    // Try to identify from URL if name is generic
-    if (url) {
+    // Try to identify from URL only if name is truly generic/unknown
+    if (url && (!raw || raw === 'server' || raw === 'unknown')) {
         const host = url.match(/\/\/([^\/]+)/)?.[1] || '';
         if (/nyuu/i.test(host)) return '🟢 Nyuu (Direct)';
         if (/hgcloud/i.test(host)) return '🔵 HGCloud';
+        // VidHide domains must be checked BEFORE filelions since they share infra
+        if (/vidhide|vidhidepro|vidhidevip|vidhidepre|vidhideplus|vidhidehub|dhtpre|ryderjet/i.test(host)) return '🟡 VidHide';
         if (/filelions/i.test(host)) return '🟣 FileLions';
-        if (/filemoon/i.test(host)) return '🟣 Filemoon';
-        if (/netu/i.test(host)) return '🟠 Netu';
-        if (/vidhide/i.test(host)) return '🟡 VidHide';
+        if (/filemoon|filemooon|embedmoon|moonembed|bysekoze/i.test(host)) return '🟣 Filemoon';
+        if (/netu|netuplayer/i.test(host)) return '🟠 Netu';
         if (/uqload/i.test(host)) return '🔵 UqLoad';
+        if (/streamtape/i.test(host)) return '🔴 StreamTape';
         // Use the hostname as a fallback
         const shortHost = host.replace(/\..+$/, '');
         return shortHost.charAt(0).toUpperCase() + shortHost.slice(1);
@@ -642,10 +645,38 @@ async function extractDirectServerFromEmbed(embedUrl) {
         }
 
         if (servers.length === 0) {
-            // Fallback for different HTML structures
+            // Fallback: try to extract BOTH url and name with a broader regex
+            // First try matching playVideo + nearby server name span
+            const altRegex = /playVideo\((?:&quot;|'|"|\\["'])\s*(https?:\/\/[^"&'\\]+(?:&amp;[^"&'\\]*)*)\s*(?:&quot;|'|"|\\["'])\)[\s\S]*?<span[^>]*class="[^"]*nombre-server[^"]*"[^>]*>([^<]+)<\/span>/gi;
+            while ((match = altRegex.exec(html)) !== null) {
+                servers.push({
+                    url: normalizeExternalUrl(match[1]),
+                    name: cleanText(match[2])
+                });
+            }
+        }
+
+        if (servers.length === 0) {
+            // Last resort fallback: extract URLs only, derive name from URL hostname
             const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
-                servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
+                const serverUrl = normalizeExternalUrl(match[1]);
+                // Derive the server name from the URL instead of using generic 'Server'
+                const hostMatch = serverUrl.match(/\/\/([^\/]+)/);
+                let derivedName = 'Server';
+                if (hostMatch) {
+                    const host = hostMatch[1].toLowerCase();
+                    if (/nyuu/i.test(host)) derivedName = 'nyuu';
+                    else if (/vidhide|vidhidepro|vidhidevip|vidhidepre|vidhideplus|vidhidehub|dhtpre|ryderjet/i.test(host)) derivedName = 'vidhide';
+                    else if (/filelions/i.test(host)) derivedName = 'filelions';
+                    else if (/filemoon|filemooon|embedmoon|moonembed|bysekoze/i.test(host)) derivedName = 'filemoon';
+                    else if (/hgcloud|streamhg/i.test(host)) derivedName = 'streamhg';
+                    else if (/netu|netuplayer/i.test(host)) derivedName = 'netu';
+                    else if (/uqload/i.test(host)) derivedName = 'uqload';
+                    else if (/streamtape/i.test(host)) derivedName = 'streamtape';
+                    else derivedName = host.replace(/\..+$/, '');
+                }
+                servers.push({ url: serverUrl, name: derivedName });
             }
         }
 
