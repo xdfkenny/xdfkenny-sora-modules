@@ -1,5 +1,5 @@
 {
-  "sourceName": "AnimeJara",
+  "sourceName": "AnimeJara DEV",
   "iconUrl": "https://animejara.com/wp-content/uploads/2025/12/cropped-LOGO_ANIJARA7.png",
   "author": {
     "name": "xdfkenny",
@@ -11,7 +11,7 @@
   "quality": "1080p",
   "baseUrl": "https://animejara.com/",
   "searchBaseUrl": "https://animejara.com/catalogo/?q=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.js",
+  "scriptUrl": "https://github.com/xdfkenny/xdfkenny-sora-modules/blob/9e15bc9d8d678bac1e5571184cb789e3193363c5/henaojara/henaojara.js",
   "type": "Anime",
   "asyncJS": true,
   "streamAsyncJS": false,
