@@ -38,7 +38,7 @@ async function extractDetails(url) {
         );
         const airdate = extractFirst(
             html,
-            /fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
+            /<div[^>]*class="[^"]*anime-info-pre-contenedor[^"]*"[\s\S]*?fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
         );
         const aliases = extractAliases(html, description);
 
@@ -67,8 +67,8 @@ async function extractEpisodes(url) {
         const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
         const slug = slugMatch ? slugMatch[1] : '';
 
-        // Extract TEMPORADAS_DATA
-        const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\]);/);
+        // Extract TEMPORADAS_DATA - More robust regex
+        const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
         if (dataMatch && dataMatch[1]) {
             try {
                 const seasons = JSON.parse(dataMatch[1]);
@@ -79,11 +79,17 @@ async function extractEpisodes(url) {
                         const numEp = ep.numero_episodio;
                         // URL pattern: https://animejara.com/episode/${ANIME_SLUG}-${numTemp}x${numEp}/
                         const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
+                        
+                        // Fix for "Episode 0" - Use integer parsing and fallback
+                        let episodeNumber = parseInt(numEp, 10);
+                        if (isNaN(episodeNumber)) episodeNumber = 0;
+
                         episodes.push({
                             href,
-                            number: parseFloat(numEp),
+                            number: episodeNumber,
                             season: parseInt(numTemp, 10),
-                            episode: parseInt(numEp, 10)
+                            episode: episodeNumber,
+                            image: ep.poster_episodio || '' // Adding image/thumbnail
                         });
                     });
                 });
@@ -138,8 +144,8 @@ async function extractEpisodes(url) {
 async function extractStreamUrl(url) {
     try {
         const response = await soraFetch(url);
-
         const html = await response.text();
+        
         const iframe = extractFirst(
             html,
             /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i
@@ -150,12 +156,24 @@ async function extractStreamUrl(url) {
 
         if (iframe) {
             const iframeUrl = decodeHtml(iframe).trim();
-            const directFromEmbed = await extractDirectServerFromEmbed(iframeUrl);
-            return directFromEmbed || iframeUrl;
+            const servers = await extractDirectServerFromEmbed(iframeUrl);
+            
+            if (servers && Array.isArray(servers) && servers.length > 0) {
+                // Return JSON stringified array of streams for Sora's server picker
+                return JSON.stringify(servers.map(s => ({
+                    url: s.url,
+                    name: s.name || 'Server'
+                })));
+            }
+            
+            // Fallback: return the iframe URL itself as a single-element array
+            return JSON.stringify([{ url: iframeUrl, name: 'Default' }]);
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) return decodeHtml(m3u8).trim();
+        if (m3u8) {
+            return JSON.stringify([{ url: decodeHtml(m3u8).trim(), name: 'HLS Stream' }]);
+        }
 
         return null;
     } catch (error) {
@@ -295,19 +313,18 @@ async function extractDirectServerFromEmbed(embedUrl) {
         while ((match = regex.exec(html)) !== null) {
             servers.push({
                 url: normalizeExternalUrl(match[1]),
-                name: cleanText(match[2]).toLowerCase()
+                name: cleanText(match[2])
             });
         }
 
         if (servers.length === 0) {
             const fallbackRegex = /playVideo\(['"]\s*(https?:\/\/[^'"]+)['"]\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
-                servers.push({ url: normalizeExternalUrl(match[1]), name: '' });
+                servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
             }
         }
 
-        const preferred = pickPreferredServer(servers);
-        return preferred || null;
+        return (servers.length > 0) ? servers : null;
     } catch (error) {
         console.error('Embed server extraction error:', error);
         return null;
