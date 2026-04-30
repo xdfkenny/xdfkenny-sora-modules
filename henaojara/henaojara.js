@@ -65,7 +65,11 @@ async function extractEpisodes(url) {
 
         // Extract ANIME_SLUG
         const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
-        const slug = slugMatch ? slugMatch[1] : '';
+        let slug = slugMatch ? slugMatch[1] : '';
+        if (!slug) {
+            const urlMatch = url.match(/\/(anime|movie)\/([^\/]+)/);
+            if (urlMatch) slug = urlMatch[2];
+        }
 
         // Extract TEMPORADAS_DATA - More robust regex
         const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
@@ -77,7 +81,7 @@ async function extractEpisodes(url) {
                     const items = season.episodios || [];
                     items.forEach((ep) => {
                         const numEp = ep.numero_episodio;
-                        // URL pattern: https://animejara.com/episode/${ANIME_SLUG}-${numTemp}x${numEp}/
+                        // URL pattern: https://animejara.com/episode/${slug}-${numTemp}x${numEp}/
                         const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
                         
                         // Fix for "Episode 0" - Use integer parsing and fallback
@@ -179,15 +183,23 @@ async function extractStreamUrl(url) {
                 const embedUrl = embedUrls[i];
                 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
-                if (!servers || servers.length === 0) continue;
                 
-                for (const server of servers) {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
-                        // Prefix the stream title with the language
-                        result.title = langLabel + ' · ' + result.title;
-                        allStreams.push(result);
+                if (servers && servers.length > 0) {
+                    for (const server of servers) {
+                        const displayName = prettifyServerName(server.name, server.url);
+                        allStreams.push({
+                            title: langLabel + ' · ' + displayName,
+                            url: server.url,
+                            streamUrl: server.url
+                        });
                     }
+                } else {
+                    const displayName = prettifyServerName('', embedUrl);
+                    allStreams.push({
+                        title: langLabel + ' · ' + displayName,
+                        url: embedUrl,
+                        streamUrl: embedUrl
+                    });
                 }
             }
             
@@ -218,8 +230,12 @@ async function extractStreamUrl(url) {
             if (servers && Array.isArray(servers) && servers.length > 0) {
                 const streams = [];
                 for (const server of servers) {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) streams.push(result);
+                    const displayName = prettifyServerName(server.name, server.url);
+                    streams.push({
+                        title: displayName,
+                        url: server.url,
+                        streamUrl: server.url
+                    });
                 }
                 
                 if (streams.length > 0) {
@@ -282,66 +298,7 @@ function prettifyServerName(name, url) {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-// Resolve an embed/server URL to a {title, streamUrl, headers} object (HLS only)
-async function resolveServerToDirectUrl(serverUrl, serverName) {
-    try {
-        const displayName = prettifyServerName(serverName, serverUrl);
-        
-        // Skip servers that don't serve standard HLS
-        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
-        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
-        
-        // Get the origin/referer from the embed URL
-        const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
-        const referer = urlObj ? urlObj[1] + '/' : '';
-        
-        const resp = await soraFetch(serverUrl);
-        if (!resp) return null;
-        const html = await resp.text();
-        
-        // 1. Try to find m3u8 directly in the HTML
-        let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-            || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-            || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i);
-        
-        // 2. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
-        if (!m3u8) {
-            const packedMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?\)[\s\S]*?)<\/script>/);
-            if (packedMatch) {
-                try {
-                    const unpacked = unpack(packedMatch[1]);
-                    m3u8 = extractFirst(unpacked, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-                        || extractFirst(unpacked, /"hls2"\s*:\s*"([^"]+)"/i)
-                        || extractFirst(unpacked, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-                } catch (e) {
-                    // Unpacker failed, continue
-                }
-            }
-        }
-        
-        // 3. Last resort: broad regex match for m3u8 URLs
-        if (!m3u8) {
-            m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        }
-        
-        if (m3u8) {
-            return {
-                title: displayName,
-                streamUrl: decodeHtml(m3u8).trim(),
-                headers: {
-                    "Referer": referer,
-                    "Origin": referer.replace(/\/$/, ''),
-                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-                }
-            };
-        }
-        
-        return null;
-    } catch (e) {
-        console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
-        return null;
-    }
-}
+
 
 
 
@@ -464,7 +421,12 @@ function parseAnimeCardsFromHtml(html) {
 
 async function extractDirectServerFromEmbed(embedUrl) {
     try {
-        if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
+        // Broaden the check to avoid missing other multiplayer domains or directly returning null
+        if (!/multiplayer|streamhj|reproductor|animejara/i.test(embedUrl)) {
+            // It might be a direct embed URL like mega, mp4upload, etc.
+            // We just return null so it falls back to the direct URL in extractStreamUrl.
+            return null;
+        }
 
         const response = await soraFetch(embedUrl);
         if (!response) return null;
