@@ -17,5 +17,6 @@
   "streamAsyncJS": false,
   "softsub": false,
   "supportsSora": true,
-  "supportsLuna": true
+  "supportsLuna": true,
+  "downloadSupport": false
 }
