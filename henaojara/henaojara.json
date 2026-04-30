@@ -11,7 +11,7 @@
   "quality": "1080p",
   "baseUrl": "https://animejara.com/",
   "searchBaseUrl": "https://animejara.com/catalogo/?q=%s",
-  "scriptUrl": "https://github.com/xdfkenny/xdfkenny-sora-modules/blob/9e15bc9d8d678bac1e5571184cb789e3193363c5/henaojara/henaojara.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/9e15bc9d8d678bac1e5571184cb789e3193363c5/henaojara/henaojara.js",
   "type": "Anime",
   "asyncJS": true,
   "streamAsyncJS": false,

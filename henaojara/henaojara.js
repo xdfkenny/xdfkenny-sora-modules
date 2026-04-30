@@ -488,10 +488,7 @@ function ajustarEnlace(servidor, enlace) {
 
     return link;
 }
-    link = link.replace('https://savefiles.top/e/', 'https://savefiles.top/');
 
-    return link;
-}
 
 
 
