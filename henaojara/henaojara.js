@@ -1,9 +1,7 @@
-var DEBUG = false;
-var BASE_URL = 'https://animejara.com';
-var AJAX_URL = BASE_URL + '/wp-admin/admin-ajax.php';
-var CATALOG_URL = BASE_URL + '/catalogo/?q=';
-var SEARCH_URL = BASE_URL + '/?s=';
-var FETCH_TIMEOUT = 15000;
+const BASE_URL = 'https://animejara.com';
+const AJAX_URL = `${BASE_URL}/wp-admin/admin-ajax.php`;
+const CATALOG_URL = `${BASE_URL}/catalogo/?q=`;
+const SEARCH_URL = `${BASE_URL}/?s=`;
 
 /* MAIN FUNCTIONS */
 
@@ -225,11 +223,8 @@ async function extractStreamUrl(url) {
                 return JSON.stringify(payload);
             }
 
-            // Fallback for no resolved streams but embeds found
-            return JSON.stringify({
-                streams: [{ title: 'Embed Fallback', url: embedUrls[0], streamUrl: embedUrls[0] }],
-                subtitles: null
-            });
+            // Fallback: return the first embed URL as a plain string
+            return embedUrls[0];
         }
 
         const iframe = extractFirst(
@@ -270,25 +265,16 @@ async function extractStreamUrl(url) {
                 }
             }
 
-            return JSON.stringify({
-                streams: [{ title: 'Direct Iframe', url: iframeUrl, streamUrl: iframeUrl }],
-                subtitles: null
-            });
+            return iframeUrl;
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) {
-            const cleanM3u8 = decodeHtml(m3u8).trim();
-            return JSON.stringify({
-                streams: [{ title: 'Direct M3U8', url: cleanM3u8, streamUrl: cleanM3u8 }],
-                subtitles: null
-            });
-        }
+        if (m3u8) return decodeHtml(m3u8).trim();
 
-        return JSON.stringify({ streams: [], subtitles: null });
+        return null;
     } catch (error) {
-        if (DEBUG) console.error('Stream error:', error);
-        return JSON.stringify({ streams: [], subtitles: null });
+        console.error('Stream error:', error);
+        return null;
     }
 }
 
@@ -805,31 +791,14 @@ async function soraFetch(url, options) {
     const method = opts.method || 'GET';
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
-    const fetchPromise = (async () => {
-        try {
-            return await fetchv2(url, mergedHeaders, method, body);
-        } catch (e) {
-            return await fetch(url, {
-                method: method,
-                headers: mergedHeaders,
-                body: body
-            });
-        }
-    })();
-
-    var timeoutPromise = new Promise(function(_, reject) {
-        setTimeout(function() { reject(new Error('Timeout fetching ' + url)); }, FETCH_TIMEOUT);
-    });
-
     try {
-        var response = await Promise.race([fetchPromise, timeoutPromise]);
-        if (response && typeof response.ok !== 'undefined' && !response.ok) {
-            if (DEBUG) console.error('HTTP error! status: ' + response.status + ' for ' + url);
-        }
-        return response;
-    } catch (error) {
-        if (DEBUG) console.error('Fetch error for ' + url + ':', error);
-        return null;
+        return await fetchv2(url, mergedHeaders, method, body);
+    } catch (e) {
+        return await fetch(url, {
+            method: method,
+            headers: mergedHeaders,
+            body: body
+        });
     }
 }
 
