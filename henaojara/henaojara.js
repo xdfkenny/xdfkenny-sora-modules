@@ -81,7 +81,7 @@ async function extractEpisodes(url) {
                         const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
                         episodes.push({
                             href,
-                            number: `S${numTemp}E${numEp}`,
+                            number: parseFloat(numEp),
                             season: parseInt(numTemp, 10),
                             episode: parseInt(numEp, 10)
                         });
@@ -119,7 +119,7 @@ async function extractEpisodes(url) {
                     if (!isNaN(season) && !isNaN(episode)) {
                         episodes.push({
                             href,
-                            number: `S${season}E${episode}`,
+                            number: episode,
                             season,
                             episode
                         });
@@ -151,17 +151,16 @@ async function extractStreamUrl(url) {
         if (iframe) {
             const iframeUrl = decodeHtml(iframe).trim();
             const directFromEmbed = await extractDirectServerFromEmbed(iframeUrl);
-            if (directFromEmbed) return { stream: directFromEmbed };
-            return { stream: iframeUrl };
+            return directFromEmbed || iframeUrl;
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) return { stream: decodeHtml(m3u8).trim() };
+        if (m3u8) return decodeHtml(m3u8).trim();
 
-        return { stream: null };
+        return null;
     } catch (error) {
         console.error('Stream error:', error);
-        return { stream: null };
+        return null;
     }
 }
 
