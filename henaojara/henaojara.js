@@ -60,26 +60,71 @@ async function extractDetails(url) {
 async function extractEpisodes(url) {
     try {
         const response = await soraFetch(url);
-
         const html = await response.text();
         const episodes = [];
-        const seen = new Set();
-        const regex = /<a[^>]+href="(https:\/\/animejara\.com\/episode\/[^"]+)"[^>]*class="[^"]*episodio-link[^"]*"[\s\S]*?<div[^>]*>\s*(\d+)x(\d+)\s*<\/div>/gi;
 
-        let match;
-        while ((match = regex.exec(html)) !== null) {
-            const href = normalizeUrl(match[1]);
-            if (seen.has(href)) continue;
-            seen.add(href);
+        // Extract ANIME_SLUG
+        const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
+        const slug = slugMatch ? slugMatch[1] : '';
 
-            const season = parseInt(match[2], 10);
-            const episode = parseInt(match[3], 10);
+        // Extract TEMPORADAS_DATA
+        const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\]);/);
+        if (dataMatch && dataMatch[1]) {
+            try {
+                const seasons = JSON.parse(dataMatch[1]);
+                seasons.forEach((season) => {
+                    const numTemp = season.numero_temporada;
+                    const items = season.episodios || [];
+                    items.forEach((ep) => {
+                        const numEp = ep.numero_episodio;
+                        // URL pattern: https://animejara.com/episode/${ANIME_SLUG}-${numTemp}x${numEp}/
+                        const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
+                        episodes.push({
+                            href,
+                            number: `S${numTemp}E${numEp}`,
+                            season: parseInt(numTemp, 10),
+                            episode: parseInt(numEp, 10)
+                        });
+                    });
+                });
+            } catch (jsonError) {
+                console.error('Error parsing TEMPORADAS_DATA:', jsonError);
+            }
+        }
 
-            episodes.push({
-                href,
-                number: `S${season}E${episode}`,
-                season,
-                episode
+        // Fallback or additional check: if episodes is still empty, let's try the old regex just in case
+        if (episodes.length === 0) {
+            const seen = new Set();
+            const regexArr = [
+                /<a[^>]+href="(https:\/\/animejara\.com\/episode\/[^"]+)"[^>]*class="[^"]*episodio-link[^"]*"[\s\S]*?<div[^>]*>\s*(\d+)x(\d+)\s*<\/div>/gi,
+                /href="(https:\/\/animejara\.com\/episode\/([^"-]+)-(\d+)x(\d+)\/)"/gi
+            ];
+
+            regexArr.forEach((regex) => {
+                let match;
+                while ((match = regex.exec(html)) !== null) {
+                    const href = normalizeUrl(match[1]);
+                    if (seen.has(href)) continue;
+                    seen.add(href);
+
+                    let season, episode;
+                    if (match.length === 4) {
+                        season = parseInt(match[2], 10);
+                        episode = parseInt(match[3], 10);
+                    } else if (match.length === 5) {
+                        season = parseInt(match[3], 10);
+                        episode = parseInt(match[4], 10);
+                    }
+
+                    if (!isNaN(season) && !isNaN(episode)) {
+                        episodes.push({
+                            href,
+                            number: `S${season}E${episode}`,
+                            season,
+                            episode
+                        });
+                    }
+                }
             });
         }
 
