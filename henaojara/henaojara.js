@@ -159,7 +159,7 @@ async function extractStreamUrl(url) {
             langNames.push(langMatch[1].trim());
         }
 
-        // Parse the embed URLs from the enlaces array (handles escaped slashes \/)
+        // Parse the embed URLs from the enlaces array (handles escaped slashes \/).
         const embedUrls = [];
         if (enlacesMatch) {
             const urlRegex = /["'](https?:[^"']+)["']/g;
