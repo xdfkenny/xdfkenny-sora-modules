@@ -159,7 +159,28 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                // Pick the best server and return its URL as a plain string
+                // Try to resolve direct playable URLs from each server
+                const streams = [];
+                
+                for (const server of servers) {
+                    const directUrl = await resolveServerToDirectUrl(server.url, server.name);
+                    if (directUrl) {
+                        streams.push({
+                            title: server.name || 'Server',
+                            streamUrl: directUrl,
+                            headers: {}
+                        });
+                    }
+                }
+                
+                if (streams.length > 0) {
+                    return JSON.stringify({
+                        streams: streams,
+                        subtitles: ''
+                    });
+                }
+                
+                // If no direct URLs could be resolved, return the first embed URL as fallback
                 const preferred = pickPreferredServer(servers);
                 return preferred || servers[0].url;
             }
@@ -177,6 +198,65 @@ async function extractStreamUrl(url) {
         return null;
     }
 }
+
+// Resolve an embed/server URL to a directly playable video URL
+async function resolveServerToDirectUrl(serverUrl, serverName) {
+    try {
+        const name = (serverName || '').toLowerCase();
+        
+        // nyuu/streamhj servers serve direct MP4 from Cloudflare R2
+        if (/nyuu\.streamhj\.top|hgcloud\.to/i.test(serverUrl)) {
+            const resp = await soraFetch(serverUrl);
+            if (!resp) return null;
+            const html = await resp.text();
+            
+            // Look for direct video source in the page
+            const videoSrc = extractFirst(html, /<source[^>]+src="([^"]+)"/i)
+                || extractFirst(html, /file\s*:\s*["']([^"']+\.mp4[^"']*)/i)
+                || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*)/i)
+                || extractFirst(html, /(https?:\/\/[^\s"'<>]+cloudflarestorage\.com[^\s"'<>]*)/i)
+                || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+            
+            if (videoSrc) return decodeHtml(videoSrc).trim();
+            return null;
+        }
+        
+        // StreamTape - extract direct link
+        if (/streamtape\.com/i.test(serverUrl)) {
+            const resp = await soraFetch(serverUrl);
+            if (!resp) return null;
+            const html = await resp.text();
+            // StreamTape hides the URL in a JS variable
+            const tokenMatch = html.match(/document\.getElementById\('robotlink'\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*\('([^']+)'\)/);
+            if (tokenMatch) {
+                return 'https:' + tokenMatch[1] + tokenMatch[2];
+            }
+            // Alternative pattern
+            const altMatch = html.match(/id="videolink"[^>]*>([^<]+)/i) 
+                || html.match(/id="robotlink"[^>]*>([^<]+)/i);
+            if (altMatch) return altMatch[1].trim();
+            return null;
+        }
+        
+        // Generic: try to fetch and find m3u8/mp4 in the response
+        const resp = await soraFetch(serverUrl);
+        if (!resp) return null;
+        const html = await resp.text();
+        
+        const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+        if (m3u8) return decodeHtml(m3u8).trim();
+        
+        const mp4 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)/i)
+            || extractFirst(html, /<source[^>]+src=["'](https?:\/\/[^"']+\.mp4[^"']*)/i);
+        if (mp4) return decodeHtml(mp4).trim();
+        
+        return null;
+    } catch (e) {
+        console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
+        return null;
+    }
+}
+
 
 /* HELPERS */
 
