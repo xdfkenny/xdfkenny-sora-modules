@@ -1,17 +1,9 @@
-const DEBUG = false;
-const CONFIG = {
-    DOMAIN: 'animejara.com',
-    BASE_URL: 'https://animejara.com',
-    get AJAX_URL() { return `${this.BASE_URL}/wp-admin/admin-ajax.php`; },
-    get CATALOG_URL() { return `${this.BASE_URL}/catalogo/?q=`; },
-    get SEARCH_URL() { return `${this.BASE_URL}/?s=`; },
-    TIMEOUT: 15000 // 15 seconds
-};
-
-const BASE_URL = CONFIG.BASE_URL;
-const AJAX_URL = CONFIG.AJAX_URL;
-const CATALOG_URL = CONFIG.CATALOG_URL;
-const SEARCH_URL = CONFIG.SEARCH_URL;
+var DEBUG = false;
+var BASE_URL = 'https://animejara.com';
+var AJAX_URL = BASE_URL + '/wp-admin/admin-ajax.php';
+var CATALOG_URL = BASE_URL + '/catalogo/?q=';
+var SEARCH_URL = BASE_URL + '/?s=';
+var FETCH_TIMEOUT = 15000;
 
 /* MAIN FUNCTIONS */
 
@@ -215,7 +207,14 @@ async function extractStreamUrl(url) {
                 return [];
             }));
 
-            const allStreams = embedResults.flat().filter(Boolean);
+            var allStreams = [];
+            embedResults.forEach(function(results) {
+                if (Array.isArray(results)) {
+                    results.forEach(function(rs) {
+                        if (rs) allStreams.push(rs);
+                    });
+                }
+            });
 
             if (allStreams.length > 0) {
                 const payload = { streams: allStreams, subtitles: null };
@@ -391,10 +390,13 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
 
 async function extractRealDownloadUrl(downloadPageUrl) {
     try {
-        const urlObj = new URL(downloadPageUrl);
-        const params = urlObj.searchParams;
-        const idAnime = params.get('idanime');
-        const idCapitulo = parseInt(params.get('idcapitulo'), 10);
+
+        var idAnime = '';
+        var idCapitulo = null;
+        var idMatch = downloadPageUrl.match(/idanime=([^&]+)/i);
+        if (idMatch) idAnime = idMatch[1];
+        var capMatch = downloadPageUrl.match(/idcapitulo=(\d+)/i);
+        if (capMatch) idCapitulo = parseInt(capMatch[1], 10);
 
         if (!idAnime || isNaN(idCapitulo)) return null;
 
@@ -659,12 +661,12 @@ async function extractDirectServerFromEmbed(embedUrl) {
 
 function buildAnimeHref(slug, tipo) {
     if (!slug) return '';
-    const section = (tipo || '').toLowerCase().includes('pelicula') ? 'movie' : 'anime';
-    return `${CONFIG.BASE_URL}/${section}/${slug}/`;
+    var section = (tipo || '').toLowerCase().indexOf('pelicula') !== -1 ? 'movie' : 'anime';
+    return BASE_URL + '/' + section + '/' + slug + '/';
 }
 
 function extractAliases(html, description) {
-    const fromDescription = (description || '').split(/<br\s*\/?>/i).map((line) => cleanText(line)).filter(Boolean);
+    var fromDescription = (description || '').split(/<br\s*\/?>/i).map(function(line) { return cleanText(line); }).filter(Boolean);
     if (fromDescription.length >= 2) {
         return fromDescription.slice(-2).join(' | ');
     }
@@ -744,8 +746,8 @@ function decodeHtml(text) {
         .replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
-        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
-        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+        .replace(/&#(\d+);/g, function(_, code) { return String.fromCharCode(parseInt(code, 10)); })
+        .replace(/&#x([0-9a-f]+);/gi, function(_, hex) { return String.fromCharCode(parseInt(hex, 16)); });
 }
 
 function normalizeExternalUrl(url) {
@@ -784,18 +786,18 @@ async function soraFetch(url, options) {
         }
     })();
 
-    const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout fetching ${url}`)), CONFIG.TIMEOUT)
-    );
+    var timeoutPromise = new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error('Timeout fetching ' + url)); }, FETCH_TIMEOUT);
+    });
 
     try {
-        const response = await Promise.race([fetchPromise, timeoutPromise]);
+        var response = await Promise.race([fetchPromise, timeoutPromise]);
         if (response && typeof response.ok !== 'undefined' && !response.ok) {
-            if (DEBUG) console.error(`HTTP error! status: ${response.status} for ${url}`);
+            if (DEBUG) console.error('HTTP error! status: ' + response.status + ' for ' + url);
         }
         return response;
     } catch (error) {
-        if (DEBUG) console.error(`Fetch error for ${url}:`, error);
+        if (DEBUG) console.error('Fetch error for ' + url + ':', error);
         return null;
     }
 }
@@ -804,21 +806,10 @@ function mergeHeaders(url, opts) {
     const base = opts.headers || {};
     const urlStr = String(url || '');
     
-    // Strict hostname check
-    let isTargetDomain = false;
-    try {
-        const parsedUrl = new URL(urlStr);
-        isTargetDomain = parsedUrl.hostname === CONFIG.DOMAIN || parsedUrl.hostname.endsWith('.' + CONFIG.DOMAIN);
-    } catch (e) {
-        isTargetDomain = urlStr.includes(CONFIG.DOMAIN);
-    }
-
-    if (!isTargetDomain) return base;
-
-    const method = opts.method || 'GET';
-    const isAjaxPost = method === 'POST' && urlStr.indexOf('/wp-admin/admin-ajax.php') !== -1;
-    let referer = CONFIG.BASE_URL + '/';
-    if (isAjaxPost) referer = CONFIG.CATALOG_URL;
+    var method = opts.method || 'GET';
+    var isAjaxPost = method === 'POST' && urlStr.indexOf('/wp-admin/admin-ajax.php') !== -1;
+    var referer = BASE_URL + '/';
+    if (isAjaxPost) referer = CATALOG_URL;
 
     const defaults = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -844,60 +835,60 @@ function mergeHeaders(url, opts) {
  * Credit to GitHub user "mnsrulz" for Unpacker Node library
  * https://github.com/mnsrulz/unpacker
  ***********************************************************/
-class Unbaser {
-    constructor(base) {
-        this.ALPHABET = {
-            62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-            95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'",
-        };
-        this.dictionary = {};
-        this.base = base;
-        if (36 < base && base < 62) {
-            this.ALPHABET[base] = this.ALPHABET[base] ||
-                this.ALPHABET[62].substr(0, base);
-        }
-        if (2 <= base && base <= 36) {
-            this.unbase = (value) => parseInt(value, base);
-        } else {
-            try {
-                [...this.ALPHABET[base]].forEach((cipher, index) => {
-                    this.dictionary[cipher] = index;
-                });
-            } catch (er) {
-                throw Error("Unsupported base encoding.");
-            }
-            this.unbase = this._dictunbaser;
-        }
+
+function Unbaser(base) {
+    this.ALPHABET = {
+        62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'",
+    };
+    this.dictionary = {};
+    this.base = base;
+    if (36 < base && base < 62) {
+        this.ALPHABET[base] = this.ALPHABET[base] ||
+            this.ALPHABET[62].substr(0, base);
     }
-    _dictunbaser(value) {
-        let ret = 0;
-        [...value].reverse().forEach((cipher, index) => {
-            ret = ret + ((Math.pow(this.base, index)) * this.dictionary[cipher]);
-        });
-        return ret;
+    if (2 <= base && base <= 36) {
+        this.unbase = function(value) { return parseInt(value, base); };
+    } else {
+        try {
+            var alpha = this.ALPHABET[base];
+            for (var i = 0; i < alpha.length; i++) {
+                this.dictionary[alpha[i]] = i;
+            }
+        } catch (er) {
+            throw Error("Unsupported base encoding.");
+        }
+        this.unbase = this._dictunbaser;
     }
 }
+Unbaser.prototype._dictunbaser = function(value) {
+    var ret = 0;
+    var reversed = value.split('').reverse();
+    for (var i = 0; i < reversed.length; i++) {
+        ret = ret + ((Math.pow(this.base, i)) * this.dictionary[reversed[i]]);
+    }
+    return ret;
+};
 
 function detect(source) {
-    return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
+    return source.replace(" ", "").indexOf("eval(function(p,a,c,k,e,") === 0;
 }
 
 function unpack(source) {
     function _filterargs(source) {
-        const juicers = [
+        var juicers = [
             /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\), *(\d+), *(.*)\)\)/,
             /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\)/,
         ];
-        for (const juicer of juicers) {
-            const args = juicer.exec(source);
+        for (var i = 0; i < juicers.length; i++) {
+            var args = juicers[i].exec(source);
             if (args) {
-                let a = args;
                 try {
                     return {
-                        payload: a[1],
-                        symtab: a[4].split("|"),
-                        radix: parseInt(a[2]),
-                        count: parseInt(a[3]),
+                        payload: args[1],
+                        symtab: args[4].split("|"),
+                        radix: parseInt(args[2]),
+                        count: parseInt(args[3]),
                     };
                 } catch (ValueError) {
                     throw Error("Corrupted p.a.c.k.e.r. data.");
@@ -908,23 +899,27 @@ function unpack(source) {
     }
 
     function _replacestrings(source) {
-        // Restore common string escapes that packers sometimes use
         return source.replace(/\\'/g, "'").replace(/\\"/g, '"');
     }
 
-    const { payload, symtab, radix, count } = _filterargs(source);
+    var args = _filterargs(source);
+    var payload = args.payload;
+    var symtab = args.symtab;
+    var radix = args.radix;
+    var count = args.count;
+
     if (count != symtab.length) {
         throw Error("Malformed p.a.c.k.e.r. symtab.");
     }
-    let unbase;
+    var unbase;
     try {
         unbase = new Unbaser(radix);
     } catch (e) {
         throw Error("Unknown p.a.c.k.e.r. encoding.");
     }
     function lookup(match) {
-        const word = match;
-        let word2;
+        var word = match;
+        var word2;
         if (radix == 1) {
             word2 = symtab[parseInt(word)];
         } else {
@@ -932,6 +927,6 @@ function unpack(source) {
         }
         return word2 || word;
     }
-    const unpacked = payload.replace(/\b\w+\b/g, lookup);
+    var unpacked = payload.replace(/\b\w+\b/g, lookup);
     return _replacestrings(unpacked);
-}
+}
