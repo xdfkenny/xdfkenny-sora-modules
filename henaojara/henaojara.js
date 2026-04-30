@@ -803,15 +803,18 @@ async function soraFetch(url, options) {
 }
 
 function mergeHeaders(url, opts) {
-    const base = opts.headers || {};
-    const urlStr = String(url || '');
-    
+    var base = opts.headers || {};
+    var urlStr = String(url || '');
+
+    // Only add animejara headers for animejara.com requests
+    if (urlStr.indexOf('animejara.com') === -1) return base;
+
     var method = opts.method || 'GET';
     var isAjaxPost = method === 'POST' && urlStr.indexOf('/wp-admin/admin-ajax.php') !== -1;
     var referer = BASE_URL + '/';
     if (isAjaxPost) referer = CATALOG_URL;
 
-    const defaults = {
+    var defaults = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Accept: isAjaxPost ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'es-ES,es;q=0.9,en-US,en;q=0.8',
@@ -819,8 +822,8 @@ function mergeHeaders(url, opts) {
         Origin: 'https://animejara.com'
     };
 
-    const out = {};
-    let k;
+    var out = {};
+    var k;
     for (k in defaults) {
         if (Object.prototype.hasOwnProperty.call(defaults, k)) out[k] = defaults[k];
     }
