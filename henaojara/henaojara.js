@@ -159,21 +159,17 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                // Return JSON stringified array of streams for Sora's server picker
-                return JSON.stringify(servers.map(s => ({
-                    url: s.url,
-                    name: s.name || 'Server'
-                })));
+                // Pick the best server and return its URL as a plain string
+                const preferred = pickPreferredServer(servers);
+                return preferred || servers[0].url;
             }
             
-            // Fallback: return the iframe URL itself as a single-element array
-            return JSON.stringify([{ url: iframeUrl, name: 'Default' }]);
+            // Fallback: return the iframe URL itself
+            return iframeUrl;
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) {
-            return JSON.stringify([{ url: decodeHtml(m3u8).trim(), name: 'HLS Stream' }]);
-        }
+        if (m3u8) return decodeHtml(m3u8).trim();
 
         return null;
     } catch (error) {
