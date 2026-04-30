@@ -1,11 +1,11 @@
 {
   "sourceName": "HenaoJara",
-  "iconUrl": "https://animejara.com/wp-content/uploads/2026/04/cropped-nuevologo3-32x32.webp",
+  "iconUrl": "https://animejara.com/wp-content/uploads/2025/12/cropped-LOGO_ANIJARA7.png",
   "author": {
     "name": "xdfkenny",
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj"
   },
-  "version": "2.2.1",
+  "version": "3.0.0",
   "language": "Español Latino",
   "streamType": "HLS",
   "quality": "1080p",
