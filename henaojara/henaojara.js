@@ -194,9 +194,48 @@ async function extractStreamUrl(url) {
     }
 }
 
+// Format server name for display in Sora's server picker
+function prettifyServerName(name, url) {
+    if (!name && !url) return 'Unknown';
+    const raw = (name || '').trim().toLowerCase();
+    
+    // Map known server names to readable labels
+    const nameMap = {
+        'nyuu': '🟢 Nyuu (Direct)',
+        'streamhg': '🔵 StreamHG',
+        'vidhide': '🟡 VidHide',
+        'netu': '🟠 Netu',
+        'filemoon': '🟣 Filemoon',
+        'filelions': '🟣 FileLions',
+        'streamtape': '🔴 StreamTape',
+        'uqload': '🔵 UqLoad',
+    };
+    
+    if (nameMap[raw]) return nameMap[raw];
+    
+    // Try to identify from URL if name is generic
+    if (url) {
+        const host = url.match(/\/\/([^\/]+)/)?.[1] || '';
+        if (/nyuu/i.test(host)) return '🟢 Nyuu (Direct)';
+        if (/hgcloud/i.test(host)) return '🔵 HGCloud';
+        if (/filelions/i.test(host)) return '🟣 FileLions';
+        if (/filemoon/i.test(host)) return '🟣 Filemoon';
+        if (/netu/i.test(host)) return '🟠 Netu';
+        if (/vidhide/i.test(host)) return '🟡 VidHide';
+        if (/uqload/i.test(host)) return '🔵 UqLoad';
+        // Use the hostname as a fallback
+        const shortHost = host.replace(/\..+$/, '');
+        return shortHost.charAt(0).toUpperCase() + shortHost.slice(1);
+    }
+    
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 // Resolve an embed/server URL to a {title, streamUrl, headers} object
 async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
+        const displayName = prettifyServerName(serverName, serverUrl);
+        
         // Skip StreamTape - uses anti-hotlink fake domains that cause DNS failures
         if (/streamtape\.com/i.test(serverUrl)) {
             return null;
@@ -217,7 +256,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         
         if (m3u8) {
             return {
-                title: serverName || 'Server',
+                title: displayName,
                 streamUrl: decodeHtml(m3u8).trim(),
                 headers: {
                     "Referer": referer,
@@ -235,7 +274,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         
         if (mp4) {
             return {
-                title: serverName || 'Server',
+                title: displayName,
                 streamUrl: decodeHtml(mp4).trim(),
                 headers: {
                     "Referer": referer,
