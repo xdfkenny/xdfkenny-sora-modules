@@ -633,8 +633,8 @@ async function extractDirectServerFromEmbed(embedUrl) {
         if (servers.length === 0) {
             // Fallback: try to extract BOTH url and name with a broader regex
             // First try matching playVideo + nearby server name span
-            const altRegex = /playVideo\((?:&quot;|'|"|\\["'])\s*(https?:\/\/[^"&'\\]+(?:&amp;[^"&'\\]*)*)\s*(?:&quot;|'|"|\\["'])\)[\s\S]*?<span[^>]*class="[^"]*nombre-server[^"]*"[^>]*>([^<]+)<\/span>/gi;
-            while ((match = altRegex.exec(html)) !== null) {
+            const nameRegex = /onclick="[^"]*playVideo\((?:&quot;|'|"|\\["'])\s*([^"&'\\]+(?:&amp;[^"&'\\]*)*)\s*(?:&quot;|'|"|\\["'])\)[^"]*"[\s\S]*?<span[^>]*class="[^"]*nombre-server[^"]*"[^>]*>\s*([^<]+?)\s*<\/span>/gi;
+            while ((match = nameRegex.exec(html)) !== null) {
                 servers.push({
                     url: normalizeExternalUrl(match[1]),
                     name: cleanText(match[2])
@@ -644,7 +644,7 @@ async function extractDirectServerFromEmbed(embedUrl) {
 
         if (servers.length === 0) {
             // Last resort fallback: extract URLs only, derive name from URL hostname
-            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
+            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*([^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
                 const serverUrl = normalizeExternalUrl(match[1]);
                 // Derive the server name from the URL instead of using generic 'Server'
