@@ -3,6 +3,9 @@ const AJAX_URL = `${BASE_URL}/wp-admin/admin-ajax.php`;
 const CATALOG_URL = `${BASE_URL}/catalogo/?q=`;
 const SEARCH_URL = `${BASE_URL}/?s=`;
 
+const NON_HLS_SERVERS = ['mega', 'mediafire', 'dood', 'streamtape', 'yourupload', 'mixdrop', 'savefiles', 'mp4upload', 'netu'];
+const HLS_SERVERS = ['vidhide', 'filemoon', 'filelions', 'voe', 'lulustream', 'lulu', 'nyuu', 'streamhg', 'burstcloud', 'uqload'];
+
 /* MAIN FUNCTIONS */
 
 async function searchResults(keyword) {
@@ -10,16 +13,19 @@ async function searchResults(keyword) {
         const query = (keyword || '').trim();
         if (!query) return JSON.stringify([]);
 
-        const catalogResults = await searchFromCatalog(query);
-        if (catalogResults.length > 0) return JSON.stringify(catalogResults);
+        const [catalogResults, ajaxResults, wpResults] = await Promise.allSettled([
+            searchFromCatalog(query),
+            searchFromAjax(query),
+            searchFromWordPress(query)
+        ]);
 
-        const ajaxResults = await searchFromAjax(query);
-        if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
+        const results = catalogResults.status === 'fulfilled' && catalogResults.value.length > 0
+            ? catalogResults.value
+            : ajaxResults.status === 'fulfilled' && ajaxResults.value.length > 0
+                ? ajaxResults.value
+                : wpResults.status === 'fulfilled' ? wpResults.value : [];
 
-        const wpResults = await searchFromWordPress(query);
-        if (wpResults.length > 0) return JSON.stringify(wpResults);
-
-        return JSON.stringify([]);
+        return JSON.stringify(results);
     } catch (error) {
         console.error('Search error:', error);
         return JSON.stringify([]);
@@ -64,39 +70,38 @@ async function extractEpisodes(url) {
         const episodes = [];
 
         // Extract ANIME_SLUG
-        const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
+        const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]\s*(?:;|$)/);
         let slug = slugMatch ? slugMatch[1] : '';
         if (!slug) {
             const urlMatch = url.match(/\/(anime|movie)\/([^\/]+)/);
             if (urlMatch) slug = urlMatch[2];
         }
 
-        // Extract TEMPORADAS_DATA - More robust regex
         const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
         if (dataMatch && dataMatch[1]) {
             try {
                 const seasons = JSON.parse(dataMatch[1]);
-                seasons.forEach((season) => {
-                    const numTemp = season.numero_temporada;
-                    const items = season.episodios || [];
-                    items.forEach((ep) => {
-                        const numEp = ep.numero_episodio;
-                        // URL pattern: https://animejara.com/episode/${slug}-${numTemp}x${numEp}/
-                        const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
-                        
-                        // Fix for "Episode 0" - Use integer parsing and fallback
-                        let episodeNumber = parseInt(numEp, 10);
-                        if (isNaN(episodeNumber)) episodeNumber = 0;
-
-                        episodes.push({
-                            href,
-                            number: episodeNumber,
-                            season: parseInt(numTemp, 10),
-                            episode: episodeNumber,
-                            image: ep.poster_episodio || '' // Adding image/thumbnail
+                if (!Array.isArray(seasons)) {
+                    console.error('TEMPORADAS_DATA is not an array');
+                } else {
+                    seasons.forEach((season) => {
+                        const numTemp = season.numero_temporada;
+                        const items = season.episodios || [];
+                        items.forEach((ep) => {
+                            const numEp = ep.numero_episodio;
+                            const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
+                            let episodeNumber = parseInt(numEp, 10);
+                            if (isNaN(episodeNumber)) episodeNumber = 0;
+                            episodes.push({
+                                href,
+                                number: episodeNumber,
+                                season: parseInt(numTemp, 10),
+                                episode: episodeNumber,
+                                image: ep.poster_episodio || ''
+                            });
                         });
                     });
-                });
+                }
             } catch (jsonError) {
                 console.error('Error parsing TEMPORADAS_DATA:', jsonError);
             }
@@ -325,14 +330,12 @@ function isHlsServer(url, name) {
     const s = `${url} ${name}`.toLowerCase();
     
     // Explicitly reject non-HLS or download-only servers
-    const nonHlsHosts = ['mega', 'mediafire', 'dood', 'streamtape', 'yourupload', 'mixdrop', 'savefiles', 'mp4upload', 'netu'];
-    for (const non of nonHlsHosts) {
+    for (const non of NON_HLS_SERVERS) {
         if (s.includes(non)) return false;
     }
     
     // Whitelist known HLS or fast streaming servers
-    const hlsHosts = ['vidhide', 'filemoon', 'filelions', 'voe', 'lulustream', 'lulu', 'nyuu', 'streamhg', 'burstcloud', 'uqload'];
-    for (const host of hlsHosts) {
+    for (const host of HLS_SERVERS) {
         if (s.includes(host)) return true;
     }
     
@@ -406,63 +409,69 @@ async function extractRealDownloadUrl(downloadPageUrl) {
 
 function ajustarEnlace(servidor, enlace) {
     if (!enlace) return '';
+    
+    const replacements = [
+        { from: 'https://flaswish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://obeywish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://embedwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://flastwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://cdnwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://asnwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://jodwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://swhoi.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://swdyu.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://streamwish.to/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://streamwish.top/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://strwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://wishonly.site/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://playerwish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://hlswish.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://swishsrv.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://iplayerhls.com/e/', to: 'https://swhoi.com/f/' },
+        { from: 'https://ghbrisk.com/e/', to: 'https://swhoi.com/f/' },
+        
+        { from: 'https://filelions.site/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://vidhidepro.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://vidhidevip.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://vidhidepre.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://filelions.top/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://vidhideplus.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://vidhidehub.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://dhtpre.com/v/', to: 'https://filelions.top/d/' },
+        { from: 'https://ryderjet.com/v/', to: 'https://filelions.top/d/' },
+        
+        { from: 'https://filemoon.sx/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://filemooon.top/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://filemoon.to/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://embedmoon.xyz/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://embedmoon.pro/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://embedme.xyz/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://moonembed.xyz/e/', to: 'https://bysekoze.com/d/' },
+        { from: 'https://bysekoze.com/e/', to: 'https://bysekoze.com/d/' },
+        
+        { from: 'https://streamtape.com/e/', to: 'https://streamtape.com/v/' },
+        { from: 'https://www.mp4upload.com/embed-', to: 'https://www.mp4upload.com/' },
+        { from: 'https://streamvid.net/embed-', to: 'https://streamvid.net/' },
+        { from: 'https://mixdrop.to/e/', to: 'https://mixdrop.to/f/' },
+        { from: 'https://mega.nz/embed#', to: 'https://mega.nz/' },
+        { from: 'https://mega.nz/embed', to: 'https://mega.nz/file' },
+        { from: 'https://mixdropjmk.pw/e/', to: 'https://mixdropjmk.pw/f/' },
+        { from: 'https://mixdrop.nu/e/', to: 'https://mixdropjmk.pw/f/' },
+        { from: 'https://mixdrop.is/e/', to: 'https://mixdropjmk.pw/f/' },
+        { from: 'https://luluvdo.com/e/', to: 'https://luluvdo.com/d/' },
+        { from: 'https://lulu.st/e/', to: 'https://luluvdo.com/d/' },
+        { from: 'https://voe.sx/e/', to: 'https://voe.sx/' },
+        { from: 'https://www.yourupload.com/embed/', to: 'https://www.yourupload.com/watch/' },
+        { from: 'https://mxdrop.to/e/', to: 'https://mxdrop.to/f/' },
+        { from: 'https://vip.henaojara.com/player/multiplayer/hls/jwplayer.php', to: 'https://vip.henaojara.com/player/multiplayer/hls/descarga.php' },
+        { from: 'https://nyuu.henaojara.com/player/vip/go.php', to: 'https://nyuu.streamhj.top/player/multiplayer/hls/download-nyuu.php' },
+        { from: 'https://savefiles.top/e/', to: 'https://savefiles.top/' }
+    ];
+    
     let link = enlace;
-    link = link.replace('https://flaswish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://obeywish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://embedwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://flastwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://cdnwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://asnwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://jodwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://swhoi.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://swdyu.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://streamwish.to/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://streamwish.top/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://strwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://wishonly.site/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://playerwish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://hlswish.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://swishsrv.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://iplayerhls.com/e/', 'https://swhoi.com/f/');
-    link = link.replace('https://ghbrisk.com/e/', 'https://swhoi.com/f/');
-
-    link = link.replace('https://filelions.site/v/', 'https://filelions.top/d/');
-    link = link.replace('https://vidhidepro.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://vidhidevip.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://vidhidepre.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://filelions.top/v/', 'https://filelions.top/d/');
-    link = link.replace('https://vidhideplus.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://vidhidehub.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://dhtpre.com/v/', 'https://filelions.top/d/');
-    link = link.replace('https://ryderjet.com/v/', 'https://filelions.top/d/');
-
-    link = link.replace('https://filemoon.sx/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://filemooon.top/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://filemoon.to/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://embedmoon.xyz/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://embedmoon.pro/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://embedme.xyz/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://moonembed.xyz/e/', 'https://bysekoze.com/d/');
-    link = link.replace('https://bysekoze.com/e/', 'https://bysekoze.com/d/');
-
-    link = link.replace('https://streamtape.com/e/', 'https://streamtape.com/v/');
-    link = link.replace('https://www.mp4upload.com/embed-', 'https://www.mp4upload.com/');
-    link = link.replace('https://streamvid.net/embed-', 'https://streamvid.net/');
-    link = link.replace('https://mixdrop.to/e/', 'https://mixdrop.to/f/');
-    link = link.replace('https://mega.nz/embed#', 'https://mega.nz/');
-    link = link.replace('https://mega.nz/embed', 'https://mega.nz/file');
-    link = link.replace('https://mixdropjmk.pw/e/', 'https://mixdropjmk.pw/f/');
-    link = link.replace('https://mixdrop.nu/e/', 'https://mixdropjmk.pw/f/');
-    link = link.replace('https://mixdrop.is/e/', 'https://mixdropjmk.pw/f/');
-    link = link.replace('https://luluvdo.com/e/', 'https://luluvdo.com/d/');
-    link = link.replace('https://lulu.st/e/', 'https://luluvdo.com/d/');
-    link = link.replace('https://voe.sx/e/', 'https://voe.sx/');
-    link = link.replace('https://www.yourupload.com/embed/', 'https://www.yourupload.com/watch/');
-    link = link.replace('https://mxdrop.to/e/', 'https://mxdrop.to/f/');
-
-    link = link.replace('https://vip.henaojara.com/player/multiplayer/hls/jwplayer.php', 'https://vip.henaojara.com/player/multiplayer/hls/descarga.php');
-    link = link.replace('https://nyuu.henaojara.com/player/vip/go.php', 'https://nyuu.streamhj.top/player/multiplayer/hls/download-nyuu.php');
-    link = link.replace('https://savefiles.top/e/', 'https://savefiles.top/');
+    replacements.forEach(({ from, to }) => {
+        link = link.replace(from, to);
+    });
     
     return link;
 }
@@ -491,7 +500,7 @@ async function searchFromAjax(keyword) {
 
         if (!response) return [];
         const json = await response.json();
-        const animes = (((json || {}).data || {}).animes) || [];
+        const animes = json?.data?.animes || [];
 
         return animes.map((item) => ({
             title: cleanText(item.titulo || ''),
