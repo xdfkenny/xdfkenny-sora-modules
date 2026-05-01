@@ -588,13 +588,20 @@ async function soraFetch(url, options) {
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
     try {
-        return await fetchv2(url, mergedHeaders, method, body);
+        const res = await fetchv2(url, mergedHeaders, method, body);
+        if (res) return res;
     } catch (e) {
-        return await fetch(url, {
-            method: method,
-            headers: mergedHeaders,
-            body: body
-        });
+        // Fallback to fetchv1 (deprecated)
+    }
+
+    try {
+        const raw = await fetch(url, mergedHeaders);
+        return {
+            text: async () => String(raw),
+            json: async () => JSON.parse(raw)
+        };
+    } catch (e) {
+        return null;
     }
 }
 
