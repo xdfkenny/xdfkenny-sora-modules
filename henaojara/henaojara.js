@@ -10,14 +10,16 @@ async function searchResults(keyword) {
         const query = (keyword || '').trim();
         if (!query) return JSON.stringify([]);
 
-        const catalogResults = await searchFromCatalog(query);
+        const [catalogResults, wpResults] = await Promise.all([
+            searchFromCatalog(query),
+            searchFromWordPress(query)
+        ]);
+
         if (catalogResults.length > 0) return JSON.stringify(catalogResults);
+        if (wpResults.length > 0) return JSON.stringify(wpResults);
 
         const ajaxResults = await searchFromAjax(query);
         if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
-
-        const wpResults = await searchFromWordPress(query);
-        if (wpResults.length > 0) return JSON.stringify(wpResults);
 
         return JSON.stringify([]);
     } catch (error) {
@@ -29,30 +31,30 @@ async function searchResults(keyword) {
 async function extractDetails(url) {
     try {
         const response = await soraFetch(url);
+        if (!response) throw new Error("No response");
 
         const html = await response.text();
 
         const description = extractFirst(
             html,
-            /<div class="anime-sinopsis-contenedor"[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i
+            /<div[^>]*class="[^"]*anime-sinopsis-contenedor[^"]*"[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i
         );
         const airdate = extractFirst(
             html,
-            /<div[^>]*class="[^"]*anime-info-pre-contenedor[^"]*"[\s\S]*?fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
+            /fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
         );
-        const aliases = extractAliases(html, description);
 
         return JSON.stringify([{
             description: cleanText(description || 'No description available'),
             airdate: cleanText(airdate || 'Unknown'),
-            aliases: cleanText(aliases || 'No alternative titles')
+            aliases: ''
         }]);
     } catch (error) {
         console.error('Details error:', error);
         return JSON.stringify([{
             description: 'Error loading description',
             airdate: 'Unknown',
-            aliases: 'Unknown'
+            aliases: ''
         }]);
     }
 }
@@ -67,6 +69,7 @@ async function extractEpisodes(url) {
         const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
         const slug = slugMatch ? slugMatch[1] : '';
 
+        const seenUrls = new Set();
         // Extract TEMPORADAS_DATA - More robust regex
         const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
         if (dataMatch && dataMatch[1]) {
@@ -84,6 +87,7 @@ async function extractEpisodes(url) {
                         let episodeNumber = parseInt(numEp, 10);
                         if (isNaN(episodeNumber)) episodeNumber = 0;
 
+                        seenUrls.add(href);
                         episodes.push({
                             href,
                             number: episodeNumber,
@@ -100,7 +104,6 @@ async function extractEpisodes(url) {
 
         // Fallback or additional check: if episodes is still empty, let's try the old regex just in case
         if (episodes.length === 0) {
-            const seen = new Set();
             const regexArr = [
                 /<a[^>]+href="(https:\/\/animejara\.com\/episode\/[^"]+)"[^>]*class="[^"]*episodio-link[^"]*"[\s\S]*?<div[^>]*>\s*(\d+)x(\d+)\s*<\/div>/gi,
                 /href="(https:\/\/animejara\.com\/episode\/([^"-]+)-(\d+)x(\d+)\/)"/gi
@@ -110,8 +113,8 @@ async function extractEpisodes(url) {
                 let match;
                 while ((match = regex.exec(html)) !== null) {
                     const href = normalizeUrl(match[1]);
-                    if (seen.has(href)) continue;
-                    seen.add(href);
+                    if (seenUrls.has(href)) continue;
+                    seenUrls.add(href);
 
                     let season, episode;
                     if (match.length === 4) {
@@ -169,27 +172,36 @@ async function extractStreamUrl(url) {
         
         // If we found multiple language embeds, process all of them
         if (embedUrls.length > 0) {
-            const allStreams = [];
-            
-            for (let i = 0; i < embedUrls.length; i++) {
+            const streamPromises = embedUrls.map(async (embedUrl, i) => {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
                 // Shorten language names for cleaner display
                 const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
-                const embedUrl = embedUrls[i];
                 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
-                if (!servers || servers.length === 0) continue;
+                if (!servers || servers.length === 0) return [];
                 
-                for (const server of servers) {
+                const serverPromises = servers.map(async (server) => {
                     const result = await resolveServerToDirectUrl(server.url, server.name);
                     if (result) {
                         // Prefix the stream title with the language
                         result.title = langLabel + ' · ' + result.title;
-                        allStreams.push(result);
+                        return result;
                     }
-                }
-            }
+                    return null;
+                });
+                
+                const resolvedServers = await Promise.allSettled(serverPromises);
+                return resolvedServers
+                    .filter(p => p.status === 'fulfilled' && p.value)
+                    .map(p => p.value);
+            });
+            
+            const resolvedStreamsArray = await Promise.allSettled(streamPromises);
+            const allStreams = resolvedStreamsArray
+                .filter(p => p.status === 'fulfilled' && p.value)
+                .map(p => p.value)
+                .flat();
             
             if (allStreams.length > 0) {
                 return JSON.stringify({
@@ -199,7 +211,7 @@ async function extractStreamUrl(url) {
             }
             
             // Fallback to first embed URL
-            return embedUrls[0];
+            return JSON.stringify({ streams: [{ url: embedUrls[0], title: 'Embed' }], subtitles: null });
         }
         
         // Fallback: single iframe (no language buttons)
@@ -216,11 +228,14 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                const streams = [];
-                for (const server of servers) {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) streams.push(result);
-                }
+                const serverPromises = servers.map(async (server) => {
+                    return await resolveServerToDirectUrl(server.url, server.name);
+                });
+                
+                const resolvedServers = await Promise.allSettled(serverPromises);
+                const streams = resolvedServers
+                    .filter(p => p.status === 'fulfilled' && p.value)
+                    .map(p => p.value);
                 
                 if (streams.length > 0) {
                     return JSON.stringify({
@@ -229,14 +244,16 @@ async function extractStreamUrl(url) {
                     });
                 }
                 
-                return servers[0].url;
+                return JSON.stringify({ streams: [{ url: servers[0].url, title: 'Server' }], subtitles: null });
             }
             
-            return iframeUrl;
+            return JSON.stringify({ streams: [{ url: iframeUrl, title: 'Iframe' }], subtitles: null });
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) return decodeHtml(m3u8).trim();
+        if (m3u8) {
+            return JSON.stringify({ streams: [{ url: decodeHtml(m3u8).trim(), title: 'Direct HLS' }], subtitles: null });
+        }
 
         return null;
     } catch (error) {
@@ -287,10 +304,6 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
         const displayName = prettifyServerName(serverName, serverUrl);
         
-        // Skip servers that don't serve standard HLS
-        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
-        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
-        
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
         const referer = urlObj ? urlObj[1] + '/' : '';
@@ -327,7 +340,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         if (m3u8) {
             return {
                 title: displayName,
-                streamUrl: decodeHtml(m3u8).trim(),
+                url: decodeHtml(m3u8).trim(),
                 headers: {
                     "Referer": referer,
                     "Origin": referer.replace(/\/$/, ''),
@@ -464,8 +477,6 @@ function parseAnimeCardsFromHtml(html) {
 
 async function extractDirectServerFromEmbed(embedUrl) {
     try {
-        if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
-
         const response = await soraFetch(embedUrl);
         if (!response) return null;
         const html = await response.text();
@@ -496,60 +507,25 @@ async function extractDirectServerFromEmbed(embedUrl) {
     }
 }
 
-function pickPreferredServer(servers) {
-    if (!Array.isArray(servers) || servers.length === 0) return null;
-    const cleanServers = servers.filter((item) => item && item.url);
-    if (cleanServers.length === 0) return null;
-
-    const preferredHosts = [
-        'streamtape',
-        'filelions',
-        'vidhide',
-        'voe',
-        'uqload',
-        'mp4upload',
-        'mixdrop',
-        'streamhg',
-        'filemoon',
-        'netu'
-    ];
-
-    for (const host of preferredHosts) {
-        const found = cleanServers.find((item) => {
-            const haystack = `${item.name} ${item.url}`.toLowerCase();
-            return haystack.includes(host);
-        });
-        if (found) return found.url;
-    }
-
-    return cleanServers[0].url;
-}
-
 function buildAnimeHref(slug, tipo) {
     if (!slug) return '';
     const section = (tipo || '').toLowerCase().includes('pelicula') ? 'movie' : 'anime';
     return `${BASE_URL}/${section}/${slug}/`;
 }
 
-function extractAliases(html, description) {
-    const fromDescription = (description || '').split('<br>').map((line) => cleanText(line)).filter(Boolean);
-    if (fromDescription.length >= 2) {
-        return fromDescription.slice(-2).join(' | ');
-    }
-
-    const title = extractFirst(html, /<h1[^>]*class="[^"]*anime-title-desktop[^"]*"[^>]*>([\s\S]*?)<\/h1>/i)
-        || extractFirst(html, /<h1[^>]*class="[^"]*anime-title-mobile[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
-    return title || '';
-}
-
 function normalizeUrl(url) {
     const normalized = decodeHtml(url || '').trim();
     if (!normalized) return '';
+    if (normalized.includes('?') || normalized.includes('#')) return normalized;
     return normalized.endsWith('/') ? normalized : `${normalized}/`;
 }
 
 function extractFirst(text, regex) {
-    const match = text.match(regex);
+    let r = regex;
+    if (r.global) {
+        r = new RegExp(r.source, r.flags.replace('g', ''));
+    }
+    const match = String(text || '').match(r);
     return match ? match[1] : '';
 }
 
@@ -559,8 +535,12 @@ function decodeHtml(text) {
         .replace(/&#038;/g, '&')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&#x27;/ig, "'")
+        .replace(/&#x2F;/ig, "/")
         .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
+        .replace(/&gt;/g, '>')
+        .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+        .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 function normalizeExternalUrl(url) {
@@ -582,20 +562,32 @@ function cleanText(text) {
 }
 
 async function soraFetch(url, options) {
+    if (!url || !url.startsWith('http')) throw new Error('Invalid URL');
     const opts = options || {};
     const mergedHeaders = mergeHeaders(url, opts);
     const method = opts.method || 'GET';
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
-    try {
-        return await fetchv2(url, mergedHeaders, method, body);
-    } catch (e) {
-        return await fetch(url, {
-            method: method,
-            headers: mergedHeaders,
-            body: body
-        });
-    }
+    const timeoutMs = 15000;
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('soraFetch timeout')), timeoutMs);
+    });
+
+    const doFetch = async () => {
+        try {
+            if (typeof fetchv2 !== 'undefined') {
+                return await fetchv2(url, mergedHeaders, method, body);
+            }
+        } catch (e) {
+            // fallthrough
+        }
+        if (typeof fetch !== 'undefined') {
+            return await fetch(url, { method: method, headers: mergedHeaders, body: body });
+        }
+        throw new Error('No fetch API available');
+    };
+
+    return Promise.race([doFetch(), timeoutPromise]);
 }
 
 function mergeHeaders(url, opts) {
@@ -716,6 +708,11 @@ function unpack(source) {
         throw Error("Could not make sense of p.a.c.k.e.r data (unexpected code structure)");
     }
     function _replacestrings(source) {
-        return source;
+        let result = source;
+        const regex = /\\x([0-9a-fA-F]{2})/g;
+        result = result.replace(regex, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+        const regex2 = /\\u([0-9a-fA-F]{4})/g;
+        result = result.replace(regex2, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+        return result;
     }
 }
