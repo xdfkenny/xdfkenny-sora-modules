@@ -21,7 +21,7 @@ async function searchResults(keyword) {
 
         return JSON.stringify([]);
     } catch (error) {
-        if (DEBUG) console.error('Search error:', error);
+        console.error('Search error:', error);
         return JSON.stringify([]);
     }
 }
@@ -48,7 +48,7 @@ async function extractDetails(url) {
             aliases: cleanText(aliases || 'No alternative titles')
         }]);
     } catch (error) {
-        if (DEBUG) console.error('Details error:', error);
+        console.error('Details error:', error);
         return JSON.stringify([{
             description: 'Error loading description',
             airdate: 'Unknown',
@@ -65,25 +65,21 @@ async function extractEpisodes(url) {
 
         // Extract ANIME_SLUG
         const slugMatch = html.match(/ANIME_SLUG\s*=\s*['"]([^'"]+)['"]/);
-        let slug = slugMatch ? slugMatch[1] : '';
-        if (!slug) {
-            const urlMatch = url.match(/\/(anime|movie)\/([^\/]+)/);
-            if (urlMatch) slug = urlMatch[2];
-        }
+        const slug = slugMatch ? slugMatch[1] : '';
 
-        // Extract TEMPORADAS_DATA - Robust extraction
-        const dataJson = balancedJsonExtract(html, 'TEMPORADAS_DATA');
-        if (dataJson) {
+        // Extract TEMPORADAS_DATA - More robust regex
+        const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
+        if (dataMatch && dataMatch[1]) {
             try {
-                const seasons = JSON.parse(dataJson);
+                const seasons = JSON.parse(dataMatch[1]);
                 seasons.forEach((season) => {
                     const numTemp = season.numero_temporada;
                     const items = season.episodios || [];
                     items.forEach((ep) => {
                         const numEp = ep.numero_episodio;
-                        // URL pattern: https://animejara.com/episode/${slug}-${numTemp}x${numEp}/
+                        // URL pattern: https://animejara.com/episode/${ANIME_SLUG}-${numTemp}x${numEp}/
                         const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
-
+                        
                         // Fix for "Episode 0" - Use integer parsing and fallback
                         let episodeNumber = parseInt(numEp, 10);
                         if (isNaN(episodeNumber)) episodeNumber = 0;
@@ -98,7 +94,7 @@ async function extractEpisodes(url) {
                     });
                 });
             } catch (jsonError) {
-                if (DEBUG) console.error('Error parsing TEMPORADAS_DATA:', jsonError);
+                console.error('Error parsing TEMPORADAS_DATA:', jsonError);
             }
         }
 
@@ -140,7 +136,7 @@ async function extractEpisodes(url) {
 
         return JSON.stringify(episodes);
     } catch (error) {
-        if (DEBUG) console.error('Episodes error:', error);
+        console.error('Episodes error:', error);
         return JSON.stringify([]);
     }
 }
@@ -149,7 +145,7 @@ async function extractStreamUrl(url) {
     try {
         const response = await soraFetch(url);
         const html = await response.text();
-
+        
         // Extract language URLs from the enlaces array (can be const, var, let, or bare)
         const enlacesMatch = html.match(/(?:const|var|let)?\s*enlaces\s*=\s*\[([\s\S]*?)\]/);
         const langNames = [];
@@ -158,8 +154,8 @@ async function extractStreamUrl(url) {
         while ((langMatch = langNameRegex.exec(html)) !== null) {
             langNames.push(langMatch[1].trim());
         }
-
-        // Parse the embed URLs from the enlaces array (handles escaped slashes \/).
+        
+        // Parse the embed URLs from the enlaces array (handles escaped slashes \/)
         const embedUrls = [];
         if (enlacesMatch) {
             const urlRegex = /["'](https?:[^"']+)["']/g;
@@ -170,59 +166,43 @@ async function extractStreamUrl(url) {
                 embedUrls.push(decodeHtml(cleanUrl).trim());
             }
         }
-
+        
+        // If we found multiple language embeds, process all of them
         if (embedUrls.length > 0) {
             const allStreams = [];
-            let globalDownloadUrl = null;
-
+            
             for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
+                // Shorten language names for cleaner display
                 const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
-
-                const embedResult = await extractDirectServerFromEmbed(embedUrl);
                 
-                if (embedResult) {
-                    if (embedResult.downloadUrl && !globalDownloadUrl) {
-                        globalDownloadUrl = embedResult.downloadUrl;
-                    }
-
-                    if (embedResult.servers && embedResult.servers.length > 0) {
-                        const serverPromises = embedResult.servers.map(async (server) => {
-                            const result = await resolveServerToDirectUrl(server.url, server.name);
-                            if (result) {
-                                return {
-                                    title: langLabel + ' · ' + result.title,
-                                    url: result.streamUrl,
-                                    streamUrl: result.streamUrl,
-                                    headers: result.headers
-                                };
-                            }
-                            return null;
-                        });
-
-                        const resolved = await Promise.all(serverPromises);
-                        resolved.forEach(rs => {
-                            if (rs) allStreams.push(rs);
-                        });
+                const servers = await extractDirectServerFromEmbed(embedUrl);
+                if (!servers || servers.length === 0) continue;
+                
+                for (const server of servers) {
+                    const result = await resolveServerToDirectUrl(server.url, server.name);
+                    if (result) {
+                        // Prefix the stream title with the language
+                        result.title = langLabel + ' · ' + result.title;
+                        allStreams.push(result);
                     }
                 }
             }
-
+            
             if (allStreams.length > 0) {
-                const payload = { streams: allStreams, subtitles: null };
-                if (globalDownloadUrl) {
-                    const directDownload = await extractRealDownloadUrl(globalDownloadUrl);
-                    if (directDownload) payload.downloadUrl = directDownload;
-                }
-                return JSON.stringify(payload);
+                return JSON.stringify({
+                    streams: allStreams,
+                    subtitles: null
+                });
             }
-
-            // Fallback: return the first embed URL as a plain string
+            
+            // Fallback to first embed URL
             return embedUrls[0];
         }
-
+        
+        // Fallback: single iframe (no language buttons)
         const iframe = extractFirst(
             html,
             /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i
@@ -233,34 +213,25 @@ async function extractStreamUrl(url) {
 
         if (iframe) {
             const iframeUrl = decodeHtml(iframe).trim();
-            const embedResult = await extractDirectServerFromEmbed(iframeUrl);
-
-            if (embedResult && embedResult.servers && Array.isArray(embedResult.servers) && embedResult.servers.length > 0) {
-                const serverPromises = embedResult.servers.map(async (server) => {
+            const servers = await extractDirectServerFromEmbed(iframeUrl);
+            
+            if (servers && Array.isArray(servers) && servers.length > 0) {
+                const streams = [];
+                for (const server of servers) {
                     const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
-                        return {
-                            title: result.title,
-                            url: result.streamUrl,
-                            streamUrl: result.streamUrl,
-                            headers: result.headers
-                        };
-                    }
-                    return null;
-                });
-
-                const streams = (await Promise.all(serverPromises)).filter(Boolean);
-
-                if (streams.length > 0) {
-                    const payload = { streams: streams, subtitles: null };
-                    if (embedResult.downloadUrl) {
-                        const directDownload = await extractRealDownloadUrl(embedResult.downloadUrl);
-                        if (directDownload) payload.downloadUrl = directDownload;
-                    }
-                    return JSON.stringify(payload);
+                    if (result) streams.push(result);
                 }
+                
+                if (streams.length > 0) {
+                    return JSON.stringify({
+                        streams: streams,
+                        subtitles: null
+                    });
+                }
+                
+                return servers[0].url;
             }
-
+            
             return iframeUrl;
         }
 
@@ -278,7 +249,7 @@ async function extractStreamUrl(url) {
 function prettifyServerName(name, url) {
     if (!name && !url) return 'Unknown';
     const raw = (name || '').trim().toLowerCase();
-
+    
     // Map known server names to readable labels
     const nameMap = {
         'nyuu': '🟢 Nyuu (Direct)',
@@ -290,27 +261,24 @@ function prettifyServerName(name, url) {
         'streamtape': '🔴 StreamTape',
         'uqload': '🔵 UqLoad',
     };
-
-    // If the embed page told us the server name, always trust it
+    
     if (nameMap[raw]) return nameMap[raw];
-
-    // Try to identify from URL only if name is truly generic/unknown
-    if (url && (!raw || raw === 'server' || raw === 'unknown')) {
+    
+    // Try to identify from URL if name is generic
+    if (url) {
         const host = url.match(/\/\/([^\/]+)/)?.[1] || '';
         if (/nyuu/i.test(host)) return '🟢 Nyuu (Direct)';
         if (/hgcloud/i.test(host)) return '🔵 HGCloud';
-        // VidHide domains must be checked BEFORE filelions since they share infra
-        if (/vidhide|vidhidepro|vidhidevip|vidhidepre|vidhideplus|vidhidehub|dhtpre|ryderjet/i.test(host)) return '🟡 VidHide';
         if (/filelions/i.test(host)) return '🟣 FileLions';
-        if (/filemoon|filemooon|embedmoon|moonembed|bysekoze/i.test(host)) return '🟣 Filemoon';
-        if (/netu|netuplayer/i.test(host)) return '🟠 Netu';
+        if (/filemoon/i.test(host)) return '🟣 Filemoon';
+        if (/netu/i.test(host)) return '🟠 Netu';
+        if (/vidhide/i.test(host)) return '🟡 VidHide';
         if (/uqload/i.test(host)) return '🔵 UqLoad';
-        if (/streamtape/i.test(host)) return '🔴 StreamTape';
         // Use the hostname as a fallback
         const shortHost = host.replace(/\..+$/, '');
         return shortHost.charAt(0).toUpperCase() + shortHost.slice(1);
     }
-
+    
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
@@ -318,24 +286,24 @@ function prettifyServerName(name, url) {
 async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
         const displayName = prettifyServerName(serverName, serverUrl);
-
+        
         // Skip servers that don't serve standard HLS
         if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
         if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
-
+        
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
         const referer = urlObj ? urlObj[1] + '/' : '';
-
+        
         const resp = await soraFetch(serverUrl);
         if (!resp) return null;
         const html = await resp.text();
-
+        
         // 1. Try to find m3u8 directly in the HTML
         let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
             || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
             || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i);
-
+        
         // 2. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
         if (!m3u8) {
             const packedMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?\)[\s\S]*?)<\/script>/);
@@ -346,15 +314,16 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
                         || extractFirst(unpacked, /"hls2"\s*:\s*"([^"]+)"/i)
                         || extractFirst(unpacked, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
                 } catch (e) {
+                    // Unpacker failed, continue
                 }
             }
         }
-
+        
         // 3. Last resort: broad regex match for m3u8 URLs
         if (!m3u8) {
             m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
         }
-
+        
         if (m3u8) {
             return {
                 title: displayName,
@@ -366,118 +335,13 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
                 }
             };
         }
-
+        
         return null;
     } catch (e) {
+        console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
         return null;
     }
 }
-
-async function extractRealDownloadUrl(downloadPageUrl) {
-    try {
-
-        var idAnime = '';
-        var idCapitulo = null;
-        var idMatch = downloadPageUrl.match(/idanime=([^&]+)/i);
-        if (idMatch) idAnime = idMatch[1];
-        var capMatch = downloadPageUrl.match(/idcapitulo=(\d+)/i);
-        if (capMatch) idCapitulo = parseInt(capMatch[1], 10);
-
-        if (!idAnime || isNaN(idCapitulo)) return null;
-
-        const tokenUrl = `https://descargas.henaojara.com/player/multiplayer/apimultiplayer/generar_token_descarga.php?idanime=${encodeURIComponent(idAnime)}`;
-        const tokenResp = await soraFetch(tokenUrl, { headers: { "Referer": downloadPageUrl } });
-        if (!tokenResp || !tokenResp.ok) return null;
-        const tokenData = await tokenResp.json();
-
-        if (!tokenData || !tokenData.token) return null;
-
-        const apiUrl = `https://descargas.henaojara.com/player/multiplayer/apimultiplayer/api.php?token=${encodeURIComponent(tokenData.token)}`;
-        const apiResp = await soraFetch(apiUrl, { headers: { "Referer": downloadPageUrl } });
-        if (!apiResp || !apiResp.ok) return null;
-        const chaptersData = await apiResp.json();
-
-        if (!Array.isArray(chaptersData)) return null;
-
-        let targetChapter = null;
-        for (const chap of chaptersData) {
-            let num = null;
-            if (chap.id_capitulo !== undefined && chap.id_capitulo !== null) {
-                num = parseInt(chap.id_capitulo, 10);
-            }
-            if (num === null && chap.nombre) {
-                const match = chap.nombre.match(/[Cc]ap[íi]tulo\s+(\d+)|[Cc]ap\s+(\d+)|[Ee]p[íi]sodio\s+(\d+)|\b(\d+)\.?$/);
-                if (match) {
-                    for (let i = 1; i < match.length; i++) {
-                        if (match[i]) {
-                            num = parseInt(match[i], 10);
-                            break;
-                        }
-                    }
-                }
-                if (num === null) {
-                    const firstNum = chap.nombre.match(/\d+/);
-                    if (firstNum) num = parseInt(firstNum[0], 10);
-                }
-            }
-            if (num === idCapitulo) {
-                targetChapter = chap;
-                break;
-            }
-        }
-
-        if (!targetChapter) return null;
-
-        const ordenServidores = ['mediafire', 'filemoon', 'vidhide', 'streamtape', 'mp4upload', 'mega', 'mixdrop', 'voe'];
-        for (const server of ordenServidores) {
-            if (targetChapter[server]) {
-                return ajustarEnlace(server, targetChapter[server]);
-            }
-        }
-
-        return null;
-    } catch (e) {
-        if (DEBUG) console.error("Download extraction error", e);
-        return null;
-    }
-}
-
-function ajustarEnlace(servidor, enlace) {
-    if (!enlace) return '';
-    let link = enlace;
-
-    const mapping = [
-        { from: /https:\/\/(flaswish|obeywish|embedwish|flastwish|cdnwish|asnwish|jodwish|swhoi|swdyu|strwish|playerwish|hlswish|swishsrv|iplayerhls|ghbrisk)\.com\/e\//, to: 'https://swhoi.com/f/' },
-        { from: 'https://streamwish.to/e/', to: 'https://swhoi.com/f/' },
-        { from: 'https://streamwish.top/e/', to: 'https://swhoi.com/f/' },
-        { from: 'https://wishonly.site/e/', to: 'https://swhoi.com/f/' },
-        { from: /https:\/\/(filelions\.site|vidhidepro\.com|vidhidevip\.com|vidhidepre\.com|filelions\.top|vidhideplus\.com|vidhidehub\.com|dhtpre\.com|ryderjet\.com)\/v\//, to: 'https://filelions.top/d/' },
-        { from: /https:\/\/(filemoon\.sx|filemooon\.top|filemoon\.to|embedmoon\.xyz|embedmoon\.pro|embedme\.xyz|moonembed\.xyz|bysekoze\.com)\/e\//, to: 'https://bysekoze.com/d/' },
-        { from: 'https://streamtape.com/e/', to: 'https://streamtape.com/v/' },
-        { from: 'https://www.mp4upload.com/embed-', to: 'https://www.mp4upload.com/' },
-        { from: 'https://streamvid.net/embed-', to: 'https://streamvid.net/' },
-        { from: 'https://mixdrop.to/e/', to: 'https://mixdrop.to/f/' },
-        { from: 'https://mega.nz/embed#', to: 'https://mega.nz/' },
-        { from: 'https://mega.nz/embed', to: 'https://mega.nz/file' },
-        { from: /https:\/\/(mixdropjmk\.pw|mixdrop\.nu|mixdrop\.is)\/e\//, to: 'https://mixdropjmk.pw/f/' },
-        { from: /https:\/\/(luluvdo|lulu)\.(com|st)\/e\//, to: 'https://luluvdo.com/d/' },
-        { from: 'https://voe.sx/e/', to: 'https://voe.sx/' },
-        { from: 'https://www.yourupload.com/embed/', to: 'https://www.yourupload.com/watch/' },
-        { from: 'https://mxdrop.to/e/', to: 'https://mxdrop.to/f/' },
-        { from: 'https://vip.henaojara.com/player/multiplayer/hls/jwplayer.php', to: 'https://vip.henaojara.com/player/multiplayer/hls/descarga.php' },
-        { from: 'https://nyuu.henaojara.com/player/vip/go.php', to: 'https://nyuu.streamhj.top/player/multiplayer/hls/download-nyuu.php' },
-        { from: 'https://savefiles.top/e/', to: 'https://savefiles.top/' }
-    ];
-
-    mapping.forEach(m => {
-        link = link.replace(m.from, m.to);
-    });
-
-    return link;
-}
-
-
-
 
 
 
@@ -509,7 +373,7 @@ async function searchFromAjax(keyword) {
             href: buildAnimeHref(item.slug, item.tipo)
         })).filter((item) => item.title && item.href);
     } catch (error) {
-        if (DEBUG) console.error('AJAX search error:', error);
+        console.error('AJAX search error:', error);
         return [];
     }
 }
@@ -600,20 +464,11 @@ function parseAnimeCardsFromHtml(html) {
 
 async function extractDirectServerFromEmbed(embedUrl) {
     try {
-        // Broaden the check to avoid missing other multiplayer domains or directly returning null
-        if (!/multiplayer|streamhj|reproductor|animejara/i.test(embedUrl)) {
-            // It might be a direct embed URL like mega, mp4upload, etc.
-            // We just return null so it falls back to the direct URL in extractStreamUrl.
-            return null;
-        }
+        if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
 
         const response = await soraFetch(embedUrl);
         if (!response) return null;
         const html = await response.text();
-
-        let downloadUrl = null;
-        const dlMatch = html.match(/window\.open\(\s*['"](https?:\/\/descargas[^'"]+)['"]/i);
-        if (dlMatch) downloadUrl = dlMatch[1];
 
         const servers = [];
         // More flexible regex to match playVideo('...') or playVideo("&quot;...&quot;")
@@ -627,59 +482,57 @@ async function extractDirectServerFromEmbed(embedUrl) {
         }
 
         if (servers.length === 0) {
-            // Fallback: try to extract BOTH url and name with a broader regex
-            // First try matching playVideo + nearby server name span
-            const nameRegex = /onclick="[^"]*playVideo\((?:&quot;|'|"|\\["'])\s*([^"&'\\]+(?:&amp;[^"&'\\]*)*)\s*(?:&quot;|'|"|\\["'])\)[^"]*"[\s\S]*?<span[^>]*class="[^"]*nombre-server[^"]*"[^>]*>\s*([^<]+?)\s*<\/span>/gi;
-            while ((match = nameRegex.exec(html)) !== null) {
-                servers.push({
-                    url: normalizeExternalUrl(match[1]),
-                    name: cleanText(match[2])
-                });
-            }
-        }
-
-        if (servers.length === 0) {
-            // Last resort fallback: extract URLs only, derive name from URL hostname
-            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*([^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
+            // Fallback for different HTML structures
+            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
-                const serverUrl = normalizeExternalUrl(match[1]);
-                // Derive the server name from the URL instead of using generic 'Server'
-                const hostMatch = serverUrl.match(/\/\/([^\/]+)/);
-                let derivedName = 'Server';
-                if (hostMatch) {
-                    const host = hostMatch[1].toLowerCase();
-                    if (/nyuu/i.test(host)) derivedName = 'nyuu';
-                    else if (/vidhide|vidhidepro|vidhidevip|vidhidepre|vidhideplus|vidhidehub|dhtpre|ryderjet/i.test(host)) derivedName = 'vidhide';
-                    else if (/filelions/i.test(host)) derivedName = 'filelions';
-                    else if (/filemoon|filemooon|embedmoon|moonembed|bysekoze/i.test(host)) derivedName = 'filemoon';
-                    else if (/hgcloud|streamhg/i.test(host)) derivedName = 'streamhg';
-                    else if (/netu|netuplayer/i.test(host)) derivedName = 'netu';
-                    else if (/uqload/i.test(host)) derivedName = 'uqload';
-                    else if (/streamtape/i.test(host)) derivedName = 'streamtape';
-                    else derivedName = host.replace(/\..+$/, '');
-                }
-                servers.push({ url: serverUrl, name: derivedName });
+                servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
             }
         }
 
-        return {
-            servers: (servers.length > 0) ? servers : null,
-            downloadUrl: downloadUrl
-        };
+        return (servers.length > 0) ? servers : null;
     } catch (error) {
         console.error('Embed server extraction error:', error);
         return null;
     }
 }
 
+function pickPreferredServer(servers) {
+    if (!Array.isArray(servers) || servers.length === 0) return null;
+    const cleanServers = servers.filter((item) => item && item.url);
+    if (cleanServers.length === 0) return null;
+
+    const preferredHosts = [
+        'streamtape',
+        'filelions',
+        'vidhide',
+        'voe',
+        'uqload',
+        'mp4upload',
+        'mixdrop',
+        'streamhg',
+        'filemoon',
+        'netu'
+    ];
+
+    for (const host of preferredHosts) {
+        const found = cleanServers.find((item) => {
+            const haystack = `${item.name} ${item.url}`.toLowerCase();
+            return haystack.includes(host);
+        });
+        if (found) return found.url;
+    }
+
+    return cleanServers[0].url;
+}
+
 function buildAnimeHref(slug, tipo) {
     if (!slug) return '';
-    var section = (tipo || '').toLowerCase().indexOf('pelicula') !== -1 ? 'movie' : 'anime';
-    return BASE_URL + '/' + section + '/' + slug + '/';
+    const section = (tipo || '').toLowerCase().includes('pelicula') ? 'movie' : 'anime';
+    return `${BASE_URL}/${section}/${slug}/`;
 }
 
 function extractAliases(html, description) {
-    var fromDescription = (description || '').split(/<br\s*\/?>/i).map(function(line) { return cleanText(line); }).filter(Boolean);
+    const fromDescription = (description || '').split('<br>').map((line) => cleanText(line)).filter(Boolean);
     if (fromDescription.length >= 2) {
         return fromDescription.slice(-2).join(' | ');
     }
@@ -700,67 +553,14 @@ function extractFirst(text, regex) {
     return match ? match[1] : '';
 }
 
-/**
- * Extracts a balanced JSON array or object starting from a given keyword.
- * Handles nested brackets/braces to avoid premature termination.
- */
-function balancedJsonExtract(html, keyword) {
-    const startIdx = html.indexOf(keyword);
-    if (startIdx === -1) return null;
-
-    const afterKeyword = html.substring(startIdx + keyword.length);
-    const firstBracket = afterKeyword.match(/[\[\{]/);
-    if (!firstBracket) return null;
-
-    const opener = firstBracket[0];
-    const closer = opener === '[' ? ']' : '}';
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    const jsonStart = afterKeyword.indexOf(opener);
-
-    for (let i = jsonStart; i < afterKeyword.length; i++) {
-        const char = afterKeyword[i];
-
-        if (escape) {
-            escape = false;
-            continue;
-        }
-
-        if (char === '\\') {
-            escape = true;
-            continue;
-        }
-
-        if (char === '"') {
-            inString = !inString;
-            continue;
-        }
-
-        if (!inString) {
-            if (char === opener) depth++;
-            else if (char === closer) {
-                depth--;
-                if (depth === 0) {
-                    return afterKeyword.substring(jsonStart, i + 1);
-                }
-            }
-        }
-    }
-    return null;
-}
-
 function decodeHtml(text) {
-    if (!text) return '';
-    return String(text)
+    return String(text || '')
         .replace(/&amp;/g, '&')
         .replace(/&#038;/g, '&')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&#(\d+);/g, function(_, code) { return String.fromCharCode(parseInt(code, 10)); })
-        .replace(/&#x([0-9a-f]+);/gi, function(_, hex) { return String.fromCharCode(parseInt(hex, 16)); });
+        .replace(/&gt;/g, '>');
 }
 
 function normalizeExternalUrl(url) {
@@ -799,18 +599,15 @@ async function soraFetch(url, options) {
 }
 
 function mergeHeaders(url, opts) {
-    var base = opts.headers || {};
-    var urlStr = String(url || '');
+    const base = opts.headers || {};
+    if (String(url || '').indexOf('animejara.com') === -1) return base;
 
-    // Only add animejara headers for animejara.com requests
-    if (urlStr.indexOf('animejara.com') === -1) return base;
+    const method = opts.method || 'GET';
+    const isAjaxPost = method === 'POST' && String(url || '').indexOf('/wp-admin/admin-ajax.php') !== -1;
+    let referer = 'https://animejara.com/';
+    if (isAjaxPost) referer = 'https://animejara.com/catalogo/';
 
-    var method = opts.method || 'GET';
-    var isAjaxPost = method === 'POST' && urlStr.indexOf('/wp-admin/admin-ajax.php') !== -1;
-    var referer = BASE_URL + '/';
-    if (isAjaxPost) referer = CATALOG_URL;
-
-    var defaults = {
+    const defaults = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Accept: isAjaxPost ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'es-ES,es;q=0.9,en-US,en;q=0.8',
@@ -818,8 +615,8 @@ function mergeHeaders(url, opts) {
         Origin: 'https://animejara.com'
     };
 
-    var out = {};
-    var k;
+    const out = {};
+    let k;
     for (k in defaults) {
         if (Object.prototype.hasOwnProperty.call(defaults, k)) out[k] = defaults[k];
     }
@@ -834,60 +631,82 @@ function mergeHeaders(url, opts) {
  * Credit to GitHub user "mnsrulz" for Unpacker Node library
  * https://github.com/mnsrulz/unpacker
  ***********************************************************/
-
-function Unbaser(base) {
-    this.ALPHABET = {
-        62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'",
-    };
-    this.dictionary = {};
-    this.base = base;
-    if (36 < base && base < 62) {
-        this.ALPHABET[base] = this.ALPHABET[base] ||
-            this.ALPHABET[62].substr(0, base);
-    }
-    if (2 <= base && base <= 36) {
-        this.unbase = function(value) { return parseInt(value, base); };
-    } else {
-        try {
-            var alpha = this.ALPHABET[base];
-            for (var i = 0; i < alpha.length; i++) {
-                this.dictionary[alpha[i]] = i;
-            }
-        } catch (er) {
-            throw Error("Unsupported base encoding.");
+class Unbaser {
+    constructor(base) {
+        this.ALPHABET = {
+            62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'",
+        };
+        this.dictionary = {};
+        this.base = base;
+        if (36 < base && base < 62) {
+            this.ALPHABET[base] = this.ALPHABET[base] ||
+                this.ALPHABET[62].substr(0, base);
         }
-        this.unbase = this._dictunbaser;
+        if (2 <= base && base <= 36) {
+            this.unbase = (value) => parseInt(value, base);
+        } else {
+            try {
+                [...this.ALPHABET[base]].forEach((cipher, index) => {
+                    this.dictionary[cipher] = index;
+                });
+            } catch (er) {
+                throw Error("Unsupported base encoding.");
+            }
+            this.unbase = this._dictunbaser;
+        }
+    }
+    _dictunbaser(value) {
+        let ret = 0;
+        [...value].reverse().forEach((cipher, index) => {
+            ret = ret + ((Math.pow(this.base, index)) * this.dictionary[cipher]);
+        });
+        return ret;
     }
 }
-Unbaser.prototype._dictunbaser = function(value) {
-    var ret = 0;
-    var reversed = value.split('').reverse();
-    for (var i = 0; i < reversed.length; i++) {
-        ret = ret + ((Math.pow(this.base, i)) * this.dictionary[reversed[i]]);
-    }
-    return ret;
-};
 
 function detect(source) {
-    return source.replace(" ", "").indexOf("eval(function(p,a,c,k,e,") === 0;
+    return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
 }
 
 function unpack(source) {
+    let { payload, symtab, radix, count } = _filterargs(source);
+    if (count != symtab.length) {
+        throw Error("Malformed p.a.c.k.e.r. symtab.");
+    }
+    let unbase;
+    try {
+        unbase = new Unbaser(radix);
+    } catch (e) {
+        throw Error("Unknown p.a.c.k.e.r. encoding.");
+    }
+    function lookup(match) {
+        const word = match;
+        let word2;
+        if (radix == 1) {
+            word2 = symtab[parseInt(word)];
+        } else {
+            word2 = symtab[unbase.unbase(word)];
+        }
+        return word2 || word;
+    }
+    source = payload.replace(/\b\w+\b/g, lookup);
+    return _replacestrings(source);
     function _filterargs(source) {
-        var juicers = [
+        const juicers = [
             /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\), *(\d+), *(.*)\)\)/,
             /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'.split\('\|'\)/,
         ];
-        for (var i = 0; i < juicers.length; i++) {
-            var args = juicers[i].exec(source);
+        for (const juicer of juicers) {
+            const args = juicer.exec(source);
             if (args) {
+                let a = args;
                 try {
                     return {
-                        payload: args[1],
-                        symtab: args[4].split("|"),
-                        radix: parseInt(args[2]),
-                        count: parseInt(args[3]),
+                        payload: a[1],
+                        symtab: a[4].split("|"),
+                        radix: parseInt(a[2]),
+                        count: parseInt(a[3]),
                     };
                 } catch (ValueError) {
                     throw Error("Corrupted p.a.c.k.e.r. data.");
@@ -896,36 +715,7 @@ function unpack(source) {
         }
         throw Error("Could not make sense of p.a.c.k.e.r data (unexpected code structure)");
     }
-
     function _replacestrings(source) {
-        return source.replace(/\\'/g, "'").replace(/\\"/g, '"');
+        return source;
     }
-
-    var args = _filterargs(source);
-    var payload = args.payload;
-    var symtab = args.symtab;
-    var radix = args.radix;
-    var count = args.count;
-
-    if (count != symtab.length) {
-        throw Error("Malformed p.a.c.k.e.r. symtab.");
-    }
-    var unbase;
-    try {
-        unbase = new Unbaser(radix);
-    } catch (e) {
-        throw Error("Unknown p.a.c.k.e.r. encoding.");
-    }
-    function lookup(match) {
-        var word = match;
-        var word2;
-        if (radix == 1) {
-            word2 = symtab[parseInt(word)];
-        } else {
-            word2 = symtab[unbase.unbase(word)];
-        }
-        return word2 || word;
-    }
-    var unpacked = payload.replace(/\b\w+\b/g, lookup);
-    return _replacestrings(unpacked);
-}
+}
