@@ -179,7 +179,14 @@ async function extractStreamUrl(url) {
                 const embedUrl = embedUrls[i];
                 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
-                if (!servers || servers.length === 0) continue;
+                if (!servers || servers.length === 0) {
+                    allStreams.push({
+                        title: langLabel + ' · ' + prettifyServerName('', embedUrl),
+                        streamUrl: embedUrl,
+                        headers: {}
+                    });
+                    continue;
+                }
                 
                 for (const server of servers) {
                     const result = await resolveServerToDirectUrl(server.url, server.name);
@@ -287,16 +294,18 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
         const displayName = prettifyServerName(serverName, serverUrl);
         
-        // Skip servers that don't serve standard HLS
-        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
-        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
-        
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
         const referer = urlObj ? urlObj[1] + '/' : '';
         
         const resp = await soraFetch(serverUrl);
-        if (!resp) return null;
+        if (!resp) {
+            return {
+                title: displayName,
+                streamUrl: serverUrl,
+                headers: {}
+            };
+        }
         const html = await resp.text();
         
         // 1. Try to find m3u8 directly in the HTML
@@ -336,10 +345,18 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
             };
         }
         
-        return null;
+        return {
+            title: displayName,
+            streamUrl: serverUrl,
+            headers: {}
+        };
     } catch (e) {
         console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
-        return null;
+        return {
+            title: prettifyServerName(serverName, serverUrl),
+            streamUrl: serverUrl,
+            headers: {}
+        };
     }
 }
 
