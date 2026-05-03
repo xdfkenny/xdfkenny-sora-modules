@@ -11,18 +11,18 @@ async function searchResults(keyword) {
         if (!query) return [];
 
         const catalogResults = await searchFromCatalog(query);
-        if (catalogResults.length > 0) return catalogResults;
+        if (catalogResults.length > 0) return JSON.stringify(catalogResults);
 
         const ajaxResults = await searchFromAjax(query);
-        if (ajaxResults.length > 0) return ajaxResults;
+        if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
 
         const wpResults = await searchFromWordPress(query);
-        if (wpResults.length > 0) return wpResults;
+        if (wpResults.length > 0) return JSON.stringify(wpResults);
 
-        return [];
+        return JSON.stringify([]);
     } catch (error) {
         console.error('Search error:', error);
-        return [];
+        return JSON.stringify([]);
     }
 }
 
@@ -42,18 +42,18 @@ async function extractDetails(url) {
         );
         const aliases = extractAliases(html, description);
 
-        return {
+        return JSON.stringify({
             description: cleanText(description || 'No description available'),
             airdate: cleanText(airdate || 'Unknown'),
             aliases: cleanText(aliases || 'No alternative titles')
-        };
+        });
     } catch (error) {
         console.error('Details error:', error);
-        return {
+        return JSON.stringify({
             description: 'Error loading description',
             airdate: 'Unknown',
             aliases: 'Unknown'
-        };
+        });
     }
 }
 
@@ -134,7 +134,7 @@ async function extractEpisodes(url) {
             });
         }
 
-        return episodes;
+        return JSON.stringify(episodes);
     } catch (error) {
         console.error('Episodes error:', error);
         return JSON.stringify([]);
@@ -188,12 +188,12 @@ async function extractStreamUrl(url) {
                 });
             }
 
-            if (allStreams.length > 0) {
-                return {
-                    streams: allStreams,
-                    subtitles: null
-                };
-            }
+                if (allStreams.length > 0) {
+                    return JSON.stringify({
+                        streams: allStreams,
+                        subtitles: null
+                    });
+                }
 
             return embedUrls[0];
         }
@@ -215,12 +215,12 @@ async function extractStreamUrl(url) {
                 const results = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
                 const streams = results.filter(Boolean);
 
-                if (streams.length > 0) {
-                    return {
-                        streams: streams,
-                        subtitles: null
-                    };
-                }
+                    if (streams.length > 0) {
+                        return JSON.stringify({
+                            streams: streams,
+                            subtitles: null
+                        });
+                    }
 
                 return servers[0].url;
             }
