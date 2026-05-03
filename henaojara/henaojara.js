@@ -42,18 +42,18 @@ async function extractDetails(url) {
         );
         const aliases = extractAliases(html, description);
 
-        return JSON.stringify({
+        return JSON.stringify([{
             description: cleanText(description || 'No description available'),
             airdate: cleanText(airdate || 'Unknown'),
             aliases: cleanText(aliases || 'No alternative titles')
-        });
+        }]);
     } catch (error) {
         console.error('Details error:', error);
-        return JSON.stringify({
+        return JSON.stringify([{
             description: 'Error loading description',
             airdate: 'Unknown',
             aliases: 'Unknown'
-        });
+        }]);
     }
 }
 
@@ -171,35 +171,37 @@ async function extractStreamUrl(url) {
         // without resolving to .m3u8 to keep the list fast. The app will select and request
         // the chosen server later. We still include a readable title: "LANG - ServerName".
         if (embedUrls.length > 0) {
-            const candidateList = [];
             const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
 
-            for (let i = 0; i < embedUrls.length; i++) {
+            // Resolve all embeds and servers in parallel to maintain performance
+            const embedPromises = embedUrls.map(async (embedUrl, i) => {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
-                const embedUrl = embedUrls[i];
-
+                
                 const servers = await extractDirectServerFromEmbed(embedUrl);
-                if (!servers || servers.length === 0) continue;
+                if (!servers || servers.length === 0) return [];
+                
+                const serverPromises = servers.map(async (server) => {
+                    const result = await resolveServerToDirectUrl(server.url, server.name);
+                    if (result) {
+                        return {
+                            title: `${langLabel} - ${result.title}`,
+                            url: result.streamUrl,
+                            streamUrl: result.streamUrl,
+                            headers: result.headers
+                        };
+                    }
+                    return null;
+                });
+                
+                const resolvedServers = await Promise.all(serverPromises);
+                return resolvedServers.filter(Boolean);
+            });
+            
+            const results = await Promise.all(embedPromises);
+            const finalList = results.reduce((acc, curr) => acc.concat(curr), []);
 
-                // For performance, do NOT resolve servers now; just return them for selection.
-                for (const s of servers) {
-                    const pretty = prettifyServerName(s.name, s.url);
-                    // mark probable HLS candidates based on known hosts list (no heavy checks)
-                    const host = (s.url || '').toLowerCase();
-                    const hlsHosts = ['streamhg', 'dood', 'filemoon', 'voe', 'vidhide', 'mixdrop', 'uqload', 'streamtape', 'okru'];
-                    const isHlsCandidate = hlsHosts.some(h => host.includes(h) || (s.name || '').toLowerCase().includes(h));
-                    const display = `${langLabel} - ${pretty}`;
-                    candidateList.push({ title: display, url: s.url, rawName: s.name, hostType: isHlsCandidate ? 'hls-candidate' : 'unknown' });
-                }
-            }
-
-            if (candidateList.length > 0) {
-                // Prioritize HLS candidates first, but keep relative order otherwise
-                const prioritized = [];
-                const others = [];
-                candidateList.forEach(c => (c.hostType === 'hls-candidate' ? prioritized : others).push(c));
-                const finalList = prioritized.concat(others);
+            if (finalList.length > 0) {
                 // Return as `streams` so the app recognizes available sources quickly.
                 return JSON.stringify({ streams: finalList, subtitles: null });
             }
