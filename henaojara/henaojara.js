@@ -167,33 +167,31 @@ async function extractStreamUrl(url) {
             }
         }
         
-        // If we found multiple language embeds, process all of them
+        // If we found multiple language embeds, quickly return the list of detected servers
+        // without resolving to .m3u8 to keep the list fast. The app will select and request
+        // the chosen server later. We still include a readable title: "LANG - ServerName".
         if (embedUrls.length > 0) {
-            const allStreams = [];
+            const candidateList = [];
+            const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
 
-            // resolve each embed in parallel but keep sequential processing of servers inside each embed
             for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
-                const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
                 if (!servers || servers.length === 0) continue;
 
-                const resolved = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
-                resolved.filter(Boolean).forEach((r) => {
-                    r.title = langLabel + ' · ' + r.title;
-                    allStreams.push(r);
-                });
+                // For performance, do NOT resolve servers now; just return them for selection.
+                for (const s of servers) {
+                    const display = `${langLabel} - ${prettifyServerName(s.name, s.url)}`;
+                    candidateList.push({ title: display, url: s.url, rawName: s.name });
+                }
             }
 
-                if (allStreams.length > 0) {
-                    return JSON.stringify({
-                        streams: allStreams,
-                        subtitles: null
-                    });
-                }
+            if (candidateList.length > 0) {
+                return JSON.stringify({ servers: candidateList });
+            }
 
             return embedUrls[0];
         }
