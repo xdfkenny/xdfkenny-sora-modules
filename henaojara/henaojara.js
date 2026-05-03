@@ -190,7 +190,8 @@ async function extractStreamUrl(url) {
             }
 
             if (candidateList.length > 0) {
-                return JSON.stringify({ servers: candidateList });
+                // Return as `streams` so the app recognizes available sources quickly.
+                return JSON.stringify({ streams: candidateList, subtitles: null });
             }
 
             return embedUrls[0];
