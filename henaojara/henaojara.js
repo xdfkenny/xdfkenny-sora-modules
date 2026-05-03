@@ -8,21 +8,21 @@ const SEARCH_URL = `${BASE_URL}/?s=`;
 async function searchResults(keyword) {
     try {
         const query = (keyword || '').trim();
-        if (!query) return JSON.stringify([]);
+        if (!query) return [];
 
         const catalogResults = await searchFromCatalog(query);
-        if (catalogResults.length > 0) return JSON.stringify(catalogResults);
+        if (catalogResults.length > 0) return catalogResults;
 
         const ajaxResults = await searchFromAjax(query);
-        if (ajaxResults.length > 0) return JSON.stringify(ajaxResults);
+        if (ajaxResults.length > 0) return ajaxResults;
 
         const wpResults = await searchFromWordPress(query);
-        if (wpResults.length > 0) return JSON.stringify(wpResults);
+        if (wpResults.length > 0) return wpResults;
 
-        return JSON.stringify([]);
+        return [];
     } catch (error) {
         console.error('Search error:', error);
-        return JSON.stringify([]);
+        return [];
     }
 }
 
@@ -42,18 +42,18 @@ async function extractDetails(url) {
         );
         const aliases = extractAliases(html, description);
 
-        return JSON.stringify([{
+        return {
             description: cleanText(description || 'No description available'),
             airdate: cleanText(airdate || 'Unknown'),
             aliases: cleanText(aliases || 'No alternative titles')
-        }]);
+        };
     } catch (error) {
         console.error('Details error:', error);
-        return JSON.stringify([{
+        return {
             description: 'Error loading description',
             airdate: 'Unknown',
             aliases: 'Unknown'
-        }]);
+        };
     }
 }
 
@@ -134,7 +134,7 @@ async function extractEpisodes(url) {
             });
         }
 
-        return JSON.stringify(episodes);
+        return episodes;
     } catch (error) {
         console.error('Episodes error:', error);
         return JSON.stringify([]);
@@ -170,35 +170,31 @@ async function extractStreamUrl(url) {
         // If we found multiple language embeds, process all of them
         if (embedUrls.length > 0) {
             const allStreams = [];
-            
+
+            // resolve each embed in parallel but keep sequential processing of servers inside each embed
             for (let i = 0; i < embedUrls.length; i++) {
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
-                // Shorten language names for cleaner display
                 const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 const embedUrl = embedUrls[i];
-                
+
                 const servers = await extractDirectServerFromEmbed(embedUrl);
                 if (!servers || servers.length === 0) continue;
-                
-                for (const server of servers) {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
-                        // Prefix the stream title with the language
-                        result.title = langLabel + ' · ' + result.title;
-                        allStreams.push(result);
-                    }
-                }
-            }
-            
-            if (allStreams.length > 0) {
-                return JSON.stringify({
-                    streams: allStreams,
-                    subtitles: null
+
+                const resolved = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
+                resolved.filter(Boolean).forEach((r) => {
+                    r.title = langLabel + ' · ' + r.title;
+                    allStreams.push(r);
                 });
             }
-            
-            // Fallback to first embed URL
+
+            if (allStreams.length > 0) {
+                return {
+                    streams: allStreams,
+                    subtitles: null
+                };
+            }
+
             return embedUrls[0];
         }
         
@@ -216,19 +212,16 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                const streams = [];
-                for (const server of servers) {
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) streams.push(result);
-                }
-                
+                const results = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
+                const streams = results.filter(Boolean);
+
                 if (streams.length > 0) {
-                    return JSON.stringify({
+                    return {
                         streams: streams,
                         subtitles: null
-                    });
+                    };
                 }
-                
+
                 return servers[0].url;
             }
             
@@ -543,9 +536,18 @@ function extractAliases(html, description) {
 }
 
 function normalizeUrl(url) {
-    const normalized = decodeHtml(url || '').trim();
-    if (!normalized) return '';
-    return normalized.endsWith('/') ? normalized : `${normalized}/`;
+    const raw = decodeHtml(url || '').trim();
+    if (!raw) return '';
+    // Avoid double slashes when caller concatenates paths
+    try {
+        const u = new URL(raw, BASE_URL);
+        // replace multiple slashes (except in protocol part) with a single slash
+        return u.href.replace(/([^:])\/\/+/g, '$1/');
+    } catch (e) {
+        // fallback: ensure single trailing slash
+        const normalized = raw.replace(/\/+/g, '/');
+        return normalized.endsWith('/') ? normalized : `${normalized}/`;
+    }
 }
 
 function extractFirst(text, regex) {
@@ -567,7 +569,15 @@ function normalizeExternalUrl(url) {
     let normalized = decodeHtml(url || '').trim();
     if (!normalized) return '';
     if (/^\/\//.test(normalized)) normalized = `https:${normalized}`;
-    if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized.replace(/^\/+/, '')}`;
+    // If it's a relative path, resolve against BASE_URL
+    if (!/^https?:\/\//i.test(normalized)) {
+        try {
+            const u = new URL(normalized, BASE_URL);
+            return u.href;
+        } catch (e) {
+            return `https://${normalized.replace(/^\/+/, '')}`;
+        }
+    }
     return normalized;
 }
 
@@ -588,13 +598,17 @@ async function soraFetch(url, options) {
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
     try {
-        return await fetchv2(url, mergedHeaders, method, body);
+        const resp = await fetchv2(url, mergedHeaders, method, body);
+        // ensure response has .text()/.json()
+        if (resp && (typeof resp.text === 'function' || typeof resp.json === 'function')) return resp;
+        return resp;
     } catch (e) {
-        return await fetch(url, {
+        const fallback = await fetch(url, {
             method: method,
             headers: mergedHeaders,
             body: body
         });
+        return fallback;
     }
 }
 
