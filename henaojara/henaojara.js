@@ -179,14 +179,7 @@ async function extractStreamUrl(url) {
                 const embedUrl = embedUrls[i];
                 
                 const servers = await extractDirectServerFromEmbed(embedUrl);
-                if (!servers || servers.length === 0) {
-                    allStreams.push({
-                        title: langLabel + ' · ' + prettifyServerName('', embedUrl),
-                        streamUrl: embedUrl,
-                        headers: {}
-                    });
-                    continue;
-                }
+                if (!servers || servers.length === 0) continue;
                 
                 for (const server of servers) {
                     const result = await resolveServerToDirectUrl(server.url, server.name);
@@ -294,18 +287,16 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
         const displayName = prettifyServerName(serverName, serverUrl);
         
+        // Skip servers that don't serve standard HLS
+        if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
+        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
+        
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
         const referer = urlObj ? urlObj[1] + '/' : '';
         
         const resp = await soraFetch(serverUrl);
-        if (!resp) {
-            return {
-                title: displayName,
-                streamUrl: serverUrl,
-                headers: {}
-            };
-        }
+        if (!resp) return null;
         const html = await resp.text();
         
         // 1. Try to find m3u8 directly in the HTML
@@ -345,18 +336,10 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
             };
         }
         
-        return {
-            title: displayName,
-            streamUrl: serverUrl,
-            headers: {}
-        };
+        return null;
     } catch (e) {
         console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
-        return {
-            title: prettifyServerName(serverName, serverUrl),
-            streamUrl: serverUrl,
-            headers: {}
-        };
+        return null;
     }
 }
 
@@ -605,20 +588,13 @@ async function soraFetch(url, options) {
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
     try {
-        const res = await fetchv2(url, mergedHeaders, method, body);
-        if (res) return res;
+        return await fetchv2(url, mergedHeaders, method, body);
     } catch (e) {
-        // Fallback to fetchv1 (deprecated)
-    }
-
-    try {
-        const raw = await fetch(url, mergedHeaders);
-        return {
-            text: async () => String(raw),
-            json: async () => JSON.parse(raw)
-        };
-    } catch (e) {
-        return null;
+        return await fetch(url, {
+            method: method,
+            headers: mergedHeaders,
+            body: body
+        });
     }
 }
 
