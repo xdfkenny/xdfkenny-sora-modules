@@ -184,14 +184,24 @@ async function extractStreamUrl(url) {
 
                 // For performance, do NOT resolve servers now; just return them for selection.
                 for (const s of servers) {
-                    const display = `${langLabel} - ${prettifyServerName(s.name, s.url)}`;
-                    candidateList.push({ title: display, url: s.url, rawName: s.name });
+                    const pretty = prettifyServerName(s.name, s.url);
+                    // mark probable HLS candidates based on known hosts list (no heavy checks)
+                    const host = (s.url || '').toLowerCase();
+                    const hlsHosts = ['streamhg', 'dood', 'filemoon', 'voe', 'vidhide', 'mixdrop', 'uqload', 'streamtape', 'okru'];
+                    const isHlsCandidate = hlsHosts.some(h => host.includes(h) || (s.name || '').toLowerCase().includes(h));
+                    const display = `${langLabel} - ${pretty}`;
+                    candidateList.push({ title: display, url: s.url, rawName: s.name, hostType: isHlsCandidate ? 'hls-candidate' : 'unknown' });
                 }
             }
 
             if (candidateList.length > 0) {
+                // Prioritize HLS candidates first, but keep relative order otherwise
+                const prioritized = [];
+                const others = [];
+                candidateList.forEach(c => (c.hostType === 'hls-candidate' ? prioritized : others).push(c));
+                const finalList = prioritized.concat(others);
                 // Return as `streams` so the app recognizes available sources quickly.
-                return JSON.stringify({ streams: candidateList, subtitles: null });
+                return JSON.stringify({ streams: finalList, subtitles: null });
             }
 
             return embedUrls[0];
@@ -730,5 +740,18 @@ function unpack(source) {
     }
     function _replacestrings(source) {
         return source;
+    }
+}
+
+// Resolve a single selected server (called by the app when the user picks one).
+async function resolveSelectedServer(serverUrl) {
+    try {
+        if (!serverUrl) return null;
+        const res = await resolveServerToDirectUrl(serverUrl, '');
+        if (!res) return null;
+        return JSON.stringify(res);
+    } catch (e) {
+        console.error('resolveSelectedServer error:', e);
+        return null;
     }
 }
