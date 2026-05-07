@@ -23,5 +23,5 @@
   "supportsAnymex": true,
   "supportsTsumi": true,
   "supportsHiyoku": true,
-  "downloadSupport": true
+  "downloadSupport": false
 }
