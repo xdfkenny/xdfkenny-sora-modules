@@ -86,7 +86,7 @@ async function extractEpisodes(url) {
 
                         episodes.push({
                             href,
-                            number: String(episodeNumber)
+                            number: episodeNumber
                         });
                     });
                 });
@@ -122,7 +122,7 @@ async function extractEpisodes(url) {
                     if (!isNaN(season) && !isNaN(episode)) {
                         episodes.push({
                             href,
-                            number: String(episode)
+                            number: episode
                         });
                     }
                 }
