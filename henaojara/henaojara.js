@@ -141,7 +141,24 @@ async function extractStreamUrl(url) {
         const response = await soraFetch(url);
         const html = await response.text();
         
-        // Extract language URLs from the enlaces array (can be const, var, let, or bare)
+        // STEP 1: Check for direct m3u8 in the episode page itself
+        const directM3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+        if (directM3u8) {
+            return JSON.stringify({
+                streams: [{
+                    title: 'Direct HLS',
+                    streamUrl: decodeHtml(directM3u8).trim(),
+                    headers: {
+                        "Referer": BASE_URL + '/',
+                        "Origin": BASE_URL,
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    }
+                }],
+                subtitles: null
+            });
+        }
+        
+        // STEP 2: Extract language URLs from the enlaces array
         const enlacesMatch = html.match(/(?:const|var|let)?\s*enlaces\s*=\s*\[([\s\S]*?)\]/);
         const langNames = [];
         const langNameRegex = /<div\s+class="lang-name">([^<]+)<\/div>/gi;
@@ -156,20 +173,18 @@ async function extractStreamUrl(url) {
             const urlRegex = /["'](https?:[^"']+)["']/g;
             let urlMatch;
             while ((urlMatch = urlRegex.exec(enlacesMatch[1])) !== null) {
-                // Unescape \/ to / and decode HTML entities
                 const cleanUrl = urlMatch[1].replace(/\\\//g, '/');
                 embedUrls.push(decodeHtml(cleanUrl).trim());
             }
         }
         
-        // If we found multiple language embeds, quickly return the list of detected servers
-        // without resolving to .m3u8 to keep the list fast. The app will select and request
-        // the chosen server later. We still include a readable title: "LANG - ServerName".
+        // STEP 3: Process embed URLs with language labels
         if (embedUrls.length > 0) {
             const langMap = { 'LATINO': 'LAT', 'JAPONES': 'JAP', 'CASTELLANO': 'CAS', 'ENGLISH': 'ENG', 'INGLES': 'ENG' };
 
-            // Resolve all embeds and servers in parallel to maintain performance
             const embedPromises = embedUrls.map(async (embedUrl, i) => {
+                if (!embedUrl || embedUrl.trim() === '') return [];
+                
                 const rawLang = langNames[i] || ('Lang ' + (i + 1));
                 const langLabel = langMap[rawLang.toUpperCase()] || rawLang;
                 
@@ -177,11 +192,12 @@ async function extractStreamUrl(url) {
                 if (!servers || servers.length === 0) return [];
                 
                 const serverPromises = servers.map(async (server) => {
+                    if (!server.url || server.url.trim() === '') return null;
+                    
                     const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result) {
+                    if (result && result.streamUrl) {
                         return {
                             title: `${langLabel} - ${result.title}`,
-                            url: result.streamUrl,
                             streamUrl: result.streamUrl,
                             headers: result.headers
                         };
@@ -190,28 +206,21 @@ async function extractStreamUrl(url) {
                 });
                 
                 const resolvedServers = await Promise.all(serverPromises);
-                return resolvedServers.filter(Boolean);
+                return resolvedServers.filter(s => s && s.streamUrl);
             });
             
             const results = await Promise.all(embedPromises);
             const finalList = results.reduce((acc, curr) => acc.concat(curr), []);
 
             if (finalList.length > 0) {
-                // Return as `streams` so the app recognizes available sources quickly.
                 return JSON.stringify({ streams: finalList, subtitles: null });
             }
-
-            return null;
         }
         
-        // Fallback: single iframe (no language buttons)
-        const iframe = extractFirst(
-            html,
-            /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i
-        ) || extractFirst(
-            html,
-            /<div[^>]+id="reproductor-wrapper"[\s\S]*?<iframe[^>]+src="([^"]+)"/i
-        );
+        // STEP 4: Fallback - single iframe without language buttons
+        const iframe = extractFirst(html, /<iframe[^>]+id="iframe-video"[^>]+src="([^"]+)"/i)
+            || extractFirst(html, /<div[^>]+id="reproductor-wrapper"[\s\S]*?<iframe[^>]+src="([^"]+)"/i)
+            || extractFirst(html, /<iframe[^>]+src="([^"]+)"[^>]*>/i);
 
         if (iframe) {
             const iframeUrl = decodeHtml(iframe).trim();
@@ -219,28 +228,22 @@ async function extractStreamUrl(url) {
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
                 const results = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
-                const streams = results.filter(Boolean);
+                const streams = results.filter(r => r && r.streamUrl);
 
-                    if (streams.length > 0) {
-                        return JSON.stringify({
-                            streams: streams,
-                            subtitles: null
-                        });
-                    }
-
-                return null;
+                if (streams.length > 0) {
+                    return JSON.stringify({
+                        streams: streams,
+                        subtitles: null
+                    });
+                }
             }
-            
-            return null;
         }
 
-        const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        if (m3u8) return decodeHtml(m3u8).trim();
-
-        return null;
+        // STEP 5: Last resort - return empty streams array with valid JSON
+        return JSON.stringify({ streams: [], subtitles: null });
     } catch (error) {
         console.error('Stream error:', error);
-        return null;
+        return JSON.stringify({ streams: [], subtitles: null });
     }
 }
 
@@ -284,11 +287,12 @@ function prettifyServerName(name, url) {
 // Resolve an embed/server URL to a {title, streamUrl, headers} object (HLS only)
 async function resolveServerToDirectUrl(serverUrl, serverName) {
     try {
+        if (!serverUrl || serverUrl.trim() === '') return null;
+        
         const displayName = prettifyServerName(serverName, serverUrl);
         
-        // Skip servers that don't serve standard HLS
+        // Skip known problematic servers
         if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
-        if (/netuplayer\.top|netu\./i.test(serverUrl)) return null;  // non-standard
         
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
@@ -298,12 +302,21 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         if (!resp) return null;
         const html = await resp.text();
         
-        // 1. Try to find m3u8 directly in the HTML
+        // 1. Try multiple patterns to find m3u8 in the HTML
         let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
             || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
-            || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i);
+            || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i)
+            || extractFirst(html, /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/i)
+            || extractFirst(html, /sources\s*:\s*\[\s*{[^}]*file\s*:\s*["']([^"']+\.m3u8[^"']*)/i)
+            || extractFirst(html, /var\s+source\s*=\s*["']([^"']+\.m3u8[^"']*)/i);
         
-        // 2. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
+        // 2. Look for m3u8 in JSON data structures
+        if (!m3u8) {
+            const jsonMatch = html.match(/"?(?:file|src|source)"?\s*[:=]\s*"(https?:[^"]*\.m3u8[^"]*)"/i);
+            if (jsonMatch) m3u8 = jsonMatch[1];
+        }
+        
+        // 3. If not found, try unpacking P.A.C.K.E.R. obfuscated JS
         if (!m3u8) {
             const packedMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?\)[\s\S]*?)<\/script>/);
             if (packedMatch) {
@@ -311,6 +324,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
                     const unpacked = unpack(packedMatch[1]);
                     m3u8 = extractFirst(unpacked, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
                         || extractFirst(unpacked, /"hls2"\s*:\s*"([^"]+)"/i)
+                        || extractFirst(unpacked, /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/i)
                         || extractFirst(unpacked, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
                 } catch (e) {
                     // Unpacker failed, continue
@@ -318,19 +332,31 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
             }
         }
         
-        // 3. Last resort: broad regex match for m3u8 URLs
+        // 4. Broad regex match for m3u8 URLs anywhere in the document
         if (!m3u8) {
             m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
         }
         
+        // 5. Check for JWPlayer or other player configurations
+        if (!m3u8) {
+            const jwMatch = html.match(/jwplayer\("[^"]+"\)\.setup\(\{[^}]*file\s*:\s*["']([^"']+)["']/i);
+            if (jwMatch && jwMatch[1] && jwMatch[1].includes('.m3u8')) {
+                m3u8 = jwMatch[1];
+            }
+        }
+        
         if (m3u8) {
+            const cleanM3u8 = decodeHtml(m3u8).trim();
+            // Verify it's actually an m3u8 URL
+            if (!cleanM3u8.includes('.m3u8')) return null;
+            
             return {
                 title: displayName,
-                streamUrl: decodeHtml(m3u8).trim(),
+                streamUrl: cleanM3u8,
                 headers: {
                     "Referer": referer,
                     "Origin": referer.replace(/\/$/, ''),
-                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
             };
         }
@@ -463,14 +489,44 @@ function parseAnimeCardsFromHtml(html) {
 
 async function extractDirectServerFromEmbed(embedUrl) {
     try {
-        if (!/multiplayer\.streamhj\.top/i.test(embedUrl)) return null;
-
+        if (!embedUrl || embedUrl.trim() === '') return null;
+        
+        // List of known embed providers we can extract from
+        const supportedHosts = [
+            'multiplayer.streamhj.top',
+            'streamhg', 'hgcloud',
+            'vidhide', 'filemoon', 'filelions',
+            'streamtape', 'streamtape.com',
+            'uqload', 'mp4upload', 'mixdrop',
+            'voe', 'netu', 'netuplayer',
+            'wolfstream', 'hexupload',
+            'fastream', 'upstream',
+            'dood', 'doodstream',
+            'evoload',
+            'ok.ru',
+            'mega.nz',
+            'burstcloud',
+            'embedwish'
+        ];
+        
+        // Check if this is a supported host or contains m3u8 directly
+        const isSupported = supportedHosts.some(host => embedUrl.toLowerCase().includes(host));
+        const isDirectM3u8 = /\.m3u8/i.test(embedUrl);
+        
+        // If it's a direct m3u8, return it as-is
+        if (isDirectM3u8) {
+            return [{ url: embedUrl, name: 'Direct HLS' }];
+        }
+        
+        // If it's not a known multiplayer embed, try to extract anyway
+        // Many providers use similar structures
         const response = await soraFetch(embedUrl);
         if (!response) return null;
         const html = await response.text();
 
         const servers = [];
-        // More flexible regex to match playVideo('...') or playVideo("&quot;...&quot;")
+        
+        // Pattern 1: AnimeJara multiplayer.streamhj.top style
         const regex = /<li[^>]*onclick="[^"]*playVideo\((?:&quot;|'|")\s*([^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)[^"]*"[\s\S]*?<span[^>]*class="nombre-server"[^>]*>([^<]+)<\/span>/gi;
         let match;
         while ((match = regex.exec(html)) !== null) {
@@ -480,11 +536,50 @@ async function extractDirectServerFromEmbed(embedUrl) {
             });
         }
 
+        // Pattern 2: Generic playVideo fallback
         if (servers.length === 0) {
-            // Fallback for different HTML structures
             const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
                 servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
+            }
+        }
+        
+        // Pattern 3: Direct source/src tags
+        if (servers.length === 0) {
+            const sourceRegex = /<source[^>]+src="([^"]+)"/gi;
+            while ((match = sourceRegex.exec(html)) !== null) {
+                const url = normalizeExternalUrl(match[1]);
+                if (url && !servers.some(s => s.url === url)) {
+                    servers.push({ url, name: 'Direct Source' });
+                }
+            }
+        }
+        
+        // Pattern 4: iframe within iframe (nested embeds)
+        if (servers.length === 0) {
+            const iframeRegex = /<iframe[^>]+src="([^"]+)"/i;
+            const iframeMatch = html.match(iframeRegex);
+            if (iframeMatch && iframeMatch[1]) {
+                const nestedUrl = normalizeExternalUrl(iframeMatch[1]);
+                if (nestedUrl && nestedUrl !== embedUrl) {
+                    // Recursively try to extract from nested iframe
+                    const nested = await extractDirectServerFromEmbed(nestedUrl);
+                    if (nested && nested.length > 0) {
+                        return nested;
+                    }
+                }
+            }
+        }
+        
+        // Pattern 5: video tag with src
+        if (servers.length === 0) {
+            const videoRegex = /<video[^>]+src="([^"]+)"/i;
+            const videoMatch = html.match(videoRegex);
+            if (videoMatch && videoMatch[1]) {
+                servers.push({ 
+                    url: normalizeExternalUrl(videoMatch[1]), 
+                    name: 'HTML5 Video' 
+                });
             }
         }
 
