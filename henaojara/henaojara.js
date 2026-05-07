@@ -227,7 +227,8 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                const results = await Promise.all(servers.map(s => resolveServerToDirectUrl(s.url, s.name)));
+                const validServers = servers.filter(s => s && s.url && s.url.trim() !== '');
+                const results = await Promise.all(validServers.map(s => resolveServerToDirectUrl(s.url, s.name)));
                 const streams = results.filter(r => r && r.streamUrl);
 
                 if (streams.length > 0) {
@@ -297,13 +298,37 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
         const referer = urlObj ? urlObj[1] + '/' : '';
+        const origin = referer.replace(/\/$/, '');
         
+        // ========== SPECIAL HANDLERS ==========
+        
+        // --- Handler 1: Nyuu (multi-layer redirect) ---
+        if (/nyuu\.(streamhj\.top|henaojara\.com)/i.test(serverUrl)) {
+            const nyuuResult = await resolveNyuuServer(serverUrl, displayName, referer, origin);
+            if (nyuuResult) return nyuuResult;
+        }
+        
+        // --- Handler 2: Filelions / VidHide (eval obfuscation) ---
+        if (/filelions\.|vidhide\./i.test(serverUrl)) {
+            const filelionsResult = await resolveFilelionsServer(serverUrl, displayName, referer, origin);
+            if (filelionsResult) return filelionsResult;
+        }
+        
+        // --- Handler 3: StreamHG / HGCloud ---
+        if (/hgcloud\.|streamhg/i.test(serverUrl)) {
+            const hgResult = await resolveHgcloudServer(serverUrl, displayName, referer, origin);
+            if (hgResult) return hgResult;
+        }
+        
+        // ========== GENERIC HANDLER ==========
         const resp = await soraFetch(serverUrl);
         if (!resp) return null;
         const html = await resp.text();
         
+        let m3u8 = null;
+        
         // 1. Try multiple patterns to find m3u8 in the HTML
-        let m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
+        m3u8 = extractFirst(html, /file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
             || extractFirst(html, /src\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)
             || extractFirst(html, /"hls2"\s*:\s*"([^"]+)"/i)
             || extractFirst(html, /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/i)
@@ -332,12 +357,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
             }
         }
         
-        // 4. Broad regex match for m3u8 URLs anywhere in the document
-        if (!m3u8) {
-            m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
-        }
-        
-        // 5. Check for JWPlayer or other player configurations
+        // 4. Check for JWPlayer or other player configurations
         if (!m3u8) {
             const jwMatch = html.match(/jwplayer\("[^"]+"\)\.setup\(\{[^}]*file\s*:\s*["']([^"']+)["']/i);
             if (jwMatch && jwMatch[1] && jwMatch[1].includes('.m3u8')) {
@@ -345,17 +365,35 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
             }
         }
         
+        // 5. Check for DPlayer config with relative URLs
+        if (!m3u8) {
+            const dpMatch = html.match(/video:\s*\{\s*url:\s*['"]([^'"]+)['"]/i);
+            if (dpMatch && dpMatch[1]) {
+                const relativeUrl = dpMatch[1].trim();
+                if (relativeUrl.includes('.m3u8') || relativeUrl.includes('.mp4')) {
+                    // Resolve relative URL against server base
+                    try {
+                        const baseUrl = serverUrl.match(/^(https?:\/\/[^\/]+\/[^\/]+\/)/)?.[1] || serverUrl;
+                        const resolved = new URL(relativeUrl, baseUrl).href;
+                        m3u8 = resolved;
+                    } catch (e) {
+                        m3u8 = relativeUrl;
+                    }
+                }
+            }
+        }
+        
         if (m3u8) {
             const cleanM3u8 = decodeHtml(m3u8).trim();
             // Verify it's actually an m3u8 URL
-            if (!cleanM3u8.includes('.m3u8')) return null;
+            if (!cleanM3u8.includes('.m3u8') && !cleanM3u8.includes('.mp4')) return null;
             
             return {
                 title: displayName,
                 streamUrl: cleanM3u8,
                 headers: {
                     "Referer": referer,
-                    "Origin": referer.replace(/\/$/, ''),
+                    "Origin": origin,
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
             };
@@ -368,7 +406,290 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
     }
 }
 
+// ========== SPECIALIZED SERVER RESOLVERS ==========
 
+// Resolve Nyuu server: follows go.php -> ody_go.php -> extracts DPlayer config
+async function resolveNyuuServer(serverUrl, displayName, referer, origin) {
+    try {
+        // Step 1: Fetch the go.php page
+        const goResp = await soraFetch(serverUrl);
+        if (!goResp) return null;
+        const goHtml = await goResp.text();
+        
+        // Extract the encoded 'v' parameter and redirect target
+        const vMatch = goHtml.match(/var\s+enlace\s*=\s*['"]([^'"]+)['"]/i) || 
+                       serverUrl.match(/[?&]v=([^&]+)/);
+        const vParam = vMatch ? vMatch[1] : '';
+        
+        const inicioMatch = serverUrl.match(/[?&]inicio=([^&]+)/);
+        const finalMatch = serverUrl.match(/[?&]final=([^&]+)/);
+        const inicio = inicioMatch ? inicioMatch[1] : '0';
+        const final = finalMatch ? finalMatch[1] : '0';
+        
+        // Build ody_go.php URL
+        const baseMatch = serverUrl.match(/^(https?:\/\/[^\/]+\/[^\/]+\/[^\/]+\/)/);
+        const basePath = baseMatch ? baseMatch[1] : serverUrl.replace(/\/[^\/]*$/, '/');
+        const odyUrl = `${basePath}ody_go.php?v=${vParam}&inicio=${inicio}&final=${final}`;
+        
+        // Step 2: Fetch ody_go.php
+        const odyResp = await soraFetch(odyUrl);
+        if (!odyResp) return null;
+        const odyHtml = await odyResp.text();
+        
+        // Step 3: Extract DPlayer config (video URL is relative)
+        const dpMatch = odyHtml.match(/video:\s*\{\s*url:\s*['"]([^'"]+)['"]/i);
+        if (!dpMatch || !dpMatch[1]) return null;
+        
+        const relativeUrl = dpMatch[1].trim();
+        let finalUrl = relativeUrl;
+        
+        // Resolve relative URL
+        if (!/^https?:\/\//i.test(relativeUrl)) {
+            try {
+                const odyBase = odyUrl.match(/^(https?:\/\/[^\/]+\/[^\/]+\/[^\/]+\/)/)?.[1] || odyUrl;
+                finalUrl = new URL(relativeUrl, odyBase).href;
+            } catch (e) {
+                finalUrl = relativeUrl;
+            }
+        }
+        
+        // The URL might be another redirect (e.g., 1/a1b2c3d4e5.php), follow it
+        if (!/\.m3u8/i.test(finalUrl) && !/\.mp4/i.test(finalUrl)) {
+            try {
+                const redirectResp = await soraFetch(finalUrl);
+                if (redirectResp) {
+                    // Check if we got a redirect response
+                    // If the URL changed after redirects, use the effective URL
+                    const effectiveUrl = redirectResp.url || finalUrl;
+                    if (/\.m3u8/i.test(effectiveUrl) || /\.mp4/i.test(effectiveUrl)) {
+                        finalUrl = effectiveUrl;
+                    }
+                }
+            } catch (e) {
+                // Keep original URL
+            }
+        }
+        
+        if (!finalUrl || (!finalUrl.includes('.m3u8') && !finalUrl.includes('.mp4'))) return null;
+        
+        return {
+            title: displayName,
+            streamUrl: finalUrl,
+            headers: {
+                "Referer": origin + '/',
+                "Origin": origin,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+        };
+    } catch (e) {
+        console.error('resolveNyuuServer error:', e);
+        return null;
+    }
+}
+
+// Resolve Filelions/VidHide server: deobfuscate eval -> extract m3u8 from decoded code
+async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
+    try {
+        const resp = await soraFetch(serverUrl);
+        if (!resp) return null;
+        let html = await resp.text();
+        
+        // Step 1: Look for eval() obfuscation and deobfuscate
+        const evalMatch = html.match(/eval\(function\(p,a,c,k,e,d\)\{[\s\S]*?\}\s*\('/i);
+        if (evalMatch) {
+            try {
+                // Extract the full eval block
+                const evalStart = evalMatch.index;
+                const evalEndMarker = "'.split('|')))";
+                const evalEnd = html.indexOf(evalEndMarker, evalStart);
+                if (evalEnd !== -1) {
+                    const fullEval = html.substring(evalStart, evalEnd + evalEndMarker.length);
+                    const deobfuscated = deobfuscateSimpleEval(fullEval);
+                    if (deobfuscated) {
+                        html = deobfuscated;
+                    }
+                }
+            } catch (e) {
+                // Deobfuscation failed, continue with original
+            }
+        }
+        
+        // Step 2: Look for 'links' object with hls2/hls3/hls4
+        const linksMatch = html.match(/links\s*=\s*\{[\s\S]*?\}/i);
+        if (linksMatch) {
+            // Extract hls URLs from links object
+            const hlsMatch = linksMatch[0].match(/"hls[234]"\s*:\s*"([^"]+)"/gi);
+            if (hlsMatch) {
+                // Get the first hls URL (prefer hls2, then hls3, then hls4)
+                for (const hls of hlsMatch) {
+                    const urlMatch = hls.match(/"hls[234]"\s*:\s*"([^"]+)"/i);
+                    if (urlMatch && urlMatch[1]) {
+                        const url = urlMatch[1].trim();
+                        if (url.includes('.m3u8')) {
+                            return {
+                                title: displayName,
+                                streamUrl: url,
+                                headers: {
+                                    "Referer": referer,
+                                    "Origin": origin,
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                }
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Step 3: Look for jwplayer setup with sources
+        const jwMatch = html.match(/sources\s*:\s*\[\s*\{[^}]*file\s*:\s*(["'][^"']+["']|links\.\w+)/i);
+        if (jwMatch) {
+            const fileRef = jwMatch[1].trim();
+            let url = '';
+            
+            if (fileRef.startsWith('links.')) {
+                const linkKey = fileRef.replace('links.', '');
+                const linkMatch = html.match(new RegExp(`"${linkKey}"\\s*:\\s*"([^"]+)"`));
+                if (linkMatch) url = linkMatch[1];
+            } else {
+                url = fileRef.replace(/["']/g, '');
+            }
+            
+            if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
+                return {
+                    title: displayName,
+                    streamUrl: url,
+                    headers: {
+                        "Referer": referer,
+                        "Origin": origin,
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
+                };
+            }
+        }
+        
+        // Step 4: Fallback - look for any m3u8 or mp4 URL
+        const directMatch = html.match(/(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/i);
+        if (directMatch && directMatch[1]) {
+            return {
+                title: displayName,
+                streamUrl: directMatch[1].trim(),
+                headers: {
+                    "Referer": referer,
+                    "Origin": origin,
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            };
+        }
+        
+        return null;
+    } catch (e) {
+        console.error('resolveFilelionsServer error:', e);
+        return null;
+    }
+}
+
+// Resolve HGCloud/StreamHG server
+async function resolveHgcloudServer(serverUrl, displayName, referer, origin) {
+    try {
+        const resp = await soraFetch(serverUrl);
+        if (!resp) return null;
+        const html = await resp.text();
+        
+        // Look for m3u8 or mp4
+        const m3u8Match = html.match(/(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/i) ||
+                         html.match(/sources\s*:\s*\[\s*\{[^}]*file\s*:\s*["']([^"']+)["']/i) ||
+                         html.match(/"?(?:file|src|source)"?\s*[:=]\s*"(https?:[^"]*\.(?:m3u8|mp4)[^"]*)"/i);
+        
+        if (m3u8Match && m3u8Match[1]) {
+            return {
+                title: displayName,
+                streamUrl: m3u8Match[1].trim(),
+                headers: {
+                    "Referer": referer,
+                    "Origin": origin,
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            };
+        }
+        
+        return null;
+    } catch (e) {
+        console.error('resolveHgcloudServer error:', e);
+        return null;
+    }
+}
+
+// Deobfuscate eval(function(p,a,c,k,e,d){...}) pattern used by Filelions/VidHide
+// This is different from P.A.C.K.E.R. - it's a simpler obfuscation
+function deobfuscateSimpleEval(source) {
+    try {
+        // The pattern is: eval(function(p,a,c,k,e,d){while(c--)if(k[c])p=p.replace(...)}('payload',radix,count,'word1|word2'.split('|'),0,{}))
+        
+        // Find the function body end
+        const funcEnd = source.indexOf("}('");
+        if (funcEnd === -1) return null;
+        
+        const argsStr = source.substring(funcEnd + 2);
+        
+        // Extract payload (first single-quoted string)
+        const firstQuote = argsStr.indexOf("'");
+        if (firstQuote === -1) return null;
+        
+        let payloadEnd = -1;
+        for (let i = firstQuote + 1; i < argsStr.length; i++) {
+            if (argsStr.charAt(i) === "'" && argsStr.charAt(i - 1) !== '\\') {
+                const rest = argsStr.substring(i + 1).trim();
+                if (rest.charAt(0) === ',') {
+                    payloadEnd = i;
+                    break;
+                }
+            }
+        }
+        
+        if (payloadEnd === -1) return null;
+        
+        const payload = argsStr.substring(firstQuote + 1, payloadEnd);
+        
+        // Extract radix and count
+        let rest = argsStr.substring(payloadEnd + 1).trim();
+        rest = rest.substring(1).trim(); // skip comma
+        const radixEnd = rest.indexOf(',');
+        const radix = parseInt(rest.substring(0, radixEnd));
+        rest = rest.substring(radixEnd + 1).trim();
+        const countEnd = rest.indexOf(",");
+        const count = parseInt(rest.substring(0, countEnd));
+        
+        // Extract keywords
+        const kwStart = rest.indexOf("'") + 1;
+        const kwEnd = rest.indexOf("'", kwStart);
+        const keywords = rest.substring(kwStart, kwEnd).split('|');
+        
+        if (count !== keywords.length) {
+            // Some implementations have count as a hint, not strict
+            console.log('Warning: keyword count mismatch', count, 'vs', keywords.length);
+        }
+        
+        // Decode the payload
+        function decodeWord(word) {
+            if (radix === 1) {
+                const idx = parseInt(word);
+                return (idx >= 0 && idx < keywords.length) ? keywords[idx] : word;
+            }
+            const index = parseInt(word, radix);
+            return (index >= 0 && index < keywords.length) ? keywords[index] : word;
+        }
+        
+        const decoded = payload.replace(/\b\w+\b/g, function(word) {
+            return decodeWord(word);
+        });
+        
+        return decoded;
+    } catch (e) {
+        console.error('deobfuscateSimpleEval error:', e);
+        return null;
+    }
+}
 
 /* HELPERS */
 
@@ -527,7 +848,7 @@ async function extractDirectServerFromEmbed(embedUrl) {
         const servers = [];
         
         // Pattern 1: AnimeJara multiplayer.streamhj.top style
-        const regex = /<li[^>]*onclick="[^"]*playVideo\((?:&quot;|'|")\s*([^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)[^"]*"[\s\S]*?<span[^>]*class="nombre-server"[^>]*>([^<]+)<\/span>/gi;
+        const regex = /<li[^>]*onclick="[^"]*playVideo\((?:&quot;|'|")\s*([^"]*)\s*(?:&quot;|'|")\)[^"]*"[\s\S]*?<span[^>]*class=['"]nombre-server['"][^>]*>([^<]+)<\/span>/gi;
         let match;
         while ((match = regex.exec(html)) !== null) {
             servers.push({
@@ -538,7 +859,7 @@ async function extractDirectServerFromEmbed(embedUrl) {
 
         // Pattern 2: Generic playVideo fallback
         if (servers.length === 0) {
-            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"&']+(?:&amp;[^"&']*)*)\s*(?:&quot;|'|")\)/gi;
+            const fallbackRegex = /playVideo\((?:&quot;|'|")\s*(https?:\/\/[^"]*)\s*(?:&quot;|'|")\)/gi;
             while ((match = fallbackRegex.exec(html)) !== null) {
                 servers.push({ url: normalizeExternalUrl(match[1]), name: 'Server' });
             }
@@ -686,20 +1007,35 @@ async function soraFetch(url, options) {
 
 function mergeHeaders(url, opts) {
     const base = opts.headers || {};
-    if (String(url || '').indexOf('animejara.com') === -1) return base;
-
     const method = opts.method || 'GET';
-    const isAjaxPost = method === 'POST' && String(url || '').indexOf('/wp-admin/admin-ajax.php') !== -1;
-    let referer = 'https://animejara.com/';
-    if (isAjaxPost) referer = 'https://animejara.com/catalogo/';
-
+    
+    // Default headers for all requests
     const defaults = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: isAjaxPost ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en-US,en;q=0.8',
-        Referer: referer,
-        Origin: 'https://animejara.com'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     };
+    
+    // AnimeJara-specific headers
+    if (String(url || '').indexOf('animejara.com') !== -1) {
+        const isAjaxPost = method === 'POST' && String(url || '').indexOf('/wp-admin/admin-ajax.php') !== -1;
+        let referer = 'https://animejara.com/';
+        if (isAjaxPost) referer = 'https://animejara.com/catalogo/';
+        
+        defaults['Accept'] = isAjaxPost ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+        defaults['Accept-Language'] = 'es-ES,es;q=0.9,en-US,en;q=0.8';
+        defaults['Referer'] = referer;
+        defaults['Origin'] = 'https://animejara.com';
+    }
+    
+    // External embed site headers - add referer if not present
+    if (String(url || '').indexOf('animejara.com') === -1 && !base['Referer']) {
+        try {
+            const urlObj = new URL(url);
+            defaults['Referer'] = urlObj.origin + '/';
+            defaults['Origin'] = urlObj.origin;
+        } catch (e) {
+            // Invalid URL, skip
+        }
+    }
 
     const out = {};
     let k;
