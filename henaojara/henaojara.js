@@ -86,10 +86,7 @@ async function extractEpisodes(url) {
 
                         episodes.push({
                             href,
-                            number: episodeNumber,
-                            season: parseInt(numTemp, 10),
-                            episode: episodeNumber,
-                            image: ep.poster_episodio || '' // Adding image/thumbnail
+                            number: String(episodeNumber)
                         });
                     });
                 });
@@ -125,9 +122,7 @@ async function extractEpisodes(url) {
                     if (!isNaN(season) && !isNaN(episode)) {
                         episodes.push({
                             href,
-                            number: episode,
-                            season,
-                            episode
+                            number: String(episode)
                         });
                     }
                 }
@@ -206,7 +201,7 @@ async function extractStreamUrl(url) {
                 return JSON.stringify({ streams: finalList, subtitles: null });
             }
 
-            return embedUrls[0];
+            return null;
         }
         
         // Fallback: single iframe (no language buttons)
@@ -233,10 +228,10 @@ async function extractStreamUrl(url) {
                         });
                     }
 
-                return servers[0].url;
+                return null;
             }
             
-            return iframeUrl;
+            return null;
         }
 
         const m3u8 = extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
@@ -498,35 +493,6 @@ async function extractDirectServerFromEmbed(embedUrl) {
         console.error('Embed server extraction error:', error);
         return null;
     }
-}
-
-function pickPreferredServer(servers) {
-    if (!Array.isArray(servers) || servers.length === 0) return null;
-    const cleanServers = servers.filter((item) => item && item.url);
-    if (cleanServers.length === 0) return null;
-
-    const preferredHosts = [
-        'streamtape',
-        'filelions',
-        'vidhide',
-        'voe',
-        'uqload',
-        'mp4upload',
-        'mixdrop',
-        'streamhg',
-        'filemoon',
-        'netu'
-    ];
-
-    for (const host of preferredHosts) {
-        const found = cleanServers.find((item) => {
-            const haystack = `${item.name} ${item.url}`.toLowerCase();
-            return haystack.includes(host);
-        });
-        if (found) return found.url;
-    }
-
-    return cleanServers[0].url;
 }
 
 function buildAnimeHref(slug, tipo) {
