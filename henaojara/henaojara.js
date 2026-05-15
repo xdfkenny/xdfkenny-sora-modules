@@ -26,6 +26,11 @@ async function searchResults(keyword) {
     }
 }
 
+/**
+ * Fetches an anime page and extracts its description, airdate, and alternative titles.
+ * Attempts multiple fallback selectors and metadata sources to locate each field, cleans the text, and returns the results.
+ * @param {string} url - The anime or movie page URL to fetch and parse.
+ * @returns {string} A JSON-stringified array containing a single object with `description`, `airdate`, and `aliases` fields.
 async function extractDetails(url) {
     try {
         const response = await soraFetch(url);
@@ -69,6 +74,18 @@ async function extractDetails(url) {
     }
 }
 
+/**
+ * Extracts episode links and episode numbers from an anime episode-listing page.
+ *
+ * Parses the provided page to build a deduplicated list of episodes and their canonical URLs,
+ * using embedded season/episode data when available and falling back to legacy URL/anchor patterns.
+ * If no episodes are found or an error occurs, returns an empty list representation.
+ *
+ * @param {string} url - The URL of the episode-listing page to parse.
+ * @returns {string} A JSON string encoding an array of episode objects, each with:
+ *  - `href`: the canonical episode URL,
+ *  - `number`: the episode number as an integer. Returns `"[]"` when no episodes are found or on error.
+ */
 async function extractEpisodes(url) {
     try {
         const response = await soraFetch(url);
@@ -470,6 +487,11 @@ function extractWpNonce(html) {
     return fallback ? fallback[1] : '';
 }
 
+/**
+ * Parse anime/movie card elements from an HTML document and extract title, poster image, and normalized href.
+ * @param {string} html - HTML string containing one or more elements with class `anime-card`.
+ * @returns {{title: string, image: string, href: string}[]} An array of objects with `title`, `image`, and `href`; entries missing title or image are omitted and duplicate hrefs are de-duplicated.
+ */
 function parseAnimeCardsFromHtml(html) {
     const results = [];
     const seen = new Set();
@@ -502,6 +524,12 @@ function parseAnimeCardsFromHtml(html) {
     return results;
 }
 
+/**
+ * Extracts direct server endpoints from an embed URL, including nested iframe traversal up to a recursion depth of 3.
+ * @param {string} embedUrl - The embed page URL or direct media URL to inspect.
+ * @param {number} [depth=0] - Current recursion depth used for nested iframe extraction; callers should not set this normally.
+ * @returns {Array<{url: string, name: string}>|null} An array of server objects each with `url` and `name` when one or more servers are found, or `null` if no servers were extracted or on error.
+ */
 async function extractDirectServerFromEmbed(embedUrl, depth = 0) {
     try {
         if (!embedUrl || embedUrl.trim() === '') return null;
@@ -752,6 +780,19 @@ function detect(source) {
     return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
 }
 
+/**
+ * Unpacks JavaScript code compressed with the P.A.C.K.E.R. packer format.
+ *
+ * Parses the packed payload, symbol table, and radix from the input and replaces
+ * packed identifiers with their original values.
+ *
+ * @param {string} source - Packed JavaScript source produced by the P.A.C.K.E.R. packer.
+ * @returns {string} The unpacked JavaScript source with identifiers restored.
+ * @throws {Error} If the symbol table length does not match the count ("Malformed p.a.c.k.e.r. symtab.").
+ * @throws {Error} If the radix encoding is unsupported ("Unknown p.a.c.k.e.r. encoding.").
+ * @throws {Error} If the packed data cannot be parsed ("Corrupted p.a.c.k.e.r. data.").
+ * @throws {Error} If the source structure is unexpected and arguments cannot be extracted ("Could not make sense of p.a.c.k.e.r data (unexpected code structure)").
+ */
 function unpack(source) {
     let { payload, symtab, radix, count } = _filterargs(source);
     if (count != symtab.length) {
