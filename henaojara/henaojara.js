@@ -35,10 +35,22 @@ async function extractDetails(url) {
         const description = extractFirst(
             html,
             /<div class="anime-sinopsis-contenedor"[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i
+        ) || extractFirst(
+            html,
+            /<div[^>]*class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+        ) || extractFirst(
+            html,
+            /<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i
         );
         const airdate = extractFirst(
             html,
             /<div[^>]*class="[^"]*anime-info-pre-contenedor[^"]*"[\s\S]*?fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
+        ) || extractFirst(
+            html,
+            /(?:Año|Year|Aired|Estreno)[:\s]*(\d{4})/i
+        ) || extractFirst(
+            html,
+            /<span[^>]*class="[^"]*aired[^"]*"[^>]*>([^<]+)<\/span>/i
         );
         const aliases = extractAliases(html, description);
 
@@ -71,6 +83,7 @@ async function extractEpisodes(url) {
         const dataMatch = html.match(/TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\])(?:\s*;|\s*$|\s*<\/script>)/);
         if (dataMatch && dataMatch[1]) {
             try {
+                const seen = new Set();
                 const seasons = JSON.parse(dataMatch[1]);
                 seasons.forEach((season) => {
                     const numTemp = season.numero_temporada;
@@ -79,6 +92,8 @@ async function extractEpisodes(url) {
                         const numEp = ep.numero_episodio;
                         // URL pattern: https://animejara.com/episode/${ANIME_SLUG}-${numTemp}x${numEp}/
                         const href = `https://animejara.com/episode/${slug}-${numTemp}x${numEp}/`;
+                        if (seen.has(href)) return;
+                        seen.add(href);
                         
                         // Fix for "Episode 0" - Use integer parsing and fallback
                         let episodeNumber = parseInt(numEp, 10);
@@ -487,30 +502,12 @@ function parseAnimeCardsFromHtml(html) {
     return results;
 }
 
-async function extractDirectServerFromEmbed(embedUrl) {
+async function extractDirectServerFromEmbed(embedUrl, depth = 0) {
     try {
         if (!embedUrl || embedUrl.trim() === '') return null;
+        if (depth > 3) return null;
         
-        // List of known embed providers we can extract from
-        const supportedHosts = [
-            'multiplayer.streamhj.top',
-            'streamhg', 'hgcloud',
-            'vidhide', 'filemoon', 'filelions',
-            'streamtape', 'streamtape.com',
-            'uqload', 'mp4upload', 'mixdrop',
-            'voe', 'netu', 'netuplayer',
-            'wolfstream', 'hexupload',
-            'fastream', 'upstream',
-            'dood', 'doodstream',
-            'evoload',
-            'ok.ru',
-            'mega.nz',
-            'burstcloud',
-            'embedwish'
-        ];
-        
-        // Check if this is a supported host or contains m3u8 directly
-        const isSupported = supportedHosts.some(host => embedUrl.toLowerCase().includes(host));
+        // Check if embed contains m3u8 directly
         const isDirectM3u8 = /\.m3u8/i.test(embedUrl);
         
         // If it's a direct m3u8, return it as-is
@@ -562,8 +559,8 @@ async function extractDirectServerFromEmbed(embedUrl) {
             if (iframeMatch && iframeMatch[1]) {
                 const nestedUrl = normalizeExternalUrl(iframeMatch[1]);
                 if (nestedUrl && nestedUrl !== embedUrl) {
-                    // Recursively try to extract from nested iframe
-                    const nested = await extractDirectServerFromEmbed(nestedUrl);
+                    // Recursively try to extract from nested iframe (max depth: 3)
+                    const nested = await extractDirectServerFromEmbed(nestedUrl, depth + 1);
                     if (nested && nested.length > 0) {
                         return nested;
                     }
@@ -806,15 +803,3 @@ function unpack(source) {
     }
 }
 
-// Resolve a single selected server (called by the app when the user picks one).
-async function resolveSelectedServer(serverUrl) {
-    try {
-        if (!serverUrl) return null;
-        const res = await resolveServerToDirectUrl(serverUrl, '');
-        if (!res) return null;
-        return JSON.stringify(res);
-    } catch (e) {
-        console.error('resolveSelectedServer error:', e);
-        return null;
-    }
-}
