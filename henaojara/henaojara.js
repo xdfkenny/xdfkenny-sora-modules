@@ -8,7 +8,7 @@ const SEARCH_URL = `${BASE_URL}/?s=`;
 async function searchResults(keyword) {
     try {
         const query = (keyword || '').trim();
-        if (!query) return [];
+        if (!query) return JSON.stringify([]);
 
         const catalogResults = await searchFromCatalog(query);
         if (catalogResults.length > 0) return JSON.stringify(catalogResults);
@@ -21,7 +21,7 @@ async function searchResults(keyword) {
 
         return JSON.stringify([]);
     } catch (error) {
-        console.error('Search error:', error);
+        console.log('Search error: ' + error);
         return JSON.stringify([]);
     }
 }
@@ -31,6 +31,7 @@ async function searchResults(keyword) {
  * Attempts multiple fallback selectors and metadata sources to locate each field, cleans the text, and returns the results.
  * @param {string} url - The anime or movie page URL to fetch and parse.
  * @returns {string} A JSON-stringified array containing a single object with `description`, `airdate`, and `aliases` fields.
+ */
 async function extractDetails(url) {
     try {
         const response = await soraFetch(url);
@@ -49,6 +50,12 @@ async function extractDetails(url) {
         );
         const airdate = extractFirst(
             html,
+            /<i[^>]*fa-calendar-alt[^>]*>[^<]*<\/i>\s*<span>([^<]+)<\/span>/i
+        ) || extractFirst(
+            html,
+            /<div[^>]*class="[^"]*stat-item[^"]*"[\s\S]*?fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
+        ) || extractFirst(
+            html,
             /<div[^>]*class="[^"]*anime-info-pre-contenedor[^"]*"[\s\S]*?fa-calendar-alt[\s\S]*?<span>([^<]+)<\/span>/i
         ) || extractFirst(
             html,
@@ -65,7 +72,7 @@ async function extractDetails(url) {
             aliases: cleanText(aliases || 'No alternative titles')
         }]);
     } catch (error) {
-        console.error('Details error:', error);
+        console.log('Details error: ' + error);
         return JSON.stringify([{
             description: 'Error loading description',
             airdate: 'Unknown',
@@ -123,7 +130,7 @@ async function extractEpisodes(url) {
                     });
                 });
             } catch (jsonError) {
-                console.error('Error parsing TEMPORADAS_DATA:', jsonError);
+                console.log('Error parsing TEMPORADAS_DATA: ' + jsonError);
             }
         }
 
@@ -161,9 +168,21 @@ async function extractEpisodes(url) {
             });
         }
 
+        // Movie fallback: movies have no TEMPORADAS_DATA, just a movieLinks array.
+        // Return a single "episode" pointing to the movie page itself.
+        if (episodes.length === 0) {
+            const movieLinksMatch = html.match(/(?:const|var|let)?\s*movieLinks\s*=\s*\[[\s\S]*?\]/);
+            if (movieLinksMatch) {
+                episodes.push({
+                    href: url,
+                    number: 1
+                });
+            }
+        }
+
         return JSON.stringify(episodes);
     } catch (error) {
-        console.error('Episodes error:', error);
+        console.log('Episodes error: ' + error);
         return JSON.stringify([]);
     }
 }
@@ -186,12 +205,12 @@ async function extractStreamUrl(url) {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     }
                 }],
-                subtitles: null
+                subtitle: ""
             });
         }
         
-        // STEP 2: Extract language URLs from the enlaces array
-        const enlacesMatch = html.match(/(?:const|var|let)?\s*enlaces\s*=\s*\[([\s\S]*?)\]/);
+        // STEP 2: Extract language URLs from the enlaces array (or movieLinks for movies)
+        const enlacesMatch = html.match(/(?:const|var|let)?\s*(?:enlaces|movieLinks)\s*=\s*\[([\s\S]*?)\]/);
         const langNames = [];
         const langNameRegex = /<div\s+class="lang-name">([^<]+)<\/div>/gi;
         let langMatch;
@@ -245,7 +264,7 @@ async function extractStreamUrl(url) {
             const finalList = results.reduce((acc, curr) => acc.concat(curr), []);
 
             if (finalList.length > 0) {
-                return JSON.stringify({ streams: finalList, subtitles: null });
+                return JSON.stringify({ streams: finalList, subtitle: "" });
             }
         }
         
@@ -265,17 +284,17 @@ async function extractStreamUrl(url) {
                 if (streams.length > 0) {
                     return JSON.stringify({
                         streams: streams,
-                        subtitles: null
+                        subtitle: ""
                     });
                 }
             }
         }
 
         // STEP 5: Last resort - return empty streams array with valid JSON
-        return JSON.stringify({ streams: [], subtitles: null });
+        return JSON.stringify({ streams: [], subtitle: "" });
     } catch (error) {
-        console.error('Stream error:', error);
-        return JSON.stringify({ streams: [], subtitles: null });
+        console.log('Stream error: ' + error);
+        return JSON.stringify({ streams: [], subtitle: "" });
     }
 }
 
@@ -395,7 +414,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         
         return null;
     } catch (e) {
-        console.error('resolveServerToDirectUrl error for ' + serverName + ':', e);
+        console.log('resolveServerToDirectUrl error for ' + serverName + ': ' + e);
         return null;
     }
 }
@@ -430,7 +449,7 @@ async function searchFromAjax(keyword) {
             href: buildAnimeHref(item.slug, item.tipo)
         })).filter((item) => item.title && item.href);
     } catch (error) {
-        console.error('AJAX search error:', error);
+        console.log('AJAX search error: ' + error);
         return [];
     }
 }
@@ -452,7 +471,7 @@ async function searchFromCatalog(keyword) {
 
         return [];
     } catch (error) {
-        console.error('Catalog search error:', error);
+        console.log('Catalog search error: ' + error);
         return [];
     }
 }
@@ -464,7 +483,7 @@ async function searchFromWordPress(keyword) {
         const html = await response.text();
         return parseAnimeCardsFromHtml(html);
     } catch (error) {
-        console.error('WordPress search error:', error);
+        console.log('WordPress search error: ' + error);
         return [];
     }
 }
@@ -610,7 +629,7 @@ async function extractDirectServerFromEmbed(embedUrl, depth = 0) {
 
         return (servers.length > 0) ? servers : null;
     } catch (error) {
-        console.error('Embed server extraction error:', error);
+        console.log('Embed server extraction error: ' + error);
         return null;
     }
 }
@@ -695,17 +714,18 @@ async function soraFetch(url, options) {
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
     try {
-        const resp = await fetchv2(url, mergedHeaders, method, body);
-        // ensure response has .text()/.json()
-        if (resp && (typeof resp.text === 'function' || typeof resp.json === 'function')) return resp;
-        return resp;
+        return await fetchv2(url, mergedHeaders, method, body);
     } catch (e) {
-        const fallback = await fetch(url, {
-            method: method,
-            headers: mergedHeaders,
-            body: body
-        });
-        return fallback;
+        try {
+            return await fetch(url, {
+                method: method,
+                headers: mergedHeaders,
+                body: body
+            });
+        } catch (error) {
+            console.log('soraFetch error: ' + error);
+            return null;
+        }
     }
 }
 

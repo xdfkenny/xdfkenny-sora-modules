@@ -62,11 +62,25 @@ https://example.com/stream/video.mp4
 
 ## Example
 
-```javascript 
+```javascript
+/** soraFetch — tries fetchv2 first, falls back to fetch */
+async function soraFetch(url, options = { headers: {}, method: 'GET', body: null }) {
+    try {
+        return await fetchv2(url, options.headers ?? {}, options.method ?? 'GET', options.body ?? null);
+    } catch(e) {
+        try {
+            return await fetch(url, options);
+        } catch(error) {
+            console.log('soraFetch error: ' + error.message);
+            return null;
+        }
+    }
+}
+
 async function searchResults(keyword) {
     try {
         const encodedKeyword = encodeURIComponent(keyword);
-        const responseText = await fetch(`https://api.animemundo.net/api/v2/hianime/search?q=${encodedKeyword}&language=dub`);
+        const responseText = await soraFetch(`https://api.animemundo.net/api/v2/hianime/search?q=${encodedKeyword}&language=dub`);
         const data = JSON.parse(responseText);
 
         const filteredAnimes = data.data.animes.filter(anime => anime.episodes.dub !== null); 
@@ -80,7 +94,7 @@ async function searchResults(keyword) {
         return JSON.stringify(transformedResults);
         
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.log('Fetch error: ' + error);
         return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
     }
 }
@@ -89,7 +103,7 @@ async function extractDetails(url) {
     try {
         const match = url.match(/https:\/\/hianime\.to\/watch\/(.+)$/);
         const encodedID = match[1];
-        const response = await fetch(`https://api.animemundo.net/api/v2/hianime/anime/${encodedID}`);
+        const response = await soraFetch(`https://api.animemundo.net/api/v2/hianime/anime/${encodedID}`);
         const data = JSON.parse(response);
         
         const animeInfo = data.data.anime.info;
@@ -103,7 +117,7 @@ async function extractDetails(url) {
         
         return JSON.stringify(transformedResults);
     } catch (error) {
-        console.log('Details error:', error);
+        console.log('Details error: ' + error);
         return JSON.stringify([{
         description: 'Error loading description',
         aliases: 'Duration: Unknown',
@@ -116,7 +130,7 @@ async function extractEpisodes(url) {
     try {
         const match = url.match(/https:\/\/hianime\.to\/watch\/(.+)$/);
         const encodedID = match[1];
-        const response = await fetch(`https://api.animemundo.net/api/v2/hianime/anime/${encodedID}/episodes`);
+        const response = await soraFetch(`https://api.animemundo.net/api/v2/hianime/anime/${encodedID}/episodes`);
         const data = JSON.parse(response);
 
         const transformedResults = data.data.episodes.map(episode => ({
@@ -127,7 +141,7 @@ async function extractEpisodes(url) {
         return JSON.stringify(transformedResults);
         
     } catch (error) {
-        console.log('Fetch error:', error);
+        console.log('Fetch error: ' + error);
     }    
 }
 
@@ -135,14 +149,14 @@ async function extractStreamUrl(url) {
     try {
        const match = url.match(/https:\/\/hianime\.to\/watch\/(.+)$/);
        const encodedID = match[1];
-       const response = await fetch(`https://api.animemundo.net/api/v2/hianime/episode/sources?animeEpisodeId=${encodedID}&category=dub`);
+       const response = await soraFetch(`https://api.animemundo.net/api/v2/hianime/episode/sources?animeEpisodeId=${encodedID}&category=dub`);
        const data = JSON.parse(response);
        
        const hlsSource = data.data.sources.find(source => source.type === 'hls');
        
        return hlsSource ? hlsSource.url : null;
     } catch (error) {
-       console.log('Fetch error:', error);
+       console.log('Fetch error: ' + error);
        return null;
     }
 }
