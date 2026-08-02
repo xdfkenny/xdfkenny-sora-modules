@@ -1038,11 +1038,15 @@ async function soraFetch(url, options) {
         return await fetchv2(url, mergedHeaders, method, body);
     } catch (e) {
         try {
-            return await fetch(url, {
+            const text = await fetch(url, {
                 method: method,
                 headers: mergedHeaders,
                 body: body
             });
+            return {
+                text: async () => text,
+                json: async () => JSON.parse(text)
+            };
         } catch (error) {
             console.log('soraFetch error: ' + error);
             return null;

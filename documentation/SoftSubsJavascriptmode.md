@@ -1,8 +1,6 @@
 # SoftSubs Javascript mode
 
-```
-For more examples see the [Modules Repo](https://github.com/50n50/sources)
-```
+For more examples see the [Modules Repo](https://github.com/xdfkenny/xdfkenny-sora-modules)
 
 In the softsub mode you extract the subtitles alongside the stream, usually you'd need to have async or streamAsync mode activated for this too.
 
@@ -15,11 +13,13 @@ Output: `JSON`
 Extracts the search results from the provided keyword.
 
 ```json
-{
-   "title": "Example Title",
-   "image": "https://example.com/image.jpg",
-   "href": "https://grani.me/example"
-}
+[
+  {
+     "title": "Example Title",
+     "image": "https://example.com/image.jpg",
+     "href": "https://grani.me/example"
+  }
+]
 ```
 
 ### extractDetails
@@ -29,29 +29,33 @@ Output: `JSON`
 Extracts the details from the provided URL.
 
 ```json
-{
-   "description": "An exciting anime series about adventures.",
-   "aliases": "Alternate Name",
-   "airdate": "2022"
-}
+[
+  {
+     "description": "An exciting anime series about adventures.",
+     "aliases": "Alternate Name",
+     "airdate": "2022"
+  }
+]
 ```
 
 ### extractEpisodes
 Input: `HTML/URL (Depending on the mode)` \
 Output: `JSON`
 
-Extracts the expisodes from the provided URL.
+Extracts the episodes from the provided URL.
 
 ```json
-{
-   "href": "https://grani.me/episode/123",
-   "number": "1"
-}
+[
+  {
+     "href": "https://your-source.com/watch/anime-123?ep=episode-456",
+     "number": "1"
+  }
+]
 ```
 
 ### extractStreamUrl
 Input: `URL` \
-Output: `URL`
+Output: `JSON`
 
 Extracts the stream url from the provided URL.
 
@@ -98,7 +102,7 @@ async function extractDetails(url) {
 
           const transformedResults = [{
                 description: animeInfo.description || 'No description available',
-                aliases: `Duration: ${animeInfo.stats?.duration || 'Unknown'}`,
+                aliases: (animeInfo.alternateNames || []).join(', ') || 'No alternative titles',
                 airdate: `Aired: ${moreInfo?.aired || 'Unknown'}`
           }];
           
@@ -107,7 +111,7 @@ async function extractDetails(url) {
           console.log('Details error: ' + error);
           return JSON.stringify([{
           description: 'Error loading description',
-          aliases: 'Duration: Unknown',
+          aliases: 'No alternative titles',
           airdate: 'Aired: Unknown'
           }]);
   }
@@ -129,13 +133,14 @@ async function extractEpisodes(url) {
           
      } catch (error) {
           console.log('Fetch error: ' + error);
+          return JSON.stringify([]);
      }    
 }
 
 async function extractStreamUrl(url) {
      try {
-         const match = url.match(/https:\/\/your-source\.com\/watch\/(.+)$/);
-         const encodedID = match[1];
+         const episodeId = new URL(url).searchParams.get('ep');
+         const encodedID = encodeURIComponent(episodeId);
          const response = await fetch(`https://api.your-source.com/episode/sources?animeEpisodeId=${encodedID}&category=sub`);
          const data = JSON.parse(response);
          
@@ -146,7 +151,6 @@ async function extractStreamUrl(url) {
                 stream: hlsSource ? hlsSource.url : null,
                 subtitles: subtitleTrack ? subtitleTrack.file : null
           };
-          console.log(result);
           return JSON.stringify(result);
      } catch (error) {
           console.log('Fetch error: ' + error);

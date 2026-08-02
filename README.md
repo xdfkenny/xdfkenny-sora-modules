@@ -18,6 +18,7 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | Surface | Route | Description | Data Source |
 | :--- | :--- | :--- | :--- |
 | **HenaoJara** | `/henaojara` | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
+| **AllManga** | `/allmanga` | Anime in English (sub/dub) served directly from the AllAnime CDN. | [AllManga](https://allmanga.to/) |
 
 ## Architecture
 
