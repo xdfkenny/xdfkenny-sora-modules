@@ -19,7 +19,7 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | :--- | :--- | :--- | :--- |
 | **HenaoJara** | [`henaojara`](henaojara/henaojara.json) | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
 | **AniDB** | [`anidb`](anidb/anidb.json) | Anime (sub/dub) using the same anidb.app backend that powers [ani-cli](https://github.com/pystardust/ani-cli) — public frontend JSON API + JWPlayer HLS embeds. | [AniDB](https://anidb.app/) |
-| **AllManga** | [`allmanga`](allmanga/allmanga.json) | English sub/dub anime via the AllAnime GraphQL API, with encrypted episode sources and mp4upload iframe fallback. | [AllManga](https://allmanga.to/) |
+| **HydraHD** | [`hydrahd`](hydrahd/hydrahd.json) | Movies & TV in 1080p (English sub/dub) with stream resolution via embed servers + vidfast.vc HLS/MP4 pipeline. | [HydraHD](https://hydrahd.ru/) |
 
 ## Architecture
 
@@ -40,6 +40,7 @@ The framework leverages a high-performance **fetchv2** bridge to handle complex 
 1. [Module Manifest Specification](henaojara/henaojara.json) — Configuration for metadata, versioning, and stream types.
 2. [Scraper Implementation Guide](example.js) — The foundational template for developing new scrapers.
 3. [Network Layer Protocol](henaojara/henaojara.js) — Deep dive into header merging and request management.
+4. [HydraHD Stream Resolution](hydrahd/hydrahd.js) — Movie/TV scraper using `mov_0.php`/`tv_0.php` AJAX + vidfast.vc HLS pipeline with enc-dec.app decryption.
 
 ### Specialized Docs
 - **Multi-Server Resolution**: Logic for extracting and prioritizing diverse streaming servers.
