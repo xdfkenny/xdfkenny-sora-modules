@@ -31,7 +31,7 @@ async function searchResults(keyword) {
                 results.push({
                     title: titleMatch[1].trim().replace(/\s+online\s+free$/i, ''),
                     image: imgMatch ? imgMatch[1].trim() : '',
-                    href: hrefMatch[1].trim(),
+                    href: `${BASE_URL}${hrefMatch[1].trim()}`,
                 });
             }
         }
@@ -67,7 +67,8 @@ function getPageDetails(html) {
 
 async function extractDetails(url) {
     try {
-        const response = await soraFetch(url);
+        const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+        const response = await soraFetch(fullUrl);
         const html = await response.text();
         const { details, ids } = getPageDetails(html);
         const result = [{
@@ -86,8 +87,9 @@ async function extractDetails(url) {
 
 async function extractEpisodes(url) {
     try {
+        const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const episodes = [];
-        const response = await soraFetch(url);
+        const response = await soraFetch(fullUrl);
         const html = await response.text();
         const epRegex = /<a[^>]*data-slug="([^"]*)"[^>]*data-season="(\d+)"[^>]*data-episode="(\d+)"/g;
         let match;
