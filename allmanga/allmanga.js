@@ -1,5 +1,9 @@
 const BASE_URL = 'https://allmanga.to';
-const API_URL = 'https://api.allanime.day/api';
+const API_URLS = [
+    'https://api.allanime.day/api',
+    'https://api.mkissa.net/api'
+];
+const API_URL = API_URLS[0];
 const CDN_BASE = 'https://allanimenews.com';
 const CLOCK_BASE = 'https://allanime.day';
 
@@ -27,6 +31,8 @@ const FALLBACK_KEYGEN = {
 };
 
 let aaKeyCache = { keys: null, ts: 0 };
+
+if (typeof console !== 'undefined') console.log('allmanga module v1.2.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -213,16 +219,19 @@ async function aaEpisodeQuery(keys, qh, showId, tt, episode) {
         aaReq: aaBuildToken(keys, qh, ts),
         k: keys.lane
     });
-    const url = API_URL
-        + '?variables=' + encodeURIComponent(variables)
+    const query = '?variables=' + encodeURIComponent(variables)
         + '&extensions=' + encodeURIComponent(extensions);
-    const resp = await soraFetch(url, { headers: aaEpisodeHeaders(keys) });
-    if (!resp) return null;
-    try {
-        return await resp.json();
-    } catch (error) {
-        return null;
+    for (let i = 0; i < API_URLS.length; i++) {
+        const resp = await soraFetch(API_URLS[i] + query, { headers: aaEpisodeHeaders(keys) });
+        if (!resp) continue;
+        try {
+            const json = await resp.json();
+            if (json && typeof json === 'object') return json;
+        } catch (error) {
+            continue;
+        }
     }
+    return null;
 }
 
 async function aaEpisodeQueryFull(keys, showId, tt, episode) {
@@ -234,17 +243,20 @@ async function aaEpisodeQueryFull(keys, showId, tt, episode) {
         aaReq: aaBuildToken(keys, qh, ts),
         k: keys.lane
     });
-    const url = API_URL
-        + '?query=' + encodeURIComponent(EPISODE_QUERY_TEXT)
+    const query = '?query=' + encodeURIComponent(EPISODE_QUERY_TEXT)
         + '&variables=' + encodeURIComponent(variables)
         + '&extensions=' + encodeURIComponent(extensions);
-    const resp = await soraFetch(url, { headers: aaEpisodeHeaders(keys) });
-    if (!resp) return null;
-    try {
-        return await resp.json();
-    } catch (error) {
-        return null;
+    for (let i = 0; i < API_URLS.length; i++) {
+        const resp = await soraFetch(API_URLS[i] + query, { headers: aaEpisodeHeaders(keys) });
+        if (!resp) continue;
+        try {
+            const json = await resp.json();
+            if (json && typeof json === 'object') return json;
+        } catch (error) {
+            continue;
+        }
     }
+    return null;
 }
 
 function aaEpisodeHeaders(keys) {
@@ -268,12 +280,18 @@ async function aaResolveTranslation(keys, showId, episode, tt) {
         const json = await aaEpisodeQueryFull(keys, showId, tt, episode);
         parsed = aaParseEpisodeResponse(json, keys);
     }
-    if (!parsed) return { streams: [], subtitle: '' };
+    if (!parsed) {
+        console.log('No sources for ' + tt + ' (encrypted episode query failed)');
+        return { streams: [], subtitle: '' };
+    }
+    console.log('Decrypted sources for ' + tt);
     return aaResolveSources(parsed, tt);
 }
 
 function aaParseEpisodeResponse(json, keys) {
     if (!json || !json.data || !json.data.tobeparsed) return null;
+    const msg = (json.errors && json.errors[0] && json.errors[0].message) || '';
+    if (msg) console.log('Episode query warning: ' + msg.slice(0, 80));
     return aaDecrypt(keys, json.data.tobeparsed);
 }
 
@@ -321,10 +339,16 @@ async function aaResolveSources(parsed, tt) {
             const resp = await soraFetch(clockUrl, {
                 headers: { 'Referer': CLOCK_BASE + '/', 'User-Agent': UA }
             });
-            if (!resp) continue;
+            if (!resp) {
+                console.log('Source ' + (src.sourceName || '?') + ': no response');
+                continue;
+            }
             const json = await resp.json();
             const links = (json && json.links) || [];
-            if (!links.length) continue;
+            if (!links.length) {
+                console.log('Source ' + (src.sourceName || '?') + ': no links');
+                continue;
+            }
 
             const streams = [];
             let subtitle = '';
@@ -345,7 +369,7 @@ async function aaResolveSources(parsed, tt) {
             });
             if (streams.length) return { streams, subtitle };
         } catch (error) {
-            console.log('Source error: ' + error);
+            console.log('Source ' + (src.sourceName || '?') + ' error: ' + error);
         }
     }
     return { streams: [], subtitle: '' };
@@ -702,14 +726,21 @@ function aaXor56(hex) {
 /* HELPERS */
 
 async function gql(query) {
-    const response = await soraFetch(API_URL, {
-        method: 'POST',
-        headers: API_HEADERS,
-        body: JSON.stringify({ query })
-    });
-    if (!response) return null;
-    const json = await response.json();
-    return (json && json.data) ? json.data : null;
+    for (let i = 0; i < API_URLS.length; i++) {
+        const response = await soraFetch(API_URLS[i], {
+            method: 'POST',
+            headers: API_HEADERS,
+            body: JSON.stringify({ query })
+        });
+        if (!response) continue;
+        try {
+            const json = await response.json();
+            if (json && json.data) return json.data;
+        } catch (error) {
+            continue;
+        }
+    }
+    return null;
 }
 
 async function soraFetch(url, options) {
