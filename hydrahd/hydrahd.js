@@ -110,6 +110,9 @@ async function extractEpisodes(url) {
                 uniqueEpisodes.push(ep);
             }
         }
+        if (uniqueEpisodes.length === 0) {
+            uniqueEpisodes.push({ href: fullUrl, number: 1 });
+        }
         uniqueEpisodes.sort((a, b) => a.number - b.number);
         return JSON.stringify(uniqueEpisodes);
     } catch (error) {
