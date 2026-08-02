@@ -43,15 +43,20 @@ async function extractDetails(url) {
 
         const description = extractFirst(html, /<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i)
             || extractFirst(html, /<meta[^>]*name="description"[^>]*content="([^"]+)"/i)
-            || cleanText(extractFirst(html, /<p\s+class="[^"]*leading-relaxed[^"]*"[^>]*>([\s\S]*?)<\/p>/i))
+            || extractFirst(html, /<p\s+class="[^"]*(?:leading-relaxed|description|plot|summary)[^"]*"[^>]*>([\s\S]*?)<\/p>/i)
+            || extractFirst(html, /<div\s+class="[^"]*(?:description|plot|summary|synopsis)[^"]*">([\s\S]*?)<\/div>/i)
             || 'No description available';
 
         const airdate = extractDt(html, 'Aired')
             || extractDt(html, 'Season')
-            || extractFirst(html, /<div class="text-sm"><dt[^>]*name="Year"[^>]*>([^<]+)<\/dt>/i)
+            || extractDt(html, 'Released')
+            || extractFirst(html, /<div class="text-sm"><dt[^>]*name="(?:Year|Airdate|Date)"[^>]*>([^<]+)<\/dt>/i)
             || 'Unknown';
 
-        const aliases = extractDt(html, 'Synonyms') || 'No alternative titles';
+        const aliases = extractDt(html, 'Synonyms')
+            || extractDt(html, 'Alternative')
+            || extractDt(html, 'Titles')
+            || 'No alternative titles';
 
         return JSON.stringify([{
             description: cleanText(description),
@@ -60,8 +65,226 @@ async function extractDetails(url) {
         }]);
     } catch (error) {
         console.log('Details error: ' + error);
-        return JSON.stringify([{ description: 'Error loading description', airdate: 'Unknown', aliases: 'Unknown' }]);
+        return JSON.stringify([detailsFallback()]);
     }
+}
+
+function detailsFallback() {
+    return {
+        description: 'No description available',
+        airdate: 'Unknown',
+        aliases: 'No alternative titles'
+    };
+}
+
+/**
+ * Extracts the list of episodes for an anime using the public JSON API.
+ * The anime numeric ID is read from the tail of the passed URL.
+ * @param {string} url - The anidb.app anime page URL (e.g. https://anidb.app/anime/frieren-beyond-journeys-end-1663).
+ * @returns {string} JSON string array of {href, number} objects.
+ */
+async function extractEpisodes(url) {
+    try {
+        const animeId = parseAnimeId(url);
+        if (!animeId) return JSON.stringify([]);
+
+        const response = await soraFetch(EPISODES_API.replace('%s', animeId));
+        if (!response) return JSON.stringify([]);
+        const data = await response.json();
+
+        const rawEpisodes = (data && (data.episodes || data.data || data.list)) || [];
+        if (!Array.isArray(rawEpisodes)) return JSON.stringify([]);
+
+        const episodes = rawEpisodes
+            .map((ep, index) => {
+                const number = ep.number !== undefined ? parseInt(ep.number, 10) : index + 1;
+                const epId = ep.id || ep.episode_id || number;
+                if (isNaN(number)) return null;
+                return {
+                    href: `${BASE_URL}/episode/${epId}`,
+                    number: number
+                };
+            })
+            .filter(Boolean);
+
+        return JSON.stringify(episodes);
+    } catch (error) {
+        console.log('Episodes error: ' + error);
+        return JSON.stringify([]);
+    }
+}
+
+/**
+ * Resolves an anime episode to its playable HLS stream(s).
+ * The embed page exposes a JWPlayer config with a "file" master playlist.
+ * @param {string} url - The episode href emitted by extractEpisodes (https://anidb.app/episode/{id}).
+ * @returns {string} JSON object {streams:[{title, streamUrl, headers}], subtitle}.
+ */
+async function extractStreamUrl(url) {
+    const fallback = JSON.stringify({ streams: [], subtitle: '' });
+    try {
+        const episodeMatch = String(url || '').match(/\/episode\/(\d+)/);
+        if (!episodeMatch) return fallback;
+
+        const epId = episodeMatch[1];
+        const response = await soraFetch(LANGUAGES_API.replace('%s', epId));
+        if (!response) return fallback;
+        const data = await response.json();
+
+        const rawLangs = (data && (data.languages || data.data || data.streams)) || [];
+        if (!Array.isArray(rawLangs)) return fallback;
+
+        const languages = rawLangs
+            .map((lang) => ({
+                code: (lang.code || lang.language || '').toLowerCase(),
+                name: lang.name || lang.label,
+                embed_url: lang.embed_url || lang.url || lang.file
+            }))
+            .filter((l) => l.code && l.embed_url);
+
+        const streams = [];
+        const seenLang = new Set();
+
+        // Resolve each language embed to its master playlist.
+        // Prefer SUB (jpn) first, then DUB (eng), keeping every language as a
+        // selectable stream in Sora's server picker.
+        const preferred = languages.slice().sort((a, b) => {
+            const ord = { jpn: 0, eng: 1, 'es': 2, 'pt-br': 3 };
+            return (ord[a.code] ?? 9) - (ord[b.code] ?? 9);
+        });
+
+        const resolved = await Promise.all(preferred.map(async (lang) => {
+            try {
+                const master = await resolveEmbedMaster(lang.embed_url);
+                if (!master) return null;
+                return {
+                    title: prettifyLangLabel(lang),
+                    streamUrl: master,
+                    headers: makeStreamHeaders(),
+                    language: lang.code
+                };
+            } catch (e) {
+                console.log('Embed resolve error: ' + (lang.code || lang.name) + ' -> ' + e);
+                return null;
+            }
+        }));
+
+        resolved.forEach((s) => {
+            if (!s || !s.streamUrl) return;
+            const key = s.language || s.streamUrl;
+            if (seenLang.has(key)) return;
+            seenLang.add(key);
+            streams.push(s);
+        });
+
+        return JSON.stringify({ streams: streams, subtitle: '' });
+    } catch (error) {
+        console.log('Stream error: ' + error);
+        return fallback;
+    }
+}
+
+/* HELPERS */
+
+// Resolve an anidb.app/embed/<token> page to its HLS master playlist URL.
+async function resolveEmbedMaster(embedUrl) {
+    if (!embedUrl) return null;
+
+    // If the embed URL already points at media (m3u8), return as-is.
+    if (/\.m3u8/i.test(embedUrl)) return embedUrl;
+
+    const response = await soraFetch(embedUrl);
+    if (!response) return null;
+    const html = await response.text();
+
+    const master = extractFirst(html, /sources\s*:\s*\[\s*\{\s*file\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i)
+        || extractFirst(html, /file\s*:\s*['"](https?:\/\/[^'"]+\.m3u8[^'']*)['"]/i)
+        || extractFirst(html, /'(https?:\/\/[^']+\.m3u8(?:[^']*))'/i)
+        || extractFirst(html, /["']file["']\s*:\s*["']([^"']+\.m3u8[^"']*)["']/i)
+        || extractFirst(html, /playlist\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i)
+        || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
+
+    return master ? decodeHtml(master) : null;
+}
+
+function prettifyLangLabel(lang) {
+    const map = {
+        jpn: 'Japanese (SUB)',
+        eng: 'English (DUB)',
+        'ch-s': 'Chinese (SUB)',
+        'pt-br': 'Portuguese (SUB)',
+        'es': 'Spanish (SUB)'
+    };
+    if (map[lang.code]) return map[lang.code];
+    if (lang.name) return lang.name;
+    return (lang.code || 'Unknown').toUpperCase();
+}
+
+function parseBrowseCards(html) {
+    const results = [];
+    const seen = new Set();
+    
+    // Multiple resilient regex patterns to support DOM/class changes
+    const regexes = [
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[^>]*class="[^"]*anime-card[^"]*"[^>]*title="([^"]*)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[^>]*title="([^"]*)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[\s\S]*?<\/a>/gi
+    ];
+
+    for (const rx of regexes) {
+        let cardMatch;
+        while ((cardMatch = rx.exec(html)) !== null) {
+            const href = cardMatch[1];
+            let title = cleanText(cardMatch[2] || cardMatch[3] || '');
+            let image = decodeHtml(cardMatch[3] || cardMatch[2] || '').trim();
+
+            if (image && !image.startsWith('http') && title && title.startsWith('http')) {
+                const temp = title;
+                title = image;
+                image = temp;
+            }
+
+            if (!title) {
+                const slugMatch = href.match(/\/([^/]+)$/);
+                title = slugMatch ? slugMatch[1].replace(/-\d+$/, '').replace(/-/g, ' ') : 'Unknown Anime';
+            }
+
+            if (!href || seen.has(href)) continue;
+            seen.add(href);
+            results.push({
+                title: cleanText(title),
+                image: image.startsWith('http') ? image : '',
+                href
+            });
+        }
+        if (results.length > 0) break;
+    }
+
+    return results;
+}
+
+// anidb.app anime URLs are /anime/<slug>-<numericId>. Return the numeric id.
+function parseAnimeId(url) {
+    const m = String(url || '').match(/\/anime\/[^/]+-(\d+)\/?$/i);
+    if (m && m[1]) return m[1];
+    const fallback = String(url || '').match(/-(\d+)\/?$/);
+    return fallback ? fallback[1] : '';
+}
+
+// Helper to grab the <dd> value following a <dt> with the given label
+// inside the "Details" <dl> block, with fallback patterns.
+function extractDt(html, label) {
+    const re = new RegExp(`<dt[^>]*>[^<]*${label}[^<]*<\\/dt>\\s*<dd[^>]*>([\\s\\S]*?)<\\/dd>`, 'i');
+    const m = (html || '').match(re);
+    if (m && m[1]) return cleanText(m[1]);
+
+    const altRe = new RegExp(`(?:<dt[^>]*>|<span[^>]*>)\\s*${label}\\s*(?:<\\/dt>|<\\/span>)\\s*(?:<dd[^>]*>|<span[^>]*>)([\\s\\S]*?)(?:<\\/dd>|<\\/span>)`, 'i');
+    const altM = (html || '').match(altRe);
+    if (altM && altM[1]) return cleanText(altM[1]);
+
+    return '';
+}
 }
 
 /**
