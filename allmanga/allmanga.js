@@ -148,13 +148,36 @@ async function extractStreamUrl(url) {
             if (!subtitle && dubResult.subtitle) subtitle = dubResult.subtitle;
         }
 
-        if (streams.length === 0) return aaLegacyStreams(showId, episode);
+        if (streams.length === 0) {
+            // TEMP DEBUG: surface the failure stage via the stream URL so it
+            // appears in Sora's log ("Opening custom media player with url:").
+            return JSON.stringify({
+                streams: [{
+                    title: 'DEBUG',
+                    streamUrl: 'https://allmanga.to/__dbg?q=' + encodeURIComponent(aaDebugLog || 'empty'),
+                    headers: { 'User-Agent': UA }
+                }],
+                subtitle: ''
+            });
+        }
 
         return JSON.stringify({ streams, subtitle });
     } catch (error) {
         console.log('Stream error: ' + error);
-        return JSON.stringify({ streams: [], subtitle: '' });
+        return JSON.stringify({
+            streams: [{
+                title: 'DEBUG',
+                streamUrl: 'https://allmanga.to/__dbg?q=' + encodeURIComponent('THROW:' + error + '|' + aaDebugLog),
+                headers: { 'User-Agent': UA }
+            }],
+            subtitle: ''
+        });
     }
+}
+
+let aaDebugLog = '';
+function aaDbg(m) {
+    if (aaDebugLog.length < 1200) aaDebugLog += m;
 }
 
 /* ALLANIME STREAM FLOW */
@@ -180,13 +203,16 @@ async function aaGetKeys() {
                     };
                     aaKeyCache.keys = keys;
                     aaKeyCache.ts = now;
+                    aaDbg('|K:remote');
                     return keys;
                 }
             }
         } catch (error) {
             console.log('Keygen fetch error: ' + error);
+            aaDbg('|Kerr:' + String(error).slice(0, 40));
         }
     }
+    aaDbg('|K:fallback');
     return {
         build_id: FALLBACK_KEYGEN.build_id,
         epoch: String(FALLBACK_KEYGEN.epoch),
@@ -231,10 +257,11 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
             json = await aaSendEpisodeRequest(host, 'POST', EPISODE_QUERY, variables, extensions, keys);
             errMsg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
         }
-        if (!json || typeof json !== 'object') continue;
+        if (!json || typeof json !== 'object') { aaDbg('|Q' + tt + i + ':notjson'); continue; }
         const hasTbp = !!(json.data && json.data.tobeparsed);
         const dataKeys = (json.data && typeof json.data === 'object') ? Object.keys(json.data).join(',') : 'none';
         console.log('Episode response from ' + host + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
+        aaDbg('|Q' + tt + i + ':' + (hasTbp ? 'tbp' : (errMsg ? 'err:' + errMsg.slice(0, 30) : 'data:' + dataKeys.slice(0, 30))));
         if (errMsg.indexOf('Too many requests') === 0) {
             rateLimited = true;
             console.log('Episode rate limited on ' + host + '; trying other hosts');
@@ -301,10 +328,14 @@ async function aaResolveTranslation(keys, showId, episode, tt) {
     const parsed = aaParseEpisodeResponse(json, keys);
     if (!parsed) {
         console.log('No sources for ' + tt + ' (encrypted episode query failed)');
+        aaDbg('|P' + tt + ':null');
         return { streams: [], subtitle: '' };
     }
     console.log('Decrypted sources for ' + tt);
-    return aaResolveSources(parsed, tt);
+    aaDbg('|P' + tt + ':ok');
+    const resolved = await aaResolveSources(parsed, tt);
+    aaDbg('|R' + tt + ':' + (resolved.streams ? resolved.streams.length : 0));
+    return resolved;
 }
 
 function aaParseEpisodeResponse(json, keys) {
@@ -486,12 +517,13 @@ async function resolveMp4Upload(embedUrl, sourceName, tt) {
     const resp = await soraFetch(embedUrl, {
         headers: { 'Referer': 'https://allmanga.to/', 'User-Agent': UA }
     });
-    if (!resp) return null;
+    if (!resp) { aaDbg('|M:noresp'); return null; }
     const html = await resp.text();
     let m = html.match(/src\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i)
         || html.match(/["']?file["']?\s*[:=]\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i)
         || html.match(/(https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*)/i);
-    if (!m) return null;
+    if (!m) { aaDbg('|M:nomatch:' + html.length); return null; }
+    aaDbg('|M:ok');
     return {
         title: tt.toUpperCase() + ' ' + (sourceName || 'Mp4Upload'),
         streamUrl: m[1],
