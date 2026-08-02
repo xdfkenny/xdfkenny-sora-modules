@@ -26,7 +26,7 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.5.4');
+if (typeof console !== 'undefined') console.log('allmanga module v1.6.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -129,28 +129,36 @@ async function extractStreamUrl(url) {
         const parsed = parseEpisodeUrl(url);
         if (!parsed) return JSON.stringify({ streams: [], subtitle: '' });
 
-        const { showId, episode } = parsed;
-        const keys = await aaGetKeys();
+        const cacheKey = String(url);
+        const cached = aaStreamCacheGet(cacheKey);
+        if (cached) return cached;
 
-        // Query sub first, then dub, to avoid AllAnime rate limits.
+        const { showId, episode } = parsed;
+        const keys = aaGetKeys();
+
+        // Query sub and dub in parallel; each retries with a refreshed
+        // keygen only if the API rejects the token as stale.
+        const jobs = await Promise.all([
+            aaResolveTranslation(keys, showId, episode, 'sub'),
+            aaResolveTranslation(keys, showId, episode, 'dub')
+        ]);
+
         const streams = [];
         let subtitle = '';
+        jobs.forEach(result => {
+            if (!result || !result.streams || !result.streams.length) return;
+            streams.push(...result.streams);
+            if (!subtitle && result.subtitle) subtitle = result.subtitle;
+        });
 
-        const subResult = await aaResolveTranslation(keys, showId, episode, 'sub');
-        if (subResult && subResult.streams && subResult.streams.length) {
-            streams.push(...subResult.streams);
-            if (subResult.subtitle) subtitle = subResult.subtitle;
+        let out;
+        if (streams.length === 0) {
+            out = await aaLegacyStreams(showId, episode);
+        } else {
+            out = JSON.stringify({ streams, subtitle });
         }
-
-        const dubResult = await aaResolveTranslation(keys, showId, episode, 'dub');
-        if (dubResult && dubResult.streams && dubResult.streams.length) {
-            streams.push(...dubResult.streams);
-            if (!subtitle && dubResult.subtitle) subtitle = dubResult.subtitle;
-        }
-
-        if (streams.length === 0) return aaLegacyStreams(showId, episode);
-
-        return JSON.stringify({ streams, subtitle });
+        aaStreamCacheSet(cacheKey, out);
+        return out;
     } catch (error) {
         console.log('Stream error: ' + error);
         return JSON.stringify({ streams: [], subtitle: '' });
@@ -159,7 +167,35 @@ async function extractStreamUrl(url) {
 
 /* ALLANIME STREAM FLOW */
 
-async function aaGetKeys() {
+let aaStreamCache = {};
+
+function aaStreamCacheGet(key) {
+    const hit = aaStreamCache[key];
+    if (hit && Date.now() - hit.ts < 300000) return hit.value;
+    return null;
+}
+
+function aaStreamCacheSet(key, value) {
+    const keys = Object.keys(aaStreamCache);
+    if (keys.length > 50) aaStreamCache = {};
+    aaStreamCache[key] = { value, ts: Date.now() };
+}
+
+// Fast path: return cached keys or the bundled fallback without any network
+// request. Remote keygen is only fetched when the API says AA_CRYPTO_STALE.
+function aaGetKeys() {
+    const now = Date.now();
+    if (aaKeyCache.keys && now - aaKeyCache.ts < 90000) return aaKeyCache.keys;
+    return {
+        build_id: FALLBACK_KEYGEN.build_id,
+        epoch: String(FALLBACK_KEYGEN.epoch),
+        lane: FALLBACK_KEYGEN.lane,
+        key: FALLBACK_KEYGEN.key,
+        static_key: FALLBACK_KEYGEN.static_key
+    };
+}
+
+async function aaFetchRemoteKeys() {
     const now = Date.now();
     if (aaKeyCache.keys && now - aaKeyCache.ts < 90000) return aaKeyCache.keys;
 
@@ -179,7 +215,7 @@ async function aaGetKeys() {
                         static_key: String(json.static_key || FALLBACK_KEYGEN.static_key)
                     };
                     aaKeyCache.keys = keys;
-                    aaKeyCache.ts = now;
+                    aaKeyCache.ts = Date.now();
                     return keys;
                 }
             }
@@ -187,13 +223,7 @@ async function aaGetKeys() {
             console.log('Keygen fetch error: ' + error);
         }
     }
-    return {
-        build_id: FALLBACK_KEYGEN.build_id,
-        epoch: String(FALLBACK_KEYGEN.epoch),
-        lane: FALLBACK_KEYGEN.lane,
-        key: FALLBACK_KEYGEN.key,
-        static_key: FALLBACK_KEYGEN.static_key
-    };
+    return null;
 }
 
 function aaBuildToken(keys, qh, ts) {
@@ -297,7 +327,15 @@ function aaEpisodeHeaders(keys) {
 }
 
 async function aaResolveTranslation(keys, showId, episode, tt) {
-    const json = await aaEpisodeQuery(keys, showId, tt, episode);
+    let json = await aaEpisodeQuery(keys, showId, tt, episode);
+    if (aaIsCryptoStale(json)) {
+        const fresh = await aaFetchRemoteKeys();
+        if (fresh) {
+            console.log('aaReq stale for ' + tt + '; refreshed keygen, retrying');
+            keys = fresh;
+            json = await aaEpisodeQuery(keys, showId, tt, episode);
+        }
+    }
     const parsed = aaParseEpisodeResponse(json, keys);
     if (!parsed) {
         console.log('No sources for ' + tt + ' (encrypted episode query failed)');
@@ -305,6 +343,11 @@ async function aaResolveTranslation(keys, showId, episode, tt) {
     }
     console.log('Decrypted sources for ' + tt);
     return aaResolveSources(parsed, tt);
+}
+
+function aaIsCryptoStale(json) {
+    const msg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
+    return msg.indexOf('AA_CRYPTO_STALE') === 0 || msg.indexOf('AA_CRYPTO_MISSING') === 0;
 }
 
 function aaParseEpisodeResponse(json, keys) {
@@ -347,82 +390,106 @@ async function aaResolveSources(parsed, tt) {
         }
     });
 
-    const orderedCdn = [];
-    SOURCE_PRIORITY.forEach(name => {
-        const hit = cdn.find(s => s.sourceName === name);
-        if (hit) orderedCdn.push(hit);
+    const orderedCdn = aaOrderByPreference(cdn, SOURCE_PRIORITY);
+    const orderedIframes = aaOrderByPreference(iframes, ['Mp4', 'Ok', 'S-Mp4', 'Luf-Mp4', 'Uv-mp4', 'Default', 'Ak', 'Yt-mp4']).slice(0, 4);
+
+    // Dead clock endpoints can hang ~30s, so race everything: first source
+    // (clock or iframe) to produce a playable link wins.
+    const clockTask = aaRaceSuccess(orderedCdn.map(src => aaFetchClockSource(src, tt)));
+    const iframeTask = aaRaceSuccess(orderedIframes.map(src =>
+        resolveIframeSource(src.sourceUrl, src.sourceName, tt)
+            .then(r => ({
+                streams: (r && r.streamUrl) ? [r] : [],
+                subtitle: (r && r.subtitle) || ''
+            }))
+            .catch(error => {
+                console.log('Iframe source ' + (src.sourceName || '?') + ' error: ' + error);
+                return { streams: [], subtitle: '' };
+            })
+    ));
+
+    return aaRaceSuccess([clockTask, iframeTask]);
+}
+
+function aaOrderByPreference(items, priority) {
+    const ordered = [];
+    priority.forEach(name => {
+        items.filter(s => s.sourceName === name).forEach(h => ordered.push(h));
     });
-    cdn.forEach(s => {
-        if (SOURCE_PRIORITY.indexOf(s.sourceName) < 0) orderedCdn.push(s);
+    items.forEach(s => {
+        if (priority.indexOf(s.sourceName) < 0) ordered.push(s);
     });
+    return ordered;
+}
 
-    let subtitle = '';
-    const streams = [];
-
-    for (let i = 0; i < orderedCdn.length; i++) {
-        const src = orderedCdn[i];
-        try {
-            const clockUrl = CLOCK_BASE + aaXor56(src.sourceUrl.slice(2)).replace('clock', 'clock.json');
-            const resp = await soraFetch(clockUrl, {
-                headers: { 'Referer': CLOCK_BASE + '/', 'User-Agent': UA }
-            });
-            if (!resp) {
-                console.log('Clock source ' + (src.sourceName || '?') + ': no response');
-                continue;
-            }
-            const json = await resp.json();
-            const links = (json && json.links) || [];
-            if (!links.length) {
-                console.log('Clock source ' + (src.sourceName || '?') + ': no links');
-                continue;
-            }
-
-            links.forEach(l => {
-                if (!l || !l.link) return;
-                const res = l.resolution || (l.hls ? 'HLS' : 'MP4');
-                streams.push({
-                    title: tt.toUpperCase() + ' ' + (src.sourceName || 'Source') + (res ? ' ' + res : ''),
-                    streamUrl: l.link,
-                    headers: {
-                        'Referer': (l.headers && l.headers.Referer) || CLOCK_BASE + '/',
-                        'User-Agent': UA
-                    }
-                });
-                if (!subtitle && l.subtitles && l.subtitles[0] && l.subtitles[0].src) {
-                    subtitle = l.subtitles[0].src;
+// Resolves with the first task result that contains streams; resolves with an
+// empty result once every task settled without streams.
+function aaRaceSuccess(tasks) {
+    return new Promise(resolve => {
+        if (!tasks.length) {
+            resolve({ streams: [], subtitle: '' });
+            return;
+        }
+        let pending = tasks.length;
+        let done = false;
+        tasks.forEach(p => {
+            Promise.resolve(p).then(r => {
+                if (done) return;
+                if (r && r.streams && r.streams.length) {
+                    done = true;
+                    resolve(r);
+                } else if (--pending === 0) {
+                    done = true;
+                    resolve({ streams: [], subtitle: '' });
+                }
+            }).catch(() => {
+                if (done) return;
+                if (--pending === 0) {
+                    done = true;
+                    resolve({ streams: [], subtitle: '' });
                 }
             });
-            if (streams.length) return { streams, subtitle };
-        } catch (error) {
-            console.log('Clock source ' + (src.sourceName || '?') + ' error: ' + error);
+        });
+    });
+}
+
+async function aaFetchClockSource(src, tt) {
+    const out = { streams: [], subtitle: '' };
+    try {
+        const clockUrl = CLOCK_BASE + aaXor56(src.sourceUrl.slice(2)).replace('clock', 'clock.json');
+        const resp = await soraFetch(clockUrl, {
+            headers: { 'Referer': CLOCK_BASE + '/', 'User-Agent': UA }
+        });
+        if (!resp) {
+            console.log('Clock source ' + (src.sourceName || '?') + ': no response');
+            return out;
         }
-    }
+        const json = await resp.json();
+        const links = (json && json.links) || [];
+        if (!links.length) {
+            console.log('Clock source ' + (src.sourceName || '?') + ': no links');
+            return out;
+        }
 
-    const iframePriority = ['Mp4', 'S-Mp4', 'Luf-Mp4', 'Uv-mp4', 'Default', 'Ak', 'Yt-mp4'];
-    const orderedIframes = [];
-    iframePriority.forEach(name => {
-        const hits = iframes.filter(s => s.sourceName === name);
-        hits.forEach(h => orderedIframes.push(h));
-    });
-    iframes.forEach(s => {
-        if (iframePriority.indexOf(s.sourceName) < 0) orderedIframes.push(s);
-    });
-
-    for (let i = 0; i < orderedIframes.length; i++) {
-        const src = orderedIframes[i];
-        try {
-            const resolved = await resolveIframeSource(src.sourceUrl, src.sourceName, tt);
-            if (resolved && resolved.streamUrl) {
-                streams.push(resolved);
-                if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                return { streams, subtitle };
+        links.forEach(l => {
+            if (!l || !l.link) return;
+            const res = l.resolution || (l.hls ? 'HLS' : 'MP4');
+            out.streams.push({
+                title: tt.toUpperCase() + ' ' + (src.sourceName || 'Source') + (res ? ' ' + res : ''),
+                streamUrl: l.link,
+                headers: {
+                    'Referer': (l.headers && l.headers.Referer) || CLOCK_BASE + '/',
+                    'User-Agent': UA
+                }
+            });
+            if (!out.subtitle && l.subtitles && l.subtitles[0] && l.subtitles[0].src) {
+                out.subtitle = l.subtitles[0].src;
             }
-        } catch (error) {
-            console.log('Iframe source ' + (src.sourceName || '?') + ' error: ' + error);
-        }
+        });
+    } catch (error) {
+        console.log('Clock source ' + (src.sourceName || '?') + ' error: ' + error);
     }
-
-    return { streams, subtitle };
+    return out;
 }
 
 async function resolveIframeSource(embedUrl, sourceName, tt) {
