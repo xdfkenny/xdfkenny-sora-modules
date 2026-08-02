@@ -26,7 +26,7 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.3.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.4.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -215,19 +215,57 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
         k: keys.lane
     };
     const body = JSON.stringify({ query: EPISODE_QUERY, variables, extensions });
+    console.log('Episode POST -> ' + API_URLS.length + ' host(s), episode ' + episode + ', type ' + tt + ', qh ' + qh.slice(0, 8));
+    let rateLimited = false;
     for (let i = 0; i < API_URLS.length; i++) {
-        const resp = await soraFetch(API_URLS[i], {
-            method: 'POST',
-            headers: aaEpisodeHeaders(keys),
-            body: body
-        });
-        if (!resp) continue;
+        const url = API_URLS[i];
+        let resp = null;
         try {
-            const json = await resp.json();
-            if (json && typeof json === 'object') return json;
-        } catch (error) {
+            resp = await soraFetch(url, {
+                method: 'POST',
+                headers: aaEpisodeHeaders(keys),
+                body: body
+            });
+        } catch (err) {
+            console.log('Episode POST to ' + url + ' threw: ' + err);
             continue;
         }
+        if (!resp) {
+            console.log('Episode POST to ' + url + ' failed: no response');
+            continue;
+        }
+        let json = null;
+        try {
+            const text = await resp.text();
+            if (typeof text === 'string' && text.length && text[0] !== '{') {
+                console.log('Episode POST to ' + url + ' raw: ' + String(text).slice(0, 90));
+            }
+            json = JSON.parse(text);
+        } catch (errText) {
+            try {
+                json = await resp.json();
+            } catch (errJson) {
+                console.log('Episode POST to ' + url + ' parse error: ' + errText);
+                continue;
+            }
+        }
+        if (!json || typeof json !== 'object') {
+            console.log('Episode POST to ' + url + ' non-object response');
+            continue;
+        }
+        const errMsg = (json.errors && json.errors[0] && json.errors[0].message) || '';
+        const hasTbp = !!(json.data && json.data.tobeparsed);
+        const dataKeys = (json.data && typeof json.data === 'object') ? Object.keys(json.data).join(',') : 'none';
+        console.log('Episode response from ' + url + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
+        if (errMsg.indexOf('Too many requests') === 0) {
+            rateLimited = true;
+            console.log('Episode rate limited on ' + url + '; trying other hosts');
+            continue;
+        }
+        if (json && typeof json === 'object') return json;
+    }
+    if (rateLimited) {
+        console.log('All episode hosts rate limited');
     }
     return null;
 }

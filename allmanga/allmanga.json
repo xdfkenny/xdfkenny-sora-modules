@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). El query de episodios se envía completo por POST (auto-registra su hash en APQ, inmune a rotaciones del persisted query) con la clave de cifrado auto-actualizada en runtime desde el keygen.json de ani-cli/AniPy.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
