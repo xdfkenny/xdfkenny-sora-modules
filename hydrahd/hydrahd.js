@@ -158,24 +158,19 @@ async function extractStreamUrl(url) {
         });
         const ajaxHtml = await ajaxResponse.text();
         const serverLinks = [...ajaxHtml.matchAll(/data-link="([^"]+)"/g)].map(m => m[1]);
-        try {
-            const streamUrl = await resolveVidfast(imdbId, isMovie, season, episodeNum);
-            if (streamUrl) {
-                streams.push({
-                    title: 'VidFast',
-                    streamUrl: streamUrl,
-                    headers: {
-                        'Referer': 'https://vidfast.vc/',
-                        'Origin': 'https://vidfast.vc',
-                    }
-                });
-                return JSON.stringify({ streams, subtitle: '' });
-            }
-        } catch (e) {
-            // Continue to try other servers
-        }
         for (const link of serverLinks) {
-            if (link.includes('vidfast') || link.includes('videasy')) {
+            const resolvedUrl = await resolveGenericLink(link);
+            if (resolvedUrl) {
+                streams.push({
+                    title: getServerTitle(link),
+                    streamUrl: resolvedUrl,
+                    headers: {}
+                });
+                if (streams.length >= 3) break;
+            }
+        }
+        if (streams.length === 0) {
+            try {
                 const streamUrl = await resolveVidfast(imdbId, isMovie, season, episodeNum);
                 if (streamUrl) {
                     streams.push({
@@ -186,20 +181,10 @@ async function extractStreamUrl(url) {
                             'Origin': 'https://vidfast.vc',
                         }
                     });
-                    return JSON.stringify({ streams, subtitle: '' });
                 }
+            } catch (e) {
+                console.error('VidFast resolution failed:', e.message);
             }
-        }
-        for (const link of serverLinks) {
-            const resolvedUrl = await resolveGenericLink(link);
-            if (resolvedUrl) {
-                streams.push({
-                    title: getServerTitle(link),
-                    streamUrl: resolvedUrl,
-                    headers: {}
-                });
-            }
-            if (streams.length >= 3) break;
         }
     } catch (error) {
         console.error('Stream extraction error:', error);
