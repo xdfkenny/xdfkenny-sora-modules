@@ -123,18 +123,25 @@ async function extractStreamUrl(url) {
             .filter((l) => l.code && l.embed_url);
 
         const streams = [];
-        const seen = new Set();
+        const seenLang = new Set();
 
-        // Resolve each language embed to its master playlist
-        const resolved = await Promise.all(languages.map(async (lang) => {
+        // Resolve each language embed to its master playlist.
+        // Prefer SUB (jpn) first, then DUB (eng), keeping every language as a
+        // selectable stream in Sora's server picker.
+        const preferred = languages.slice().sort((a, b) => {
+            const ord = { jpn: 0, eng: 1 };
+            return (ord[a.code] ?? 9) - (ord[b.code] ?? 9);
+        });
+
+        const resolved = await Promise.all(preferred.map(async (lang) => {
             try {
                 const master = await resolveEmbedMaster(lang.embed_url);
                 if (!master) return null;
-                const label = prettifyLangLabel(lang);
                 return {
-                    title: label,
+                    title: prettifyLangLabel(lang),
                     streamUrl: master,
-                    headers: makeStreamHeaders()
+                    headers: makeStreamHeaders(),
+                    language: lang.code
                 };
             } catch (e) {
                 console.log('Embed resolve error: ' + (lang.code || lang.name) + ' -> ' + e);
@@ -143,10 +150,11 @@ async function extractStreamUrl(url) {
         }));
 
         resolved.forEach((s) => {
-            if (s && s.streamUrl && !seen.has(s.streamUrl)) {
-                seen.add(s.streamUrl);
-                streams.push(s);
-            }
+            if (!s || !s.streamUrl) return;
+            const key = s.language || s.streamUrl;
+            if (seenLang.has(key)) return;
+            seenLang.add(key);
+            streams.push(s);
         });
 
         return JSON.stringify({ streams: streams, subtitle: '' });
