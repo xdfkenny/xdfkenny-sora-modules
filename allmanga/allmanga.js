@@ -1,7 +1,7 @@
 const BASE_URL = 'https://allmanga.to';
 const API_URLS = [
-    'https://api.allanime.day/api',
-    'https://api.mkissa.net/api'
+    'https://api.mkissa.net/api',
+    'https://api.allanime.day/api'
 ];
 const API_URL = API_URLS[0];
 const CDN_BASE = 'https://allanimenews.com';
@@ -12,13 +12,7 @@ const KEYGEN_URLS = [
     'https://raw.githubusercontent.com/sdaqo/anipy-cli/key-gen/scripts/keygen/keygen.json'
 ];
 
-const EPISODE_QUERY_TEXT = 'query ($showId: String!, $translationType: VaildTranslationTypeEnumType!, $episodeString: String!) { episode(showId: $showId, translationType: $translationType, episodeString: $episodeString) { episodeString sourceUrls } }';
-
-const EPISODE_QUERY_HASHES = [
-    'f4662f4b7510b26795dd53ef824a0bf1740fbbc5d1273fab18222ac831bca8d0',
-    'd405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec',
-    '3933a4a68bc80c46e25b7b8b3f563df1416b7b583595e5e5bfc67c01bd791df8'
-];
+const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslationTypeEnumType!\n$episodeString: String!\n) {\nepisode(\nshowId: $showId\ntranslationType: $translationType\nepisodeString: $episodeString\n) {\nepisodeString\nuploadDate\nsourceUrls\nthumbnail\nnotes\nshow{\n\n\n_id\nname\nenglishName\nnativeName\nslugTime\n\nthumbnail\n\ntbObj {\n  u\n  sm\n  md\n  ts\n}\n\nlastEpisodeInfo\nlastEpisodeDate\ntype\nseason\nscore\nairedStart\navailableEpisodes\nepisodeDuration\nepisodeCount\n# lastUpdateStart\nlastUpdateEnd\ncharacterCount\n\ndescription\nbroadcastInterval\nbanner\ncharacters\navailableEpisodesDetail\nnameOnlyString\ncharacters\nisAdult\nrelatedShows\nrelatedMangas\naltNames\ndisqusIds\n}\npageStatus{\n_id\nnotes\npageId\nshowId\n\n# ranks:[Object]\nviews\nlikesCount\ncommentCount\ndislikesCount\nboostsCount\nreviewCount\nuserScoreCount\nuserScoreTotalValue\nuserScoreAverValue\nviewers{\nfirstViewers{\nviewCount\nlastWatchedDate\nuser{\n\n  \n  \n  _id\n  username\n  displayName\n  createdAt\n  picture\n  reputation\n  roleLevel\n\n  \n  followerCount\n  followingCount\n\n  hideMe\n  brief\n\n}\n}\nrecViewers{\nviewCount\nlastWatchedDate\nuser{\n\n  \n  \n  _id\n  username\n  displayName\n  createdAt\n  picture\n  reputation\n  roleLevel\n\n  \n  followerCount\n  followingCount\n\n  hideMe\n  brief\n\n}\n}\n}\n\n}\nepisodeInfo{\nnotes\nthumbnails\n\ntbObj {\n  u\n  sm\n  md\n  ts\n}\n\nvidInforssub\nuploadDates\nvidInforsdub\nvidInforsraw\ndescription\n}\nversionFix\n}\n}\n';
 
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
@@ -32,7 +26,7 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.2.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.3.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -211,43 +205,22 @@ function aaBuildToken(keys, qh, ts) {
     return aaB64(blob);
 }
 
-async function aaEpisodeQuery(keys, qh, showId, tt, episode) {
+async function aaEpisodeQuery(keys, showId, tt, episode) {
     const ts = Math.floor(Date.now() / 300000) * 300000;
-    const variables = JSON.stringify({ showId, translationType: tt, episodeString: String(episode) });
-    const extensions = JSON.stringify({
+    const qh = aaHex(aaSha256(aaAscii(EPISODE_QUERY)));
+    const variables = { showId, translationType: tt, episodeString: String(episode) };
+    const extensions = {
         persistedQuery: { version: 1, sha256Hash: qh },
         aaReq: aaBuildToken(keys, qh, ts),
         k: keys.lane
-    });
-    const query = '?variables=' + encodeURIComponent(variables)
-        + '&extensions=' + encodeURIComponent(extensions);
+    };
+    const body = JSON.stringify({ query: EPISODE_QUERY, variables, extensions });
     for (let i = 0; i < API_URLS.length; i++) {
-        const resp = await soraFetch(API_URLS[i] + query, { headers: aaEpisodeHeaders(keys) });
-        if (!resp) continue;
-        try {
-            const json = await resp.json();
-            if (json && typeof json === 'object') return json;
-        } catch (error) {
-            continue;
-        }
-    }
-    return null;
-}
-
-async function aaEpisodeQueryFull(keys, showId, tt, episode) {
-    const ts = Math.floor(Date.now() / 300000) * 300000;
-    const qh = aaHex(aaSha256(aaAscii(EPISODE_QUERY_TEXT)));
-    const variables = JSON.stringify({ showId, translationType: tt, episodeString: String(episode) });
-    const extensions = JSON.stringify({
-        persistedQuery: { version: 1, sha256Hash: qh },
-        aaReq: aaBuildToken(keys, qh, ts),
-        k: keys.lane
-    });
-    const query = '?query=' + encodeURIComponent(EPISODE_QUERY_TEXT)
-        + '&variables=' + encodeURIComponent(variables)
-        + '&extensions=' + encodeURIComponent(extensions);
-    for (let i = 0; i < API_URLS.length; i++) {
-        const resp = await soraFetch(API_URLS[i] + query, { headers: aaEpisodeHeaders(keys) });
+        const resp = await soraFetch(API_URLS[i], {
+            method: 'POST',
+            headers: aaEpisodeHeaders(keys),
+            body: body
+        });
         if (!resp) continue;
         try {
             const json = await resp.json();
@@ -261,6 +234,7 @@ async function aaEpisodeQueryFull(keys, showId, tt, episode) {
 
 function aaEpisodeHeaders(keys) {
     return {
+        'Content-Type': 'application/json',
         'Referer': 'https://mkissa.to',
         'Origin': 'https://mkissa.to',
         'x-build-id': keys.build_id,
@@ -270,16 +244,8 @@ function aaEpisodeHeaders(keys) {
 }
 
 async function aaResolveTranslation(keys, showId, episode, tt) {
-    let parsed = null;
-    for (let i = 0; i < EPISODE_QUERY_HASHES.length; i++) {
-        const json = await aaEpisodeQuery(keys, EPISODE_QUERY_HASHES[i], showId, tt, episode);
-        parsed = aaParseEpisodeResponse(json, keys);
-        if (parsed) break;
-    }
-    if (!parsed) {
-        const json = await aaEpisodeQueryFull(keys, showId, tt, episode);
-        parsed = aaParseEpisodeResponse(json, keys);
-    }
+    const json = await aaEpisodeQuery(keys, showId, tt, episode);
+    const parsed = aaParseEpisodeResponse(json, keys);
     if (!parsed) {
         console.log('No sources for ' + tt + ' (encrypted episode query failed)');
         return { streams: [], subtitle: '' };
