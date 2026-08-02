@@ -17,8 +17,8 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 
 | Surface | Route | Description | Data Source |
 | :--- | :--- | :--- | :--- |
-| **HenaoJara** | `/henaojara` | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
-| **AllManga** | `/allmanga` | Anime in English (sub/dub) served directly from the AllAnime CDN. | [AllManga](https://allmanga.to/) |
+| **HenaoJara** | [`henaojara`](henaojara/henaojara.json) | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
+| **AniDB** | [`anidb`](anidb/anidb.json) | Anime (sub/dub) using the same anidb.app backend that powers [ani-cli](https://github.com/pystardust/ani-cli) — public frontend JSON API + JWPlayer HLS embeds. | [AniDB](https://anidb.app/) |
 
 ## Architecture
 
@@ -43,6 +43,8 @@ The framework leverages a high-performance **fetchv2** bridge to handle complex 
 ### Specialized Docs
 - **Multi-Server Resolution**: Logic for extracting and prioritizing diverse streaming servers.
 - **Language Localization**: Handling Spanish Latino and Japanese subtitle/audio tracks.
+- **ani-cli Backend**: [AniDB publish flow](anidb/anidb.js) — mirrors pystardust/ani-cli's anidb.app endpoints exactly.
+- **Public JSON API**: The [episodes](anidb/anidb.js) + [languages](anidb/anidb.js) endpoints feed the HLS embed resolver.
 
 > **Instruction**: Start with the Manifest Specification to understand module registration, then proceed to the Reference Scraper for logic implementation.
 
