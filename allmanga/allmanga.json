@@ -1,15 +1,15 @@
 {
   "sourceName": "AllManga",
-  "iconUrl": "https://allmanga.to/pics/avatar.png",
+  "iconUrl": "https://allmanga.to/pics/avatar-w.png",
   "author": {
     "name": "xdfkenny",
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) servido desde el CDN de AllAnime.",
-  "version": "1.0.0",
+  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Clave de cifrado auto-actualizada en runtime desde el keygen.json de ani-cli/AniPy, sin necesidad de actualizar el módulo cuando roten las claves.",
+  "version": "1.1.0",
   "language": "English (SUB/DUB)",
-  "streamType": "MP4",
+  "streamType": "HLS/MP4",
   "quality": "1080p",
   "baseUrl": "https://allmanga.to/",
   "searchBaseUrl": "https://allmanga.to/search-anime?keyword=%s",
