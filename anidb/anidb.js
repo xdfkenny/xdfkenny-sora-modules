@@ -43,15 +43,20 @@ async function extractDetails(url) {
 
         const description = extractFirst(html, /<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i)
             || extractFirst(html, /<meta[^>]*name="description"[^>]*content="([^"]+)"/i)
-            || cleanText(extractFirst(html, /<p\s+class="[^"]*leading-relaxed[^"]*"[^>]*>([\s\S]*?)<\/p>/i))
+            || extractFirst(html, /<p\s+class="[^"]*(?:leading-relaxed|description|plot|summary)[^"]*"[^>]*>([\s\S]*?)<\/p>/i)
+            || extractFirst(html, /<div\s+class="[^"]*(?:description|plot|summary|synopsis)[^"]*">([\s\S]*?)<\/div>/i)
             || 'No description available';
 
         const airdate = extractDt(html, 'Aired')
             || extractDt(html, 'Season')
-            || extractFirst(html, /<div class="text-sm"><dt[^>]*name="Year"[^>]*>([^<]+)<\/dt>/i)
+            || extractDt(html, 'Released')
+            || extractFirst(html, /<div class="text-sm"><dt[^>]*name="(?:Year|Airdate|Date)"[^>]*>([^<]+)<\/dt>/i)
             || 'Unknown';
 
-        const aliases = extractDt(html, 'Synonyms') || 'No alternative titles';
+        const aliases = extractDt(html, 'Synonyms')
+            || extractDt(html, 'Alternative')
+            || extractDt(html, 'Titles')
+            || 'No alternative titles';
 
         return JSON.stringify([{
             description: cleanText(description),
@@ -60,8 +65,16 @@ async function extractDetails(url) {
         }]);
     } catch (error) {
         console.log('Details error: ' + error);
-        return JSON.stringify([{ description: 'Error loading description', airdate: 'Unknown', aliases: 'Unknown' }]);
+        return JSON.stringify([detailsFallback()]);
     }
+}
+
+function detailsFallback() {
+    return {
+        description: 'No description available',
+        airdate: 'Unknown',
+        aliases: 'No alternative titles'
+    };
 }
 
 /**
@@ -79,12 +92,16 @@ async function extractEpisodes(url) {
         if (!response) return JSON.stringify([]);
         const data = await response.json();
 
-        const episodes = (((data || {}).episodes) || [])
-            .map((ep) => {
-                const number = parseInt(ep.number, 10);
-                if (isNaN(number)) return null;
+        const rawEpisodes = (data && (Array.isArray(data.episodes) ? data.episodes : Array.isArray(data.data) ? data.data : Array.isArray(data.list) ? data.list : [])) || [];
+        if (!Array.isArray(rawEpisodes)) return JSON.stringify([]);
+
+        const episodes = rawEpisodes
+            .map((ep, index) => {
+                const number = ep.number !== undefined ? parseInt(ep.number, 10) : index + 1;
+                const epId = ep.id || ep.episode_id || ep.episodeId;
+                if (isNaN(number) || !epId) return null;
                 return {
-                    href: `${BASE_URL}/episode/${ep.id}`,
+                    href: `${BASE_URL}/episode/${epId}`,
                     number: number
                 };
             })
@@ -114,11 +131,14 @@ async function extractStreamUrl(url) {
         if (!response) return fallback;
         const data = await response.json();
 
-        const languages = ((data && data.languages) || [])
+        const rawLangs = (data && (Array.isArray(data.languages) ? data.languages : Array.isArray(data.data) ? data.data : Array.isArray(data.streams) ? data.streams : [])) || [];
+        if (!Array.isArray(rawLangs)) return fallback;
+
+        const languages = rawLangs
             .map((lang) => ({
-                code: (lang.code || '').toLowerCase(),
-                name: lang.name,
-                embed_url: lang.embed_url
+                code: (lang.code || lang.language || '').toLowerCase(),
+                name: lang.name || lang.label,
+                embed_url: lang.embed_url || lang.url || lang.file
             }))
             .filter((l) => l.code && l.embed_url);
 
@@ -129,7 +149,7 @@ async function extractStreamUrl(url) {
         // Prefer SUB (jpn) first, then DUB (eng), keeping every language as a
         // selectable stream in Sora's server picker.
         const preferred = languages.slice().sort((a, b) => {
-            const ord = { jpn: 0, eng: 1 };
+            const ord = { jpn: 0, eng: 1, 'es': 2, 'pt-br': 3 };
             return (ord[a.code] ?? 9) - (ord[b.code] ?? 9);
         });
 
@@ -181,9 +201,10 @@ async function resolveEmbedMaster(embedUrl) {
         || extractFirst(html, /file\s*:\s*['"](https?:\/\/[^'"]+\.m3u8[^'']*)['"]/i)
         || extractFirst(html, /'(https?:\/\/[^']+\.m3u8(?:[^']*))'/i)
         || extractFirst(html, /["']file["']\s*:\s*["']([^"']+\.m3u8[^"']*)["']/i)
+        || extractFirst(html, /playlist\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i)
         || extractFirst(html, /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i);
 
-    return master || null;
+    return master ? decodeHtml(master) : null;
 }
 
 function prettifyLangLabel(lang) {
@@ -202,31 +223,43 @@ function prettifyLangLabel(lang) {
 function parseBrowseCards(html) {
     const results = [];
     const seen = new Set();
-    const cardRegex = /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[^>]*class="anime-card[^"]*"[^>]*title="([^"]*)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<\/a>/gi
-        // Fallback: ids may appear in data-search-item anchors (suggestions)
-        ;
-    let cardMatch;
-    while ((cardMatch = cardRegex.exec(html)) !== null) {
-        const href = cardMatch[1];
-        const title = cleanText(cardMatch[2]);
-        const image = decodeHtml(cardMatch[3]).trim();
-        if (!title || !href || seen.has(href)) continue;
-        seen.add(href);
-        results.push({ title, image, href });
-    }
 
-    // Fallback path for the suggestions endpoint markup.
-    if (results.length === 0) {
-        const suggestRegex = /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[\s\S]*?<\/a>/gi;
-        while ((cardMatch = suggestRegex.exec(html)) !== null) {
-            const suffix = cardMatch[1];
-            const image = decodeHtml(cardMatch[2]).trim();
-            let title = cleanText(cardMatch[3]);
-            if (seen.has(suffix)) continue;
-            seen.add(suffix);
-            if (!title) title = suffix.match(/\/([^/]+)$/)[1];
-            results.push({ title, image, href: suffix });
+    // Multiple resilient regex patterns to support DOM/class changes.
+    const regexes = [
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[^>]*class="[^"]*anime-card[^"]*"[^>]*title="([^"]*)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[^>]*title="([^"]*)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[\s\S]*?<\/a>/gi,
+        /<a[^>]*href="(https?:\/\/anidb\.app\/anime\/[^"]+)"[\s\S]*?<\/a>/gi
+    ];
+
+    for (const rx of regexes) {
+        let cardMatch;
+        while ((cardMatch = rx.exec(html)) !== null) {
+            const href = cardMatch[1];
+            let title = cleanText(cardMatch[2] || cardMatch[3] || '');
+            let image = decodeHtml(cardMatch[3] || cardMatch[2] || '').trim();
+
+            // Handle the image/title capture swap in some patterns.
+            if (image && !image.startsWith('http') && title && title.startsWith('http')) {
+                const temp = title;
+                title = image;
+                image = temp;
+            }
+
+            if (!title) {
+                const slugMatch = href.match(/\/([^/]+)$/);
+                title = slugMatch ? slugMatch[1].replace(/-\d+$/, '').replace(/-/g, ' ') : 'Unknown Anime';
+            }
+
+            if (!href || seen.has(href)) continue;
+            seen.add(href);
+            results.push({
+                title: cleanText(title),
+                image: image.startsWith('http') ? image : '',
+                href
+            });
         }
+        if (results.length > 0) break;
     }
 
     return results;
@@ -241,11 +274,16 @@ function parseAnimeId(url) {
 }
 
 // Helper to grab the <dd> value following a <dt> with the given label
-// inside the "Details" <dl> block.
+// inside the "Details" <dl> block, with fallback patterns.
 function extractDt(html, label) {
     const re = new RegExp(`<dt[^>]*>[^<]*${label}[^<]*<\\/dt>\\s*<dd[^>]*>([\\s\\S]*?)<\\/dd>`, 'i');
     const m = (html || '').match(re);
     if (m && m[1]) return cleanText(m[1]);
+
+    const altRe = new RegExp(`(?:<dt[^>]*>|<span[^>]*>)\\s*${label}\\s*(?:<\\/dt>|<\\/span>)\\s*(?:<dd[^>]*>|<span[^>]*>)([\\s\\S]*?)(?:<\\/dd>|<\\/span>)`, 'i');
+    const altM = (html || '').match(altRe);
+    if (altM && altM[1]) return cleanText(altM[1]);
+
     return '';
 }
 

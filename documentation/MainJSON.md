@@ -6,27 +6,27 @@ Sora uses a simple JSON file to manage and integrate different streaming modules
 ### Fields Overview
 
 | Field          | Type   | Description                                     | Required?      | Variables/Options
-|----------------|--------|-------------------------------------------------|----------------|----------|
-| `sourceName`   | string | Name of the source.                                 | ✅    |
-| `author`       | object | Information about the module's author.              | ✅    |
-| `name`         | string | Name of the author.                                 | ✅    |
-| `icon`         | string | Icon of the author.                                 | ✅    |
-| `url`          | string | URL to the author's profile (optional).             | ❌    |
-| `iconUrl`      | string | URL to the module's icon.                           | ✅    |
-| `description`  | string | Short description of the module.                    | ❌    |
-| `version`      | string | Version of the module (e.g. `1.0.0`).              | ✅    |
-| `language`     | string | Language of the module.                             | ✅    |
-| `streamType`   | string | Stream type of the module.                          | ✅    | `HLS`, `MP4`   |
-| `quality`      | string | Quality of the stream.                              | ✅    | `360p`, `720p`, `1080p` |
-| `baseUrl`      | string | Base URL of the source.                             | ✅    |
-| `searchBaseUrl`| string | Search URL of the source. Must include `%s` where the search query will go. | ✅    | `%s` |
-| `scriptUrl`    | string | URL to the raw link of the JavaScript file.         | ✅    |
-| `type`         | string | Category of what the site provides. Required for the module library. | ✅   | `anime`, `movies`, `shows`, `novels` |
-| `downloadSupport` | boolean | Set to `true` if the module supports downloads. Required for module library. | ⚠️ | `true`, `false` |
-| `combo`        | boolean | Set to `true` if the source includes multiple websites in one module. | ❌    | `true`, `false` |
-| `asyncJS`      | boolean| Set to `true` to load the script asynchronously.    | ❌    | `true`, `false` |
-| `streamAsyncJS`| boolean| Set to `true` to only load the stream function asynchronously. | ❌ | `true`, `false` |
-| `softsub`      | boolean| Set to `true` to load subtitles.                    | ❌   | `true`, `false` |
+|----------------|--------|-------------------------------------------------|----------------|----------
+| `sourceName`   | string | Name of the source.                             | ✅             | —
+| `author`       | object | Information about the module's author.          | ✅             | —
+| `name`         | string | Name of the author.                             | ✅             | —
+| `icon`         | string | Icon of the author.                             | ✅             | —
+| `url`          | string | URL to the author's profile (optional).         | ❌             | —
+| `iconUrl`      | string | URL to the module's icon.                       | ✅             | —
+| `description`  | string | Short description of the module.                | ❌             | —
+| `version`      | string | Version of the module (e.g. `1.0.0`).           | ✅             | —
+| `language`     | string | Language of the module.                         | ✅             | —
+| `streamType`   | string | Stream type of the module.                      | ✅             | `HLS`, `MP4`
+| `quality`      | string | Quality of the stream.                          | ✅             | `360p`, `720p`, `1080p`
+| `baseUrl`      | string | Base URL of the source.                         | ✅             | —
+| `searchBaseUrl`| string | Search URL of the source. Must include `%s` where the search query will go. | ✅ | `%s`
+| `scriptUrl`    | string | URL to the raw link of the JavaScript file.     | ✅             | —
+| `type`         | string | Category of what the site provides. Required for the module library. | ✅ | `anime`, `movies`, `shows`, `novels`
+| `downloadSupport` | boolean | Set to `true` if the module supports downloads. Required for module library. | ⚠️ | `true`, `false`
+| `combo`        | boolean | Set to `true` if the source includes multiple websites in one module. | ❌ | `true`, `false`
+| `asyncJS`      | boolean | Set to `true` to load the script asynchronously. | ❌ | `true`, `false`
+| `streamAsyncJS`| boolean | Set to `true` to only load the stream function asynchronously. | ❌ | `true`, `false`
+| `softsub`      | boolean | Set to `true` to load subtitles.                | ❌             | `true`, `false`
 
 > **Legend:** ✅ Required | ⚠️ Required for library | ❌ Optional
 
