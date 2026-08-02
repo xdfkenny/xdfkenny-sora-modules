@@ -203,7 +203,7 @@ async function aaGetKeys() {
                     };
                     aaKeyCache.keys = keys;
                     aaKeyCache.ts = now;
-                    aaDbg('|K:remote');
+                    aaDbg('|K:r:' + keys.build_id + ':' + keys.epoch + ':' + keys.lane + ':' + keys.key.slice(0, 6));
                     return keys;
                 }
             }
@@ -244,6 +244,7 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
         k: keys.lane
     };
     console.log('Episode query -> ' + API_URLS.length + ' host(s), episode ' + episode + ', type ' + tt + ', qh ' + qh.slice(0, 8));
+    aaDbg('|now:' + Date.now() + '|ts:' + ts + '|qh:' + qh.slice(0, 8) + '|self:' + aaBuildToken(keys, 'aa10', 1754000000000).slice(0, 20));
     let rateLimited = false;
     for (let i = 0; i < API_URLS.length; i++) {
         const host = API_URLS[i];
