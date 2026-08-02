@@ -9,7 +9,9 @@ async function soraFetch(url, options = {}) {
     try {
         return await fetchv2(url, headers, options.method || 'GET', options.body || null);
     } catch (e) {
-        return await fetch(url, { ...options, headers });
+        const opts = options || {};
+        opts.headers = headers;
+        return await fetch(url, opts);
     }
 }
 
@@ -142,8 +144,8 @@ async function extractStreamUrl(url) {
             ajaxUrl = `${BASE_URL}/ajax/tv_0.php`;
             ajaxParams = { i: imdbId, t: tmdbId, s: season, e: episodeNum };
         }
-        const params = new URLSearchParams(ajaxParams).toString();
-        const ajaxResponse = await soraFetch(`${ajaxUrl}?${params}`, {
+        const paramString = Object.keys(ajaxParams).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(ajaxParams[k])).join('&');
+        const ajaxResponse = await soraFetch(`${ajaxUrl}?${paramString}`, {
             headers: {
                 'Referer': url,
                 'X-Requested-With': 'XMLHttpRequest',
