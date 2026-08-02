@@ -19,6 +19,7 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | :--- | :--- | :--- | :--- |
 | **HenaoJara** | [`henaojara`](henaojara/henaojara.json) | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
 | **AniDB** | [`anidb`](anidb/anidb.json) | Anime (sub/dub) using the same anidb.app backend that powers [ani-cli](https://github.com/pystardust/ani-cli) — public frontend JSON API + JWPlayer HLS embeds. | [AniDB](https://anidb.app/) |
+| **AllManga** | [`allmanga`](allmanga/allmanga.json) | English sub/dub anime via the AllAnime GraphQL API, with encrypted episode sources and mp4upload iframe fallback. | [AllManga](https://allmanga.to/) |
 
 ## Architecture
 
