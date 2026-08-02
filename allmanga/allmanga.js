@@ -26,7 +26,7 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.5.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.5.4');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -148,36 +148,13 @@ async function extractStreamUrl(url) {
             if (!subtitle && dubResult.subtitle) subtitle = dubResult.subtitle;
         }
 
-        if (streams.length === 0) {
-            // TEMP DEBUG: surface the failure stage via the stream URL so it
-            // appears in Sora's log ("Opening custom media player with url:").
-            return JSON.stringify({
-                streams: [{
-                    title: 'DEBUG',
-                    streamUrl: 'https://allmanga.to/__dbg?q=' + encodeURIComponent(aaDebugLog || 'empty'),
-                    headers: { 'User-Agent': UA }
-                }],
-                subtitle: ''
-            });
-        }
+        if (streams.length === 0) return aaLegacyStreams(showId, episode);
 
         return JSON.stringify({ streams, subtitle });
     } catch (error) {
         console.log('Stream error: ' + error);
-        return JSON.stringify({
-            streams: [{
-                title: 'DEBUG',
-                streamUrl: 'https://allmanga.to/__dbg?q=' + encodeURIComponent('THROW:' + error + '|' + aaDebugLog),
-                headers: { 'User-Agent': UA }
-            }],
-            subtitle: ''
-        });
+        return JSON.stringify({ streams: [], subtitle: '' });
     }
-}
-
-let aaDebugLog = '';
-function aaDbg(m) {
-    if (aaDebugLog.length < 1200) aaDebugLog += m;
 }
 
 /* ALLANIME STREAM FLOW */
@@ -203,16 +180,13 @@ async function aaGetKeys() {
                     };
                     aaKeyCache.keys = keys;
                     aaKeyCache.ts = now;
-                    aaDbg('|K:r:' + keys.build_id + ':' + keys.epoch + ':' + keys.lane + ':' + keys.key.slice(0, 6));
                     return keys;
                 }
             }
         } catch (error) {
             console.log('Keygen fetch error: ' + error);
-            aaDbg('|Kerr:' + String(error).slice(0, 40));
         }
     }
-    aaDbg('|K:fallback');
     return {
         build_id: FALLBACK_KEYGEN.build_id,
         epoch: String(FALLBACK_KEYGEN.epoch),
@@ -244,7 +218,6 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
         k: keys.lane
     };
     console.log('Episode query -> ' + API_URLS.length + ' host(s), episode ' + episode + ', type ' + tt + ', qh ' + qh.slice(0, 8));
-    aaDbg('|now:' + Date.now() + '|ts:' + ts + '|qh:' + qh.slice(0, 8) + '|self:' + aaBuildToken(keys, 'aa10', 1754000000000).slice(0, 20));
     let rateLimited = false;
     for (let i = 0; i < API_URLS.length; i++) {
         const host = API_URLS[i];
@@ -258,11 +231,10 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
             json = await aaSendEpisodeRequest(host, 'POST', EPISODE_QUERY, variables, extensions, keys);
             errMsg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
         }
-        if (!json || typeof json !== 'object') { aaDbg('|Q' + tt + i + ':notjson'); continue; }
+        if (!json || typeof json !== 'object') continue;
         const hasTbp = !!(json.data && json.data.tobeparsed);
         const dataKeys = (json.data && typeof json.data === 'object') ? Object.keys(json.data).join(',') : 'none';
         console.log('Episode response from ' + host + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
-        aaDbg('|Q' + tt + i + ':' + (hasTbp ? 'tbp' : (errMsg ? 'err:' + errMsg.slice(0, 30) : 'data:' + dataKeys.slice(0, 30))));
         if (errMsg.indexOf('Too many requests') === 0) {
             rateLimited = true;
             console.log('Episode rate limited on ' + host + '; trying other hosts');
@@ -329,14 +301,10 @@ async function aaResolveTranslation(keys, showId, episode, tt) {
     const parsed = aaParseEpisodeResponse(json, keys);
     if (!parsed) {
         console.log('No sources for ' + tt + ' (encrypted episode query failed)');
-        aaDbg('|P' + tt + ':null');
         return { streams: [], subtitle: '' };
     }
     console.log('Decrypted sources for ' + tt);
-    aaDbg('|P' + tt + ':ok');
-    const resolved = await aaResolveSources(parsed, tt);
-    aaDbg('|R' + tt + ':' + (resolved.streams ? resolved.streams.length : 0));
-    return resolved;
+    return aaResolveSources(parsed, tt);
 }
 
 function aaParseEpisodeResponse(json, keys) {
@@ -518,13 +486,12 @@ async function resolveMp4Upload(embedUrl, sourceName, tt) {
     const resp = await soraFetch(embedUrl, {
         headers: { 'Referer': 'https://allmanga.to/', 'User-Agent': UA }
     });
-    if (!resp) { aaDbg('|M:noresp'); return null; }
+    if (!resp) return null;
     const html = await resp.text();
     let m = html.match(/src\s*:\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i)
         || html.match(/["']?file["']?\s*[:=]\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i)
         || html.match(/(https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*)/i);
-    if (!m) { aaDbg('|M:nomatch:' + html.length); return null; }
-    aaDbg('|M:ok');
+    if (!m) return null;
     return {
         title: tt.toUpperCase() + ' ' + (sourceName || 'Mp4Upload'),
         streamUrl: m[1],
@@ -856,27 +823,40 @@ function aaAscii(str) {
     return out;
 }
 
-function aaBytesToStr(bytes) {
-    let out = '';
-    for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
-    return out;
-}
-
-function aaStrToBytes(str) {
-    const s = String(str);
-    const out = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xff;
-    return out;
-}
+const AA_B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 function aaB64(bytes) {
-    return btoa(aaBytesToStr(bytes));
+    // Pure-JS base64: Sora's btoa() UTF-8-mangles bytes >= 0x80, corrupting tokens.
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+        const b0 = bytes[i];
+        const b1 = (i + 1 < bytes.length) ? bytes[i + 1] : 0;
+        const b2 = (i + 2 < bytes.length) ? bytes[i + 2] : 0;
+        out += AA_B64_CHARS[b0 >> 2];
+        out += AA_B64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
+        out += (i + 1 < bytes.length) ? AA_B64_CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+        out += (i + 2 < bytes.length) ? AA_B64_CHARS[b2 & 63] : '=';
+    }
+    return out;
 }
 
 function aaUnb64(str) {
-    const bin = atob(String(str));
-    if (bin == null) return null;
-    return aaStrToBytes(bin);
+    // Pure-JS base64 decode: avoids atob() binary-string issues in JavaScriptCore.
+    const s = String(str).replace(/=+$/, '');
+    const out = [];
+    let buf = 0, bits = 0;
+    for (let i = 0; i < s.length; i++) {
+        const v = AA_B64_CHARS.indexOf(s[i]);
+        if (v < 0) continue;
+        buf = (buf << 6) | v;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push((buf >>> bits) & 0xff);
+            buf = buf & ((1 << bits) - 1);
+        }
+    }
+    return new Uint8Array(out);
 }
 
 function aaHexToBytes(hex) {
