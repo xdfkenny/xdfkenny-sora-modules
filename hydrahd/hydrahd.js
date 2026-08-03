@@ -1,4 +1,5 @@
 const BASE_URL = 'https://hydrahd.ru';
+const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
 async function soraFetch(url, options = {}) {
@@ -123,6 +124,7 @@ async function extractEpisodes(url) {
 
 async function extractStreamUrl(url) {
     const streams = [];
+    let subtitle = '';
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const response = await soraFetch(fullUrl);
@@ -159,37 +161,42 @@ async function extractStreamUrl(url) {
         const ajaxHtml = await ajaxResponse.text();
         const serverLinks = [...ajaxHtml.matchAll(/data-link="([^"]+)"/g)].map(m => m[1]);
         for (const link of serverLinks) {
-            const resolvedUrl = await resolveGenericLink(link);
-            if (resolvedUrl) {
+            const resolved = await resolveGenericLink(link);
+            if (resolved && resolved.streamUrl) {
                 streams.push({
                     title: getServerTitle(link),
-                    streamUrl: resolvedUrl,
+                    streamUrl: resolved.streamUrl,
                     headers: {}
                 });
+                if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
                 if (streams.length >= 3) break;
             }
         }
         if (streams.length === 0) {
             try {
-                const streamUrl = await resolveVidfast(imdbId, isMovie, season, episodeNum);
-                if (streamUrl) {
+                const vidfastResult = await resolveVidfast(imdbId, isMovie, season, episodeNum);
+                if (vidfastResult && vidfastResult.streamUrl) {
                     streams.push({
                         title: 'VidFast',
-                        streamUrl: streamUrl,
+                        streamUrl: vidfastResult.streamUrl,
                         headers: {
                             'Referer': 'https://vidfast.vc/',
                             'Origin': 'https://vidfast.vc',
                         }
                     });
+                    if (!subtitle && vidfastResult.subtitle) subtitle = vidfastResult.subtitle;
                 }
             } catch (e) {
                 console.error('VidFast resolution failed:', e.message);
             }
         }
+        if (!subtitle && imdbId) {
+            subtitle = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
+        }
     } catch (error) {
         console.error('Stream extraction error:', error);
     }
-    return JSON.stringify({ streams, subtitle: '' });
+    return JSON.stringify({ streams, subtitle });
 }
 
 function getServerTitle(link) {
@@ -213,12 +220,129 @@ async function resolveGenericLink(link) {
             headers: { 'Referer': `${BASE_URL}/`, 'User-Agent': USER_AGENT }
         });
         const text = await r.text();
-        const m3u8Match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]/);
-        if (m3u8Match) return m3u8Match[0];
-        return null;
+        const m3u8Match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
+        if (!m3u8Match) return null;
+        return {
+            streamUrl: m3u8Match[0],
+            subtitle: extractSubtitleUrl(text, link)
+        };
     } catch (e) {
         return null;
     }
+}
+
+function extractSubtitleUrl(text, baseUrl) {
+    const html = text || '';
+    const patterns = [
+        /<track[^>]+(?:src|file)=["']([^"']+)["'][^>]*(?:kind=["'](?:captions|subtitles)["']|label=["'][^"']*(?:English|EN|eng)[^"']*["'])/i,
+        /<track[^>]+(?:kind=["'](?:captions|subtitles)["']|label=["'][^"']*(?:English|EN|eng)[^"']*["'])[^>]+(?:src|file)=["']([^"']+)["']/i,
+        /["'](?:file|src|url)["']\s*:\s*["']([^"']+\.(?:vtt|srt)(?:\?[^"']*)?)["']/i,
+        /["'](?:subtitle|subtitles|captions|tracks?)["']\s*:\s*["']([^"']+\.(?:vtt|srt)(?:\?[^"']*)?)["']/i,
+        /(https?:\/\/[^\s"'<>]+\.(?:vtt|srt)(?:\?[^\s"'<>]*)?)/i
+    ];
+
+    for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) return normalizeSubtitleUrl(match[1], baseUrl);
+    }
+    return '';
+}
+
+function normalizeSubtitleUrl(url, baseUrl) {
+    const clean = decodeHtml(String(url || '').replace(/\\\//g, '/').trim());
+    if (!clean) return '';
+    try {
+        return new URL(clean, baseUrl || BASE_URL).href;
+    } catch (e) {
+        return clean;
+    }
+}
+
+function decodeHtml(text) {
+    return String(text || '')
+        .replace(/&amp;/g, '&')
+        .replace(/&#038;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+}
+
+function getVidfastSubtitle(result) {
+    if (!result) return '';
+    const containers = [
+        result.subtitles,
+        result.subtitle,
+        result.captions,
+        result.tracks,
+        result.sources
+    ];
+
+    for (const container of containers) {
+        const subtitle = pickSubtitleFromContainer(container);
+        if (subtitle) return subtitle;
+    }
+    return '';
+}
+
+async function resolveStremioSubtitle(imdbId, type, season, episode) {
+    try {
+        const params = [];
+        if (type === 'series') {
+            if (season) params.push('season=' + encodeURIComponent(String(season)));
+            if (episode) params.push('episode=' + encodeURIComponent(String(episode)));
+        }
+        const query = params.length ? ('?' + params.join('&')) : '';
+        const response = await soraFetch(`${STREMIO_OPENSUBTITLES_URL}/subtitles/${type}/${imdbId}.json${query}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Referer': 'https://app.strem.io/'
+            }
+        });
+        if (!response) return '';
+        const data = await response.json();
+        const subtitles = (data && data.subtitles) || [];
+        if (!Array.isArray(subtitles) || subtitles.length === 0) return '';
+
+        const preferred = subtitles.find(isEnglishStremioSubtitle)
+            || subtitles.find(item => item && item.url);
+        return preferred && preferred.url ? preferred.url : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function isEnglishStremioSubtitle(item) {
+    const lang = String((item && item.lang) || '').toLowerCase();
+    return lang === 'eng' || lang === 'en' || lang === 'english';
+}
+
+function pickSubtitleFromContainer(container) {
+    if (!container) return '';
+    if (typeof container === 'string') {
+        return /\.(?:vtt|srt)(?:\?|$)/i.test(container) ? normalizeSubtitleUrl(container, 'https://vidfast.vc/') : '';
+    }
+    if (Array.isArray(container)) {
+        const preferred = container.find(item => isEnglishSubtitle(item)) || container.find(item => getSubtitleFile(item));
+        return preferred ? normalizeSubtitleUrl(getSubtitleFile(preferred), 'https://vidfast.vc/') : '';
+    }
+    if (typeof container === 'object') {
+        if (container.en) return normalizeSubtitleUrl(container.en, 'https://vidfast.vc/');
+        if (container.eng) return normalizeSubtitleUrl(container.eng, 'https://vidfast.vc/');
+        return normalizeSubtitleUrl(getSubtitleFile(container), 'https://vidfast.vc/');
+    }
+    return '';
+}
+
+function isEnglishSubtitle(item) {
+    const label = String((item && (item.label || item.lang || item.language || item.srclang || item.name)) || '').toLowerCase();
+    return /^(en|eng|english)$/.test(label) || label.includes('english');
+}
+
+function getSubtitleFile(item) {
+    if (!item) return '';
+    if (typeof item === 'string') return item;
+    return item.file || item.url || item.src || item.link || '';
 }
 
 async function resolveVidfast(imdbId, isMovie = true, season = null, episode = null) {
@@ -283,7 +407,10 @@ async function resolveVidfast(imdbId, isMovie = true, season = null, episode = n
             });
             const decStreamData = await decStreamResponse.json();
             if (decStreamData.status === 200 && decStreamData.result && decStreamData.result.url) {
-                return decStreamData.result.url;
+                return {
+                    streamUrl: decStreamData.result.url,
+                    subtitle: getVidfastSubtitle(decStreamData.result)
+                };
             }
         } catch (e) {
             continue;
