@@ -213,6 +213,11 @@ async function extractStreamUrl(url) {
     const subtitleStrings = subtitleList.length > 0
         ? subtitleList.map(item => item && (item.url || item.file || item.src || item.link)).filter(Boolean)
         : (subtitle ? [subtitle] : []);
+    if (subtitle) {
+        streams.forEach(function(stream) {
+            if (stream && !stream.subtitle) stream.subtitle = subtitle;
+        });
+    }
     console.log('[HydraHD] Return summary streams=' + streams.length + ' primary=' + (primaryStream ? primaryStream.slice(0, 120) : 'null') + ' subtitle=' + (subtitle ? subtitle.slice(0, 120) : 'null') + ' subtitleEntries=' + subtitleStrings.length);
     return JSON.stringify({
         stream: primaryStream,
