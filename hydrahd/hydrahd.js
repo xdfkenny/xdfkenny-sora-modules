@@ -204,7 +204,7 @@ async function extractStreamUrl(url) {
     const primaryStream = streams.length > 0 ? streams[0].streamUrl : null;
     const subtitleEntries = subtitleList.length > 0
         ? subtitleList
-        : (subtitle ? [{ url: subtitle, lang: 'eng', label: 'English' }] : []);
+        : (subtitle ? [buildSubtitleEntry(subtitle, 'eng', 'English')] : []);
     return JSON.stringify({
         stream: primaryStream,
         streams,
@@ -319,11 +319,7 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
         const data = await response.json();
         const subtitles = ((data && data.subtitles) || [])
             .filter(item => item && item.url)
-            .map(item => ({
-                url: item.url,
-                lang: item.lang || '',
-                label: stremioSubtitleLabel(item)
-            }));
+            .map(item => buildSubtitleEntry(item.url, item.lang, stremioSubtitleLabel(item)));
         if (subtitles.length === 0) return null;
 
         const preferred = subtitles.find(isEnglishStremioSubtitle)
@@ -344,9 +340,43 @@ function stremioSubtitleLabel(item) {
     return (item && item.lang) ? String(item.lang).toUpperCase() : 'Subtitle';
 }
 
+function buildSubtitleEntry(url, lang, label) {
+    const normalizedUrl = String(url || '').trim();
+    const normalizedLang = String(lang || '').trim();
+    const normalizedLabel = String(label || normalizedLang || 'Subtitle').trim();
+    const language = normalizedLang || labelToLanguage(normalizedLabel);
+    return {
+        url: normalizedUrl,
+        file: normalizedUrl,
+        src: normalizedUrl,
+        link: normalizedUrl,
+        label: normalizedLabel,
+        name: normalizedLabel,
+        title: normalizedLabel,
+        lang: language,
+        language: language,
+        srclang: language,
+        kind: 'captions',
+        mimeType: guessSubtitleMimeType(normalizedUrl)
+    };
+}
+
+function labelToLanguage(label) {
+    const value = String(label || '').toLowerCase();
+    if (value.includes('english')) return 'eng';
+    if (value.includes('spanish')) return 'spa';
+    return value;
+}
+
+function guessSubtitleMimeType(url) {
+    const value = String(url || '').toLowerCase();
+    if (value.includes('.srt')) return 'application/x-subrip';
+    return 'text/vtt';
+}
+
 function isEnglishStremioSubtitle(item) {
-    const lang = String((item && item.lang) || '').toLowerCase();
-    return lang === 'eng' || lang === 'en' || lang === 'english';
+    const lang = String((item && (item.lang || item.language || item.srclang || item.label)) || '').toLowerCase();
+    return lang === 'eng' || lang === 'en' || lang === 'english' || lang.includes('english');
 }
 
 function pickSubtitleFromContainer(container) {
