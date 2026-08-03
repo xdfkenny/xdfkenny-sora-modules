@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Busca contenido, obtiene detalles, lista de episodios para series, y resuelve streams via servidor embed (mov_0.php/tv_0.php) + vidfast.vc para HLS/MP4.",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",

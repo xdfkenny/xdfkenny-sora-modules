@@ -196,6 +196,9 @@ async function extractStreamUrl(url) {
             if (stremioResult) {
                 subtitle = stremioResult.subtitle || '';
                 subtitleList = stremioResult.subtitles || [];
+                console.log('[HydraHD] Stremio fallback hit imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' picked=' + (subtitle ? subtitle.slice(0, 120) : ''));
+            } else {
+                console.log('[HydraHD] Stremio fallback empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum);
             }
         }
     } catch (error) {
@@ -205,6 +208,7 @@ async function extractStreamUrl(url) {
     const subtitleEntries = subtitleList.length > 0
         ? subtitleList
         : (subtitle ? [buildSubtitleEntry(subtitle, 'eng', 'English')] : []);
+    console.log('[HydraHD] Return summary streams=' + streams.length + ' primary=' + (primaryStream ? primaryStream.slice(0, 120) : 'null') + ' subtitle=' + (subtitle ? subtitle.slice(0, 120) : 'null') + ' subtitleEntries=' + subtitleEntries.length);
     return JSON.stringify({
         stream: primaryStream,
         streams,
