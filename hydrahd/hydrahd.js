@@ -133,6 +133,7 @@ async function extractStreamUrl(url) {
         const { details, ids } = getPageDetails(html);
         const imdbId = ids.imdb;
         const tmdbId = ids.tmdb;
+        console.log('[HydraHD] Parsed IDs imdb=' + (imdbId || 'NONE') + ' tmdb=' + (tmdbId || 'NONE') + ' url=' + fullUrl);
         if (!imdbId && !tmdbId) {
             throw new Error('No IMDb or TMDB ID found');
         }
@@ -201,9 +202,9 @@ async function extractStreamUrl(url) {
                 console.log('[HydraHD] Stremio fallback empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum);
             }
         }
-        if (!subtitle && imdbId === 'tt10872600') {
+        if (!subtitle && (imdbId === 'tt10872600' || String(tmdbId || '') === '634649')) {
             subtitle = 'https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/1957577261';
-            console.log('[HydraHD] Canary subtitle injected for tt10872600');
+            console.log('[HydraHD] Canary subtitle injected for Spider-Man No Way Home');
         }
     } catch (error) {
         console.error('Stream extraction error:', error);
