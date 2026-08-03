@@ -125,6 +125,7 @@ async function extractEpisodes(url) {
 async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
+    let subtitleList = [];
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const response = await soraFetch(fullUrl);
@@ -191,13 +192,27 @@ async function extractStreamUrl(url) {
             }
         }
         if (!subtitle && imdbId) {
-            subtitle = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
+            const stremioResult = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
+            if (stremioResult) {
+                subtitle = stremioResult.subtitle || '';
+                subtitleList = stremioResult.subtitles || [];
+            }
         }
     } catch (error) {
         console.error('Stream extraction error:', error);
     }
     const primaryStream = streams.length > 0 ? streams[0].streamUrl : null;
-    return JSON.stringify({ stream: primaryStream, streams, subtitle, subtitles: subtitle });
+    const subtitleEntries = subtitleList.length > 0
+        ? subtitleList
+        : (subtitle ? [{ url: subtitle, lang: 'eng', label: 'English' }] : []);
+    return JSON.stringify({
+        stream: primaryStream,
+        streams,
+        subtitle,
+        subtitles: subtitleEntries.length > 0 ? subtitleEntries : subtitle,
+        subtitleList: subtitleEntries,
+        sources: subtitleEntries
+    });
 }
 
 function getServerTitle(link) {
@@ -300,17 +315,33 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
                 'Referer': 'https://app.strem.io/'
             }
         });
-        if (!response) return '';
+        if (!response) return null;
         const data = await response.json();
-        const subtitles = (data && data.subtitles) || [];
-        if (!Array.isArray(subtitles) || subtitles.length === 0) return '';
+        const subtitles = ((data && data.subtitles) || [])
+            .filter(item => item && item.url)
+            .map(item => ({
+                url: item.url,
+                lang: item.lang || '',
+                label: stremioSubtitleLabel(item)
+            }));
+        if (subtitles.length === 0) return null;
 
         const preferred = subtitles.find(isEnglishStremioSubtitle)
-            || subtitles.find(item => item && item.url);
-        return preferred && preferred.url ? preferred.url : '';
+            || subtitles[0];
+        return {
+            subtitle: preferred && preferred.url ? preferred.url : '',
+            subtitles
+        };
     } catch (e) {
-        return '';
+        return null;
     }
+}
+
+function stremioSubtitleLabel(item) {
+    const lang = String((item && item.lang) || '').toLowerCase();
+    if (lang === 'eng' || lang === 'en' || lang === 'english') return 'English';
+    if (lang === 'spa' || lang === 'es' || lang === 'spanish') return 'Spanish';
+    return (item && item.lang) ? String(item.lang).toUpperCase() : 'Subtitle';
 }
 
 function isEnglishStremioSubtitle(item) {
