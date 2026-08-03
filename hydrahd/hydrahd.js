@@ -196,7 +196,7 @@ async function extractStreamUrl(url) {
     } catch (error) {
         console.error('Stream extraction error:', error);
     }
-    return JSON.stringify({ streams, subtitle });
+    return JSON.stringify({ streams, subtitle, subtitles: subtitle });
 }
 
 function getServerTitle(link) {
