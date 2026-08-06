@@ -135,28 +135,63 @@ function watchHeroCount() {
 
 /* ---------- JSON config (Sora / Luna) ---------- */
 
-const configJson = document.getElementById('configJson');
+const moduleLinks = document.getElementById('moduleLinks');
 const copyJsonBtn = document.getElementById('copyJson');
 const copyLabel = document.getElementById('copyLabel');
 
-async function buildConfig(modules) {
-  const out = [];
-  for (const entry of modules) {
-    let url = entry.manifestUrl;
-    try {
-      const resp = await fetch(entry.manifestUrl, { cache: 'no-store' });
-      if (resp.ok) {
-        const m = await resp.json();
-        if (m && m.scriptUrl) url = m.scriptUrl;
-      }
-    } catch (e) { /* fall back to manifestUrl */ }
-    out.push({ name: entry.name, url });
+function shortManifest(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname + u.pathname;
+  } catch (e) {
+    return String(url);
   }
-  return {
+}
+
+function moduleLinksJSON(modules) {
+  return JSON.stringify({
     name: 'xdfkenny-modules',
     source: REPO_URL,
-    modules: out
-  };
+    modules: modules.map((e) => ({ name: e.name, url: e.manifestUrl }))
+  }, null, 2);
+}
+
+function flashCopied(btn, text) {
+  const orig = btn.textContent;
+  const was = btn.dataset.copied;
+  btn.textContent = text || 'Copied!';
+  btn.classList.add('copied');
+  btn.dataset.copied = 'true';
+  setTimeout(() => {
+    btn.textContent = orig;
+    btn.classList.remove('copied');
+    btn.dataset.copied = was || '';
+  }, 1500);
+}
+
+function renderModuleLinks(modules) {
+  moduleLinks.textContent = '';
+  for (const entry of modules) {
+    const card = el('div', 'module-link-card');
+    card.dataset.id = entry.id;
+
+    const icon = el('span', 'module-link-icon', entry.name.charAt(0));
+    const name = el('span', 'module-link-name', entry.name);
+    const url = el('span', 'module-link-url', shortManifest(entry.manifestUrl));
+    const hint = el('span', 'module-link-hint', 'Copy JSON link');
+
+    const btn = el('button', 'btn btn-secondary btn-tiny module-copy', 'Copy link');
+    btn.type = 'button';
+    btn.title = 'Copy ' + entry.manifestUrl;
+    btn.addEventListener('click', () => {
+      copyText(entry.manifestUrl)
+        .then(() => flashCopied(btn, 'Copied!'))
+        .catch(() => flashCopied(btn, 'Copy failed'));
+    });
+
+    card.append(icon, name, url, hint, btn);
+    moduleLinks.appendChild(card);
+  }
 }
 
 function highlightJSON(obj) {
@@ -198,9 +233,14 @@ function highlightJSON(obj) {
   return html;
 }
 
-async function renderConfig() {
-  const data = await buildConfig(entries);
-  configJson.innerHTML = highlightJSON(data);
+function renderConfig() {
+  renderModuleLinks(entries);
+
+  copyJsonBtn.addEventListener('click', () => {
+    copyText(moduleLinksJSON(entries))
+      .then(() => flashCopied(copyJsonBtn, 'Copied!'))
+      .catch(() => flashCopied(copyJsonBtn, 'Copy failed'));
+  });
 }
 
 function copyText(text) {

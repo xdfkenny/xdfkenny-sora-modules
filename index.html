@@ -94,26 +94,27 @@
       <div class="grid" id="grid"></div>
     </section>
 
-    <!-- ===== Sora / Luna config ===== -->
+  <!-- ===== Sora / Luna config ===== -->
     <section class="section section-soft" id="config">
       <div class="section-head">
         <h2>Connect Your Stream</h2>
-        <p class="section-intro">Copy the JSON configuration below to link these modules directly to your Sora or Luna instance.</p>
+        <p class="section-intro">Copy a module's JSON link into your Sora or Luna configuration.</p>
       </div>
 
       <article class="crystal-card">
         <div class="crystal-card-inner">
           <div class="crystal-card-top">
-            <p class="card-label">Configuration JSON</p>
+            <p class="card-label">Module links</p>
             <span class="tag">auto-generated</span>
           </div>
-          <div class="code-block" aria-live="polite">
-            <pre><code id="configJson">Loading modules…</code></pre>
-          </div>
+          <p class="config-help">Tap a button to copy one module's JSON link, or copy all links at once.</p>
+
+          <div class="module-links" id="moduleLinks"></div>
+
           <div class="config-actions">
             <button class="btn btn-secondary" id="copyJson" type="button">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <span class="copy-label" id="copyLabel">Copy JSON</span>
+              <span class="copy-label" id="copyLabel">Copy all module links</span>
             </button>
             <div class="doc-pills">
               <a class="btn btn-ghost-pill" href="https://sora.jm26.net/web-ui/" target="_blank" rel="noopener noreferrer">Sora Docs</a>
