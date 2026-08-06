@@ -1,0 +1,46 @@
+{
+  "lastUpdated": "2026-08-06",
+  "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
+  "modules": [
+    {
+      "id": "yfsp",
+      "name": "YFSP",
+      "iconUrl": "https://www.yfsp.tv/favicon.ico",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.json",
+      "sampleQuery": "西游记"
+    },
+    {
+      "id": "hydrahd",
+      "name": "HydraHD",
+      "iconUrl": "https://hydrahd.ru/fav-192.png",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.json",
+      "sampleQuery": "spider-man"
+    },
+    {
+      "id": "anidb",
+      "name": "AniDB",
+      "iconUrl": "https://anidb.app/images/fav-192.png",
+      "branch": "dev",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/anidb/anidb.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "henaojara",
+      "name": "AnimeJara",
+      "iconUrl": "https://animejara.com/wp-content/uploads/2025/12/cropped-LOGO_ANIJARA7.png",
+      "branch": "dev",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/henaojara/henaojara.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "allmanga",
+      "name": "AllManga",
+      "iconUrl": "https://allmanga.to/pics/avatar-w.png",
+      "branch": "9e19311",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/9e19311/allmanga/allmanga.json",
+      "sampleQuery": "one piece"
+    }
+  ]
+}
