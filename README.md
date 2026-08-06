@@ -20,6 +20,7 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | **HenaoJara** | [`henaojara`](henaojara/henaojara.json) | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
 | **AniDB** | [`anidb`](anidb/anidb.json) | Anime (sub/dub) using the same anidb.app backend that powers [ani-cli](https://github.com/pystardust/ani-cli) — public frontend JSON API + JWPlayer HLS embeds. | [AniDB](https://anidb.app/) |
 | **HydraHD** | [`hydrahd`](hydrahd/hydrahd.json) | Movies & TV in 1080p (English sub/dub) with stream resolution via embed servers + vidfast.vc HLS/MP4 pipeline. | [HydraHD](https://hydrahd.ru/) |
+| **YFSP** | [`yfsp`](yfsp/yfsp.json) | Movies, series, variety & anime in Chinese via the signed iYifan API — search without signature, detail/episodes/streams with rotating vv+pub (MD5) keys scraped from the page. | [YFSP](https://www.yfsp.tv/) |
 
 ## Architecture
 

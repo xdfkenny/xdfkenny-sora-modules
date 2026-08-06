@@ -1,0 +1,30 @@
+{
+  "sourceName": "YFSP",
+  "iconUrl": "https://www.yfsp.tv/favicon.ico",
+  "author": {
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "Módulo de YFSP (yfsp.tv) — películas, series, variedades y anime en chino. Usa el API firmado de iYifan: búsqueda sin firma, detalles/episodios/streams vía vv+pub (MD5) con claves rotadas extraídas de la página.",
+  "version": "1.0.0",
+  "language": "Chinese (SUB)",
+  "streamType": "HLS",
+  "quality": "480p",
+  "baseUrl": "https://www.yfsp.tv/",
+  "searchBaseUrl": "https://www.yfsp.tv/search/%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/yfsp/yfsp.js",
+  "type": "movies",
+  "downloadSupport": true,
+  "combo": false,
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": false,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true
+}
