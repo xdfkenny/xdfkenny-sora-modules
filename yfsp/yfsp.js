@@ -347,10 +347,34 @@ function cleanText(text) {
         .trim();
 }
 
+function utf8Encode(str) {
+    const out = [];
+    for (let i = 0; i < str.length; i++) {
+        let c = str.charCodeAt(i);
+        if (c < 0x80) {
+            out.push(c);
+        } else if (c < 0x800) {
+            out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+        } else if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+            const c2 = str.charCodeAt(i + 1);
+            if (c2 >= 0xdc00 && c2 <= 0xdfff) {
+                const cp = 0x10000 + ((c - 0xd800) << 10) + (c2 - 0xdc00);
+                out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+                i++;
+            } else {
+                out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+            }
+        } else {
+            out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+        }
+    }
+    return out;
+}
+
 /* MD5 (RFC 1321) — compact public-domain implementation */
 
 function md5(input) {
-    const bytes = new TextEncoder().encode(String(input));
+    const bytes = utf8Encode(String(input));
     const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
     const K = [
         0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
