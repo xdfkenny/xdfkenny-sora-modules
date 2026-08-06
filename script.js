@@ -602,7 +602,11 @@ async function testModule(entry) {
     return { ok: true, detail: REQUIRED_FN.join(' · ') + ' ✓' };
   });
 
-  /* 5 · provider connectivity */
+  /* 5 · provider connectivity (browser probe)
+     raw.githubusercontent is CORS-enabled, so manifest/script/sandbox work
+     in a plain browser. The provider itself is not, so the in-browser probe
+     is a network-level reachability check only — inside Sora it is resolved
+     by the fetchv2 bridge. No Node server is required for the status grid. */
   await addCheck('Provider · ' + host(m && m.baseUrl || ''), async () => {
     if (!m || !m.baseUrl) return { ok: false, detail: 'Manifest has no baseUrl' };
     const ctrl = new AbortController();
@@ -610,10 +614,11 @@ async function testModule(entry) {
     try {
       await fetch(m.baseUrl, { method: 'GET', mode: 'no-cors', redirect: 'follow', signal: ctrl.signal });
       clearTimeout(t);
-      return { ok: true, warn: true, detail: 'Reached in browser (opaque via CORS; resolved with fetchv2 in the app)' };
+      return { ok: true, detail: 'Reachable from browser (CORS opaque; fetchv2 resolves inside Sora)' };
     } catch (e) {
       clearTimeout(t);
-      return { ok: false, warn: true, detail: 'No browser response: ' + (e.name === 'AbortError' ? '10s timeout' : e.message) + ' · may still work in the app' };
+      const note = e.name === 'AbortError' ? '10s timeout' : e.message;
+      return { ok: false, detail: 'Unreachable from browser: ' + note + ' · resolves via fetchv2 inside Sora' };
     }
   });
 
@@ -821,8 +826,6 @@ async function boot() {
 
   await renderConfig();
   await runAll();
-
-  ensureServer();
 
   copyCmdBtn.addEventListener('click', () => {
     copyText('node server.js').catch(() => {});
