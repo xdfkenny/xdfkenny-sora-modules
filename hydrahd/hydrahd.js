@@ -176,6 +176,21 @@ async function extractStreamUrl(url) {
         }
         if (streams.length === 0) {
             try {
+                const vidsrcResult = await resolveVidSrc(imdbId, isMovie, season, episodeNum);
+                if (vidsrcResult && vidsrcResult.streamUrl) {
+                    streams.push({
+                        title: 'VidSrc',
+                        streamUrl: vidsrcResult.streamUrl,
+                        headers: vidsrcResult.headers || { 'Referer': 'https://vidsrc.hair/' }
+                    });
+                    if (!subtitle && vidsrcResult.subtitle) subtitle = vidsrcResult.subtitle;
+                }
+            } catch (e) {
+                console.error('VidSrc resolution failed:', e.message);
+            }
+        }
+        if (streams.length === 0) {
+            try {
                 const vidfastResult = await resolveVidfast(imdbId, isMovie, season, episodeNum);
                 if (vidfastResult && vidfastResult.streamUrl) {
                     streams.push({
@@ -461,4 +476,91 @@ async function resolveVidfast(imdbId, isMovie = true, season = null, episode = n
         }
     }
     throw new Error('No working stream found');
+}
+
+async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = null) {
+    const embedPath = isMovie
+        ? `https://vidsrc.hair/embed/movie/${imdbId}`
+        : `https://vidsrc.hair/embed/tv/${imdbId}/${season || 1}/${episode || 1}`;
+    const embedHeaders = { 'User-Agent': USER_AGENT, 'Referer': 'https://vidsrc.hair/' };
+    const embedResponse = await soraFetch(`${embedPath}?autostart=true`, { headers: embedHeaders });
+    const embedHtml = await embedResponse.text();
+    const qMatch = embedHtml.match(/\bvar\s+Q\s*=\s*(\{[^;]*\})\s*;/);
+    if (!qMatch) {
+        throw new Error('No player config found in vidsrc page');
+    }
+    let qJson;
+    try {
+        qJson = JSON.parse(qMatch[1].replace(/\\\//g, '/'));
+    } catch (e) {
+        throw new Error('Failed to parse vidsrc player config');
+    }
+    const token = qJson && qJson.t;
+    if (!token || !qJson.id) {
+        throw new Error('No token in vidsrc page');
+    }
+    const apiHeaders = { 'User-Agent': USER_AGENT, 'Referer': embedPath };
+    const sourcesUrl = `https://vidsrc.hair/api.php?a=sources&type=${encodeURIComponent(String(qJson.type))}&id=${encodeURIComponent(qJson.id)}&s=${encodeURIComponent(String(qJson.s))}&e=${encodeURIComponent(String(qJson.e))}&t=${encodeURIComponent(token)}`;
+    let servers = null;
+    for (let i = 0; i < 15; i++) {
+        let sourcesData;
+        try {
+            const sourcesResponse = await soraFetch(sourcesUrl, { headers: apiHeaders });
+            sourcesData = await sourcesResponse.json();
+        } catch (e) {
+            break;
+        }
+        if (sourcesData && sourcesData.status === 'ok' && Array.isArray(sourcesData.servers) && sourcesData.servers.length) {
+            servers = sourcesData.servers;
+            break;
+        }
+        if (sourcesData && (sourcesData.status === 'none' || sourcesData.error)) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    if (!servers || !servers.length) {
+        throw new Error('No vidsrc servers available');
+    }
+    for (const server of servers) {
+        if (!server || !server.ref) continue;
+        try {
+            const playResponse = await soraFetch(`https://vidsrc.hair/api.php?a=play&ref=${encodeURIComponent(server.ref)}`, { headers: apiHeaders });
+            const playData = await playResponse.json();
+            if (!playData || !playData.url) continue;
+            const streamUrl = /^https?:\/\//.test(playData.url) ? playData.url : new URL(playData.url, 'https://vidsrc.hair/').href;
+            if (await verifyStreamUrl(streamUrl)) {
+                return {
+                    streamUrl,
+                    subtitle: '',
+                    headers: { 'Referer': 'https://vidsrc.hair/', 'Origin': 'https://vidsrc.hair' }
+                };
+            }
+        } catch (e) {
+            continue;
+        }
+    }
+    throw new Error('No working vidsrc stream found');
+}
+
+async function verifyStreamUrl(streamUrl) {
+    try {
+        const response = await soraFetch(streamUrl, {
+            method: 'HEAD',
+            headers: { 'User-Agent': USER_AGENT, 'Referer': 'https://vidsrc.hair/' }
+        });
+        if (!response) return false;
+        const status = response.status;
+        if (status !== 200 && status !== 206) return false;
+        let contentType = '';
+        if (response.headers && typeof response.headers.get === 'function') {
+            contentType = String(response.headers.get('content-type') || '').toLowerCase();
+        } else if (response.headers && response.headers['content-type']) {
+            contentType = String(response.headers['content-type']).toLowerCase();
+        }
+        if (!contentType) return true;
+        return !contentType.startsWith('text/html');
+    } catch (e) {
+        return false;
+    }
 }
