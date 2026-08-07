@@ -14,7 +14,7 @@
   "baseUrl": "https://hydrahd.ru/",
   "searchBaseUrl": "https://hydrahd.ru/index.php?menu=search&query=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.js",
-  "type": "movie",
+  "type": "movies/shows/anime",
   "downloadSupport": true,
   "combo": false,
   "asyncJS": true,
