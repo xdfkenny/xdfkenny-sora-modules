@@ -22,16 +22,16 @@
       "id": "anidb",
       "name": "AniDB",
       "iconUrl": "https://anidb.app/images/fav-192.png",
-      "branch": "dev",
-      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/anidb/anidb.json",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anidb/anidb.json",
       "sampleQuery": "one piece"
     },
     {
       "id": "henaojara",
       "name": "AnimeJara",
       "iconUrl": "https://animejara.com/wp-content/uploads/2025/12/cropped-LOGO_ANIJARA7.png",
-      "branch": "dev",
-      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/henaojara/henaojara.json",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.json",
       "sampleQuery": "one piece"
     },
     {

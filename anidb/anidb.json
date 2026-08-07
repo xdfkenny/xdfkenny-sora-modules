@@ -13,7 +13,7 @@
   "quality": "1080p",
   "baseUrl": "https://anidb.app/",
   "searchBaseUrl": "https://anidb.app/browse?q=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/anidb/anidb.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anidb/anidb.js",
   "type": "anime",
   "downloadSupport": true,
   "combo": false,
