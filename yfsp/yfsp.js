@@ -252,9 +252,9 @@ async function getConfig() {
                 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
             }
         });
-        if (!response) return yfspConfig || null;
+        if (!response || typeof response.text !== 'function') return yfspConfig || null;
         const html = await response.text();
-        const match = html.match(/"pConfig":\{"publicKey":"([^"]+)","privateKey":\["([^"]+)"\]\}/);
+        const match = typeof html === 'string' && html.match(/"pConfig":\{"publicKey":"([^"]+)","privateKey":\["([^"]+)"\]\}/);
         if (match && match[1] && match[2]) {
             yfspConfig = { pub: match[1], priv: match[2], ts: Date.now() };
         }
@@ -286,14 +286,20 @@ async function soraFetch(url, options) {
         return await fetchv2(url, mergedHeaders, method, body);
     } catch (e) {
         try {
-            const text = await fetch(url, {
+            const resp = await fetch(url, {
                 method: method,
                 headers: mergedHeaders,
                 body: body
             });
+            if (!resp || typeof resp.text !== 'function') return null;
             return {
-                text: async () => text,
-                json: async () => JSON.parse(text)
+                ok: !!resp.ok,
+                status: resp.status || 0,
+                text: async () => await resp.text(),
+                json: async () => {
+                    if (typeof resp.json === 'function') return await resp.json();
+                    return JSON.parse(await resp.text());
+                }
             };
         } catch (error) {
             console.log('soraFetch error: ' + error);
