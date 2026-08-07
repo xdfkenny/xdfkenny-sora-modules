@@ -14,7 +14,7 @@
   "baseUrl": "https://flixlatam.com/",
   "searchBaseUrl": "https://flixlatam.com/search?s=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/flixlatam/flixlatam.js",
-  "type": "movie",
+  "type": "movies/shows/anime",
   "downloadSupport": true,
   "combo": false,
   "asyncJS": true,
