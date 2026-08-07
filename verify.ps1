@@ -2,13 +2,11 @@ $ErrorActionPreference = 'Stop'
 
 $repo = 'xdfkenny/xdfkenny-sora-modules'
 $module = 'yfsp'
+$api = "https://api.github.com/repos/$repo/contents"
 
 Write-Host "Verifying $module module served from main..." -ForegroundColor Cyan
 
-$manifestUrl = "https://raw.githubusercontent.com/$repo/main/$module/$module.json"
-$scriptUrl = "https://raw.githubusercontent.com/$repo/main/$module/$module.js"
-
-$manifest = Invoke-RestMethod -Uri $manifestUrl
+$manifest = Invoke-RestMethod -Uri "$api/$module/$module.json?ref=main" -Headers @{ 'Accept' = 'application/vnd.github.raw' }
 Write-Host "  version: $($manifest.version)"
 Write-Host "  scriptUrl: $($manifest.scriptUrl)"
 
@@ -16,7 +14,7 @@ if ($manifest.scriptUrl -notmatch "raw.githubusercontent.com/$repo/main/") {
     Write-Host "  WARN: scriptUrl does not point to main branch!" -ForegroundColor Yellow
 }
 
-$script = Invoke-RestMethod -Uri $scriptUrl
+$script = Invoke-RestMethod -Uri "$api/$module/$module.js?ref=main" -Headers @{ 'Accept' = 'application/vnd.github.raw' }
 
 $hasSign = $script -match 'function signStreamUrl'
 $hasMarker = $script -match 'YFSP_BUILD'
