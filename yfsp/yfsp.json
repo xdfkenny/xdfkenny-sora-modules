@@ -14,7 +14,7 @@
   "baseUrl": "https://www.yfsp.tv/",
   "searchBaseUrl": "https://www.yfsp.tv/search/%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.js",
-  "type": "movies/series/anime",
+  "type": "movies/shows/anime",
   "downloadSupport": true,
   "combo": false,
   "asyncJS": true,
