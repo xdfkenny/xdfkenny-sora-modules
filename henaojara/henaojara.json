@@ -14,7 +14,7 @@
   "baseUrl": "https://animejara.com/",
   "searchBaseUrl": "https://animejara.com/catalogo/?q=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/henaojara/henaojara.js",
-  "type": "anime",
+  "type": "anime/movies",
   "downloadSupport": true,
   "combo": false,
   "asyncJS": true,
