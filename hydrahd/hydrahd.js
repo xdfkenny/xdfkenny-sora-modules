@@ -2,6 +2,10 @@ const BASE_URL = 'https://hydrahd.ru';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
+// Load marker: visible in the app's logs, so we can tell which script version is
+// actually running after a re-add (raw CDN can lag behind the pushed commit).
+console.log('[HydraHD] module script loaded v1.0.18 (identity subtitle fix ACTIVE)');
+
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
     if (!headers['User-Agent']) {
