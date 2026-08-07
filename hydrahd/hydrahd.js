@@ -7,6 +7,12 @@ async function soraFetch(url, options = {}) {
     if (!headers['User-Agent']) {
         headers['User-Agent'] = USER_AGENT;
     }
+    // The app's fetchv2 bridge cannot decompress gzip/brotli bodies, so ask
+    // for identity encoding. Some endpoints (e.g. strem.io) serve compressed
+    // JSON by default, which decodes to an empty body and breaks parsing.
+    if (!headers['Accept-Encoding']) {
+        headers['Accept-Encoding'] = 'identity';
+    }
     try {
         return await fetchv2(url, headers, options.method || 'GET', options.body || null);
     } catch (e) {
