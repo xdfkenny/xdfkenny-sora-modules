@@ -16,7 +16,7 @@
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/9e19311/allmanga/allmanga.js",
   "type": "anime",
   "downloadSupport": true,
-  "combo": false,
+  "combo": true,
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": false,
