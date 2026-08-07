@@ -145,7 +145,7 @@ async function extractStreamUrl(url) {
         if (!embeds || embeds.length === 0) return JSON.stringify(fallback);
 
         const streams = [];
-        const seenLang = new Set();
+        const seen = new Set(); // "server|lang" — VidHide AND voe are both offered per language
         // Prefer LAT/ESP (dubbed) over SUB/VOSE (subtitled), keeping both.
         const ordered = embeds.slice().sort(function (a, b) {
             return langPriority(a.lang) - langPriority(b.lang);
@@ -156,7 +156,8 @@ async function extractStreamUrl(url) {
             // streamwish) need a real browser and are skipped.
             if (e.server !== 'vidhide' && e.server !== 'voe') continue;
             const langKey = e.lang || 'lat';
-            if (seenLang.has(langKey)) continue;
+            const dedupKey = e.server + '|' + langKey;
+            if (seen.has(dedupKey)) continue;
             let master;
             let label;
             let headers;
@@ -177,13 +178,13 @@ async function extractStreamUrl(url) {
                 };
             }
             if (!master) continue;
-            seenLang.add(langKey);
+            seen.add(dedupKey);
             streams.push({
                 title: (e.lang || 'LAT').toUpperCase() + label,
                 streamUrl: master,
                 headers: headers
             });
-            if (streams.length >= 3) break;
+            if (streams.length >= 6) break;
         }
 
         const primary = streams.length > 0 ? streams[0].streamUrl : null;
@@ -437,7 +438,13 @@ function solveAltcha(p) {
     const saltBytes = flixHexToBytesArr(p.salt);
     const pass = new Array(nonceBytes.length + 4);
     for (let i = 0; i < nonceBytes.length; i++) pass[i] = nonceBytes[i];
+    // Bound the solve: a 1-byte prefix ("00") needs ~256 iterations on
+    // average (~1s), but the tail is exponential — abort past ~6s so a
+    // pathological challenge can't stall extractStreamUrl (3 voe solves
+    // already add several seconds on top of vidhide).
+    const start = Date.now();
     for (let counter = 0; counter < 100000; counter++) {
+        if ((counter & 63) === 0 && Date.now() - start > 6000) return null;
         pass[nonceBytes.length] = (counter >>> 24) & 0xff;
         pass[nonceBytes.length + 1] = (counter >>> 16) & 0xff;
         pass[nonceBytes.length + 2] = (counter >>> 8) & 0xff;
