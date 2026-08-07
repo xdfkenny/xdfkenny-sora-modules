@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de FlixLatam (flixlatam.com) — películas, series y anime en español latino (LAT/SUB). Resuelve streams HLS desencriptando los embeds vidurl: proof-of-work SHA-256 + AES-256-CBC en JS puro y desofuscando el P.A.C.K.E.R. del host minochinos.com (VidHide).",
-  "version": "1.0.0",
+  "description": "Módulo de FlixLatam (flixlatam.com) — películas, series y anime en español latino (LAT/SUB). Resuelve streams HLS desencriptando los embeds vidurl: proof-of-work SHA-256 + AES-256-CBC en JS puro y desofuscando el P.A.C.K.E.R. de VidHide (minochinos.com); fallback automático al embed voe.sx resolviendo su challenge Altcha PBKDF2/SHA-256 en JS puro.",
+  "version": "1.1.0",
   "language": "Spanish (LAT/SUB)",
   "streamType": "HLS",
   "quality": "720p",

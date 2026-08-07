@@ -152,19 +152,36 @@ async function extractStreamUrl(url) {
         });
         for (let i = 0; i < ordered.length; i++) {
             const e = ordered[i];
-            if (e.server !== 'vidhide') continue;   // only VidHide resolves server-side
+            // VidHide and voe resolve fully server-side; other servers (e.g.
+            // streamwish) need a real browser and are skipped.
+            if (e.server !== 'vidhide' && e.server !== 'voe') continue;
             const langKey = e.lang || 'lat';
             if (seenLang.has(langKey)) continue;
-            const master = await resolveMino(e.link);
+            let master;
+            let label;
+            let headers;
+            if (e.server === 'voe') {
+                master = await resolveVoe(e.link);
+                label = ' (VOE)';
+                const origin = /^https?:\/\/[^/]+/i.exec(String(e.link) || '');
+                headers = {
+                    'Referer': (origin ? origin[0] : 'https://voe.sx') + '/',
+                    'User-Agent': USER_AGENT
+                };
+            } else {
+                master = await resolveMino(e.link);
+                label = ' (VidHide)';
+                headers = {
+                    'Referer': MINO_ORIGIN + '/',
+                    'User-Agent': USER_AGENT
+                };
+            }
             if (!master) continue;
             seenLang.add(langKey);
             streams.push({
-                title: (e.lang || 'LAT').toUpperCase() + ' (VidHide)',
+                title: (e.lang || 'LAT').toUpperCase() + label,
                 streamUrl: master,
-                headers: {
-                    'Referer': MINO_ORIGIN + '/',
-                    'User-Agent': USER_AGENT
-                }
+                headers: headers
             });
             if (streams.length >= 3) break;
         }
@@ -318,6 +335,302 @@ function unpackPacker(str) {
         }
     }
     return payload;
+}
+
+/* ============================================================
+   LAYER 3 — voe (voe.sx → jessicachoosemake.com Altcha gate)
+   ============================================================
+   The voe embed is a JS redirect to jessicachoosemake.com, which gates the
+   player behind an Altcha v4 "confirm you're human" challenge (PBKDF2/SHA-256).
+   Full chain, all pure JS:
+     1. fetch voe.sx embed -> follow its JS redirect to the gate host
+     2. gate HTML holds _token + an altcha challenge URL
+     3. challenge JSON {parameters, signature} -> solve PBKDF2-HMAC-SHA256
+        (password = nonce || uint32-be(counter); loop counter until the
+        derived key's first byte equals keyPrefix)
+     4. POST _token + access=0 + base64({challenge, solution}) — the fetcher's
+        cookie jar replays the voe_session cookie so Laravel accepts it
+     5. the player page embeds the real config as an obfuscated JSON blob;
+        decrypt it (ROT13 → token-substitute → strip _ → b64 → -3 → reverse
+        → b64 → JSON) to read the HLS source URL
+   */
+
+async function resolveVoe(embedUrl) {
+    const voeUrl = /^https?:/i.test(String(embedUrl || '')) ? embedUrl : 'https://voe.sx/' + String(embedUrl).replace(/^\/+/, '');
+
+    // 1) voe.sx serves a JS redirect (no localStorage → the gate host).
+    //    curl -L only follows HTTP 3xx, so follow the JS redirect manually.
+    let gateUrl = voeUrl;
+    let gateHtml = '';
+    const voeRes = await soraFetch(voeUrl);
+    if (voeRes) {
+        const voeText = await voeRes.text();
+        if (voeText.indexOf('altcha-widget') !== -1) {
+            gateHtml = voeText; // already the gate page
+        } else {
+            const redir = voeText.match(/window\.location\.href\s*=\s*'([^']+)'/);
+            if (redir) gateUrl = redir[1].split('#')[0];
+        }
+    }
+
+    // 2) gate HTML: _token input + altcha challenge URL
+    if (!gateHtml) {
+        const gateRes = await soraFetch(gateUrl);
+        if (!gateRes) return null;
+        gateHtml = await gateRes.text();
+    }
+    if (gateHtml.indexOf('altcha-widget') === -1) return null;
+    const tokenMatch = gateHtml.match(/name="_token" value="([^"]+)"/);
+    const chalMatch = gateHtml.match(/challenge="([^"]+)"/);
+    if (!tokenMatch || !chalMatch) return null;
+
+    // 3) challenge JSON — fresh PBKDF2 parameters on every fetch
+    const chalRes = await soraFetch(chalMatch[1], { headers: { 'Referer': gateUrl } });
+    if (!chalRes) return null;
+    let chal;
+    try { chal = JSON.parse(await chalRes.text()); } catch (e) { return null; }
+    const p = chal && chal.parameters;
+    if (!p || !p.nonce || !p.salt || !p.cost || !p.keyLength || !p.keyPrefix) return null;
+
+    const sol = solveAltcha(p);
+    if (!sol) return null;
+
+    // 4) POST the solved challenge (widget auto:"off" → we solve instead of
+    //    clicking; same payload shape the widget's submit handler sends)
+    const payload = flixB64FromBytes(flixStrToBytes(JSON.stringify({
+        challenge: { parameters: p, signature: chal.signature },
+        solution: { counter: sol.counter, derivedKey: sol.derivedKey, time: 0 }
+    })));
+    const origin = gateUrl.match(/^https?:\/\/[^/]+/i);
+    const postBody = '_token=' + encodeURIComponent(tokenMatch[1]) + '&access=0&altcha=' + encodeURIComponent(payload);
+    const postRes = await soraFetch(gateUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': origin ? origin[0] : '',
+            'Referer': gateUrl
+        },
+        body: postBody
+    });
+    if (!postRes) return null;
+    const playerHtml = await postRes.text();
+    if (playerHtml.indexOf('altcha-widget') !== -1 || playerHtml.indexOf('Confirm you') !== -1) return null;
+
+    // 5) player page: decrypt the embedded config, read the HLS source
+    const blobMatch = playerHtml.match(/<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/);
+    if (!blobMatch) return null;
+    let blobStr;
+    try { blobStr = JSON.parse(blobMatch[1])[0]; } catch (e) { return null; }
+    if (typeof blobStr !== 'string' || blobStr.length < 8) return null;
+    const cfg = decryptVoeConfig(blobStr);
+    if (!cfg) return null;
+    return cfg.source || cfg.direct_access_url || null;
+}
+
+// Altcha v4 PBKDF2/SHA-256 solve. password = nonceBytes || uint32-be(counter),
+// salt = saltBytes, iterations = cost, dkLen = keyLength. Return the first
+// counter whose derived key starts with keyPrefix (00...).
+function solveAltcha(p) {
+    const cost = p.cost;
+    const prefix = parseInt(p.keyPrefix, 16);
+    const nonceBytes = flixHexToBytesArr(p.nonce);
+    const saltBytes = flixHexToBytesArr(p.salt);
+    const pass = new Array(nonceBytes.length + 4);
+    for (let i = 0; i < nonceBytes.length; i++) pass[i] = nonceBytes[i];
+    for (let counter = 0; counter < 100000; counter++) {
+        pass[nonceBytes.length] = (counter >>> 24) & 0xff;
+        pass[nonceBytes.length + 1] = (counter >>> 16) & 0xff;
+        pass[nonceBytes.length + 2] = (counter >>> 8) & 0xff;
+        pass[nonceBytes.length + 3] = counter & 0xff;
+        const dk = pbkdf2Sha256Fast(pass, saltBytes, cost);
+        if (dk[0] === prefix) {
+            return { counter: counter, derivedKey: flixBytesArrToHex(dk) };
+        }
+    }
+    return null;
+}
+
+/* Fast SHA-256 for the Altcha PoW. Typed-array block compressor + HMAC
+   mid-state precomputation make a full PBKDF2(10000) cost ~4ms in V8,
+   vs ~500ms with the string-based SHA-256 — the difference between a 3s
+   solve and a 7-minute one. */
+
+const FLIX_SHA_INIT = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+const FLIX_SHA_K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+]);
+
+// h: Uint32Array[8] (state, mutated in place). w: Uint32Array[16] input block.
+// sched: Uint32Array[16] reusable message-schedule scratch.
+function flixCompress(h, w, sched) {
+    let a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+    const s = sched;
+    for (let i = 0; i < 64; i++) {
+        if (i < 16) {
+            s[i] = w[i];
+        } else {
+            const x2 = s[(i + 14) & 15], x15 = s[(i + 1) & 15], x7 = s[(i + 9) & 15], x16 = s[i & 15];
+            const s0 = (((x15 >>> 7) | (x15 << 25)) ^ ((x15 >>> 18) | (x15 << 14)) ^ (x15 >>> 3)) >>> 0;
+            const s1 = (((x2 >>> 17) | (x2 << 15)) ^ ((x2 >>> 19) | (x2 << 13)) ^ (x2 >>> 10)) >>> 0;
+            s[i & 15] = (s1 + x7 + s0 + x16) | 0;
+        }
+        const x = s[i & 15];
+        const t1 = (hh + (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) + ((e & f) ^ (~e & g)) + FLIX_SHA_K[i] + x) | 0;
+        const t2 = ((((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    h[0] = (h[0] + a) | 0; h[1] = (h[1] + b) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+    h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
+}
+
+// Pack a 64-byte buffer (Uint8Array) into 16 big-endian words.
+function flixWordsFromBytes(src, w) {
+    for (let i = 0; i < 16; i++) {
+        const j = i * 4;
+        w[i] = ((src[j] << 24) | (src[j + 1] << 16) | (src[j + 2] << 8) | src[j + 3]) >>> 0;
+    }
+}
+
+// PBKDF2-HMAC-SHA256, single dkLen block (32 bytes). password/salt are
+// number arrays (0-255). HMAC mid-states (ipad/opad xor key) compressed once
+// per call; every iteration then compresses only the extra message block.
+function pbkdf2Sha256Fast(password, salt, cost) {
+    const key = new Uint8Array(64);
+    for (let i = 0; i < password.length && i < 64; i++) key[i] = password[i];
+    const ipad = new Uint8Array(64), opad = new Uint8Array(64);
+    for (let i = 0; i < 64; i++) { ipad[i] = key[i] ^ 0x36; opad[i] = key[i] ^ 0x5c; }
+
+    const w = new Uint32Array(16), sched = new Uint32Array(16);
+    const innerMid = new Uint32Array(FLIX_SHA_INIT);
+    flixWordsFromBytes(ipad, w); flixCompress(innerMid, w, sched);
+    const outerMid = new Uint32Array(FLIX_SHA_INIT);
+    flixWordsFromBytes(opad, w); flixCompress(outerMid, w, sched);
+
+    // U_1 = HMAC(password, salt || 0x00000001); inner block2 = salt + 1 + pad.
+    // The SHA-256 length field counts the WHOLE message (64-byte ipad block +
+    // salt + 4-byte counter), so word layout depends on the salt length.
+    const saltWords = salt.length >> 2;
+    const b2 = new Uint32Array(16);
+    for (let i = 0; i < saltWords; i++) {
+        const j = i * 4;
+        b2[i] = ((salt[j] << 24) | (salt[j + 1] << 16) | (salt[j + 2] << 8) | salt[j + 3]) >>> 0;
+    }
+    b2[saltWords] = 1;                    // 0x00000001 counter suffix
+    b2[saltWords + 1] = 0x80000000;       // 0x80 padding
+    b2[15] = (64 + salt.length + 4) * 8;  // message bit length
+    const ob2 = new Uint32Array(16);
+    ob2[8] = 0x80000000; ob2[15] = 96 * 8;
+
+    const u = new Uint32Array(FLIX_SHA_INIT);
+    u.set(innerMid); flixCompress(u, b2, sched);
+    for (let j = 0; j < 8; j++) ob2[j] = u[j];
+    u.set(outerMid); flixCompress(u, ob2, sched);
+    const T = new Uint32Array(u);
+    for (let i = 1; i < cost; i++) {
+        for (let j = 0; j < 8; j++) b2[j] = u[j];
+        b2[8] = 0x80000000; b2[9] = 0; b2[15] = 96 * 8;
+        u.set(innerMid); flixCompress(u, b2, sched);
+        for (let j = 0; j < 8; j++) ob2[j] = u[j];
+        u.set(outerMid); flixCompress(u, ob2, sched);
+        for (let j = 0; j < 8; j++) T[j] = (T[j] ^ u[j]) | 0;
+    }
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 8; i++) {
+        out[i * 4] = (T[i] >>> 24) & 255;
+        out[i * 4 + 1] = (T[i] >>> 16) & 255;
+        out[i * 4 + 2] = (T[i] >>> 8) & 255;
+        out[i * 4 + 3] = T[i] & 255;
+    }
+    return out;
+}
+
+function flixHexToBytesArr(hex) {
+    const out = [];
+    for (let i = 0; i < hex.length; i += 2) out.push(parseInt(hex.slice(i, i + 2), 16));
+    return out;
+}
+
+function flixBytesArrToHex(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i] & 0xff;
+        out += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return out;
+}
+
+// Obfuscated player-config blob → JSON (mirrors the loader.js decoder chain).
+function decryptVoeConfig(blob) {
+    try {
+        let s = String(blob);
+        s = s.replace(/[a-zA-Z]/g, function (c) {
+            const base = c <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+        });
+        const tokens = ['@$', '^^', '~@', '%?', '*~', '!!', '#&'];
+        for (let i = 0; i < tokens.length; i++) s = s.split(tokens[i]).join('_');
+        s = s.split('_').join('');
+        let b = flixB64ToStr(s);                       // atob
+        let c = '';
+        for (let i = 0; i < b.length; i++) c += String.fromCharCode(b.charCodeAt(i) - 3); // -3
+        let r = '';
+        for (let i = c.length - 1; i >= 0; i--) r += c.charAt(i); // reverse
+        return JSON.parse(flixB64ToStr(r));            // atob → JSON
+    } catch (e) {
+        return null;
+    }
+}
+
+// ---- voe byte-string / base64 helpers (no Buffer, no btoa in sandbox) ----
+
+function flixHexToBytesStr(hex) {
+    let out = '';
+    for (let i = 0; i < hex.length; i += 2) out += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
+    return out;
+}
+
+function flixBytesStrToHex(s) {
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+        const b = s.charCodeAt(i) & 0xff;
+        out += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return out;
+}
+
+function flixStrToBytes(s) {
+    const out = [];
+    for (let i = 0; i < s.length; i++) out.push(s.charCodeAt(i) & 0xff);
+    return out;
+}
+
+function flixB64FromBytes(bytes) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+        const b0 = bytes[i];
+        const b1 = bytes[i + 1];
+        const b2 = bytes[i + 2];
+        out += chars[b0 >> 2];
+        out += chars[((b0 & 3) << 4) | ((b1 >>> 4) & 0x0f)];
+        out += (b1 !== undefined) ? chars[((b1 & 0x0f) << 2) | ((b2 >>> 6) & 3)] : '=';
+        out += (b2 !== undefined) ? chars[b2 & 0x3f] : '=';
+    }
+    return out;
+}
+
+function flixB64ToStr(b64) {
+    const bytes = flixB64ToBytes(b64);
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+    return out;
 }
 
 /* ============================================================

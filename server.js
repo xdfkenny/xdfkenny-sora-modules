@@ -10,6 +10,7 @@
 
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 
@@ -70,22 +71,64 @@ const FORBIDDEN_HEADERS = new Set([
   'host', 'connection', 'content-length', 'accept-encoding', 'transfer-encoding', 'upgrade'
 ]);
 
-/* fetchv2/fetch shim: returns a Response-like object the modules can read */
+/* Parse a curl -D header dump into a Map (lowercased keys; set-cookie
+   accumulates every Set-Cookie value, newline-joined). */
+function parseHeaderDump(dump) {
+  const map = new Map();
+  if (!dump) return map;
+  const lines = String(dump).split(/\r?\n/);
+  for (const line of lines) {
+    const colon = line.indexOf(':');
+    if (colon <= 0) continue;
+    const name = line.slice(0, colon).trim().toLowerCase();
+    const value = line.slice(colon + 1).trim();
+    if (name === 'set-cookie') {
+      map.set(name, (map.get(name) || '') + (map.has(name) ? '\n' : '') + value);
+    } else {
+      map.set(name, value);
+    }
+  }
+  return map;
+}
+
+/* fetchv2/fetch shim: returns a Response-like object the modules can read.
+   Maintains a per-module cookie jar (like fetchv2's documented session
+   handling): Set-Cookie from every response is absorbed and replayed on the
+   next request, so multi-step flows (gate → challenge → POST) keep their
+   session without the module touching cookies directly. */
 function makeFetcher() {
+  const jar = new Map(); // cookie name -> value
   return async function soraFetch(url, headers, method, body) {
     const cleanHeaders = {};
+    let hasCookie = false;
     for (const k in (headers || {})) {
       if (FORBIDDEN_HEADERS.has(String(k).toLowerCase())) continue;
+      if (String(k).toLowerCase() === 'cookie') hasCookie = true;
       cleanHeaders[k] = headers[k];
     }
+    if (jar.size && !hasCookie) {
+      const parts = [];
+      for (const [name, value] of jar) parts.push(name + '=' + value);
+      cleanHeaders['Cookie'] = parts.join('; ');
+    }
     const resp = await httpRequest(url, { method: method || 'GET', headers: cleanHeaders, body });
+    if (resp.headers) {
+      const setCookies = resp.headers.get ? resp.headers.get('set-cookie') : null;
+      if (setCookies) {
+        for (const part of String(setCookies).split('\n')) {
+          const kv = part.split(';')[0];
+          const eq = kv.indexOf('=');
+          if (eq > 0) jar.set(kv.slice(0, eq).trim(), kv.slice(eq + 1).trim());
+        }
+      }
+    }
     const text = resp.text;
     return {
       ok: resp.status >= 200 && resp.status < 300,
       status: resp.status,
       statusText: '',
       url: resp.finalUrl || url,
-      headers: new Map(),
+      headers: resp.headers || new Map(),
       text: async () => text,
       json: async () => {
         try { return JSON.parse(text); }
@@ -115,6 +158,7 @@ function curlRequest(url, opts) {
     resolveCurl((bin) => {
       if (!bin) return reject(new Error('curl no disponible'));
       const method = opts.method || 'GET';
+      const tmp = path.join(os.tmpdir(), 'xdf_hdrs_' + process.pid + '_' + Date.now() + '.txt');
       const args = ['-sS', '--max-time', '30'];
       if (method === 'HEAD') {
         args.push('-I');
@@ -123,15 +167,18 @@ function curlRequest(url, opts) {
       }
       for (const k in (opts.headers || {})) args.push('-H', k + ': ' + opts.headers[k]);
       if (opts.body != null) args.push('--data-binary', opts.body);
-      args.push('-w', '\n__XDF_STATUS__%{http_code}');
+      args.push('-D', tmp, '-w', '\n__XDF_STATUS__%{http_code}');
       args.push(url);
       execFile(bin, args, { maxBuffer: 64 * 1024 * 1024, encoding: 'utf8' }, (err, stdout) => {
+        let headers = null;
+        try { headers = parseHeaderDump(fs.readFileSync(tmp, 'utf8')); } catch (e) { /* ignore */ }
+        try { fs.unlinkSync(tmp); } catch (e) { /* ignore */ }
         if (err) return reject(new Error('curl: ' + (err.message || err)));
         const mark = '\n__XDF_STATUS__';
         const idx = stdout.lastIndexOf(mark);
         const status = idx >= 0 ? parseInt(stdout.slice(idx + mark.length).trim(), 10) : 0;
         const text = idx >= 0 ? stdout.slice(0, idx) : stdout;
-        resolve({ ok: status >= 200 && status < 300, status, text });
+        resolve({ ok: status >= 200 && status < 300, status, text, headers });
       });
     });
   });
@@ -146,7 +193,7 @@ async function httpRequest(url, opts) {
   for (const k in (opts.headers || {})) fetchOpts.headers[k] = opts.headers[k];
   if (opts.body != null) fetchOpts.body = opts.body;
   const resp = await fetch(url, fetchOpts);
-  return { ok: resp.ok, status: resp.status, text: await resp.text(), finalUrl: resp.url };
+  return { ok: resp.ok, status: resp.status, text: await resp.text(), finalUrl: resp.url, headers: resp.headers };
 }
 
 function loadModule(src) {
