@@ -183,7 +183,7 @@ async function extractStreamUrl(url) {
             seen.add(f.result);
             streams.push({
                 title: f.isHls ? 'HLS' : 'MP4',
-                streamUrl: f.result,
+                streamUrl: signStreamUrl(f.result),
                 headers: makeStreamHeaders()
             });
         }
@@ -272,6 +272,18 @@ function buildSignedUrl(base, params) {
         .join('&');
     const vv = md5(`${pub}&${query.toLowerCase()}&${priv}`);
     return `${base}?${query}&vv=${vv}&pub=${pub}`;
+}
+
+// The CDN serves segment URLs signed with the same vv scheme only when the
+// master playlist request carries a valid vv/pub pair; without it the segment
+// host drops the connection. Sign the stream URL over its own query string.
+function signStreamUrl(url) {
+    if (!url || !yfspConfig) return url;
+    const qIndex = url.indexOf('?');
+    const qs = qIndex >= 0 ? url.slice(qIndex + 1) : '';
+    if (!qs) return url;
+    const vv = md5(`${yfspConfig.pub}&${qs.toLowerCase()}&${yfspConfig.priv}`);
+    return `${url}&vv=${vv}&pub=${yfspConfig.pub}`;
 }
 
 /* NETWORK */
