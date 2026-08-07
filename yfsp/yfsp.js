@@ -4,6 +4,9 @@ const YFSP_API_EPISODES = 'https://m10.yfsp.tv/v3/video/languagesplaylist';
 const YFSP_API_PLAY = 'https://m10.yfsp.tv/v3/video/play';
 const YFSP_API_SEARCH = 'https://rankv21.yfsp.tv/v3/list/briefsearch';
 const YFSP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
+const YFSP_BUILD = '1.0.0';
+
+console.log('[YFSP] script build: v' + YFSP_BUILD + ' (sign=' + (typeof signStreamUrl === 'function' ? 'yes' : 'no') + ')');
 
 /* MAIN FUNCTIONS */
 
@@ -277,13 +280,19 @@ function buildSignedUrl(base, params) {
 // The CDN serves segment URLs signed with the same vv scheme only when the
 // master playlist request carries a valid vv/pub pair; without it the segment
 // host drops the connection. Sign the stream URL over its own query string.
+// Pre-signed URLs are left untouched (double-signing would invalidate them)
+// and any #fragment is kept separate from the appended query.
 function signStreamUrl(url) {
     if (!url || !yfspConfig) return url;
-    const qIndex = url.indexOf('?');
-    const qs = qIndex >= 0 ? url.slice(qIndex + 1) : '';
+    const fragIndex = url.indexOf('#');
+    const base = fragIndex >= 0 ? url.slice(0, fragIndex) : url;
+    const frag = fragIndex >= 0 ? url.slice(fragIndex) : '';
+    if (/([?&]vv=[^&#]*).*([?&]pub=[^&#]*)/.test(base)) return url;
+    const qIndex = base.indexOf('?');
+    const qs = qIndex >= 0 ? base.slice(qIndex + 1) : '';
     if (!qs) return url;
     const vv = md5(`${yfspConfig.pub}&${qs.toLowerCase()}&${yfspConfig.priv}`);
-    return `${url}&vv=${vv}&pub=${yfspConfig.pub}`;
+    return `${base}&vv=${vv}&pub=${yfspConfig.pub}${frag}`;
 }
 
 /* NETWORK */
