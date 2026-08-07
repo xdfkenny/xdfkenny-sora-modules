@@ -46,8 +46,8 @@
       "id": "allmanga",
       "name": "AllManga",
       "iconUrl": "https://allmanga.to/pics/avatar-w.png",
-      "branch": "9e19311",
-      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/9e19311/allmanga/allmanga.json",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga/allmanga.json",
       "sampleQuery": "one piece"
     }
   ]

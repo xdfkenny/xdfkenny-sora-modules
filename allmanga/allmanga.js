@@ -26,7 +26,7 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.6.1');
+if (typeof console !== 'undefined') console.log('allmanga module v1.6.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -391,11 +391,10 @@ async function aaResolveSources(parsed, tt) {
     });
 
     const orderedCdn = aaOrderByPreference(cdn, SOURCE_PRIORITY);
-    const orderedIframes = aaOrderByPreference(iframes, ['Mp4', 'Ok', 'S-Mp4', 'Luf-Mp4', 'Uv-mp4', 'Default', 'Ak', 'Yt-mp4']).slice(0, 6);
+    const orderedIframes = aaOrderByPreference(iframes, ['Mp4', 'Ok', 'S-Mp4', 'Luf-Mp4', 'Uv-mp4', 'Default', 'Ak', 'Yt-mp4']).slice(0, 4);
 
     // Dead clock endpoints can hang ~30s, so race everything: first source
-    // (clock or iframe) to produce a playable link wins. Live clocks answer
-    // in well under a second, so healthy HLS naturally beats slow MP4 hosts.
+    // (clock or iframe) to produce a playable link wins.
     const clockTask = aaRaceSuccess(orderedCdn.map(src => aaFetchClockSource(src, tt)));
     const iframeTask = aaRaceSuccess(orderedIframes.map(src =>
         resolveIframeSource(src.sourceUrl, src.sourceName, tt)
