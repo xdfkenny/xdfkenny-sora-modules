@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-08-06",
+  "lastUpdated": "2026-08-07",
   "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
   "modules": [
     {
@@ -33,6 +33,14 @@
       "branch": "dev",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/henaojara/henaojara.json",
       "sampleQuery": "one piece"
+    },
+    {
+      "id": "flixlatam",
+      "name": "FlixLatam",
+      "iconUrl": "https://flixlatam.com/themes/dooplay/assets/img/favicon.png",
+      "branch": "dev",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/flixlatam/flixlatam.json",
+      "sampleQuery": "posesión"
     },
     {
       "id": "allmanga",
