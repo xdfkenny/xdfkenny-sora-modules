@@ -279,7 +279,14 @@ async function resolveMino(embedUrl) {
     } catch (e) {
         return null;
     }
-    const hls = links.hls4 || links.hls3 || links.hls2;
+
+    // Prefer the minochinos wrapper (hls4): it is same-origin proxied so it
+    // keeps working no matter which CDN host sits behind it. Otherwise prefer
+    // the signed .m3u8 direct CDN (hls2) over the .txt anti-HLS-detection
+    // rename (hls3) — .m3u8 is detected as HLS by the player. A direct-CDN host
+    // that is down simply shows as a non-loading stream and the user picks
+    // another server (voe is always offered per language).
+    const hls = links.hls4 || links.hls2 || links.hls3;
     if (!hls) return null;
     return joinUrl(embedUrl, hls);
 }
@@ -709,11 +716,20 @@ async function soraFetch(url, options) {
     try {
         return await fetchv2(url, headers, method, body);
     } catch (e) {
+        // fetchv2 failed (e.g. network error) — fall back to plain fetch. Read
+        // the body once and cache it: returning the Response object as "text"
+        // made callers like resolveVoe crash with "gateHtml.indexOf is not a
+        // function" whenever this fallback ran.
         try {
-            const text = await fetch(url, { method: method, headers: headers, body: body });
+            const response = await fetch(url, { method: method, headers: headers, body: body });
+            let cached = null;
+            const bodyOf = async function () {
+                if (cached === null) cached = await response.text();
+                return cached;
+            };
             return {
-                text: async () => text,
-                json: async () => JSON.parse(text)
+                text: bodyOf,
+                json: async function () { return JSON.parse(await bodyOf()); }
             };
         } catch (error) {
             console.log('soraFetch error: ' + error);
