@@ -38,8 +38,8 @@
       "id": "flixlatam",
       "name": "FlixLatam",
       "iconUrl": "https://flixlatam.com/themes/dooplay/assets/img/favicon.png",
-      "branch": "dev",
-      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/flixlatam/flixlatam.json",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/flixlatam/flixlatam.json",
       "sampleQuery": "posesión"
     },
     {
