@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.32 (forced subtitle list + server stream picker compat fields)');
+console.log('[HydraHD] module script loaded v1.0.33 (full subtitle language list for movies AND series + direct keyless stream fallback)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -263,6 +263,35 @@ async function extractStreamUrl(url) {
             }));
         }
         console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
+        // The keyless embed hosts (Hydra2/VixSrc, Golf/MoviesAPI, Whiskey/xpass)
+        // only need the IDs, not the parsed server buttons. Resolve them
+        // directly from ctxInfo so the server list still shows even when the
+        // ajax button fragment failed to parse (seen on series in some app
+        // builds) — the app then has real selectable streams, not just the
+        // single fallback.
+        if (streams.length === 0) {
+            const directHosts = [
+                { name: 'Hydra2 (Original)', origin: 'https://vixsrc.to/', fn: resolveVixsrcLink },
+                { name: 'Golf (Original)', origin: 'https://moviesapi.to/', fn: resolveMoviesapiLink },
+                { name: 'Whiskey (Original)', origin: 'https://play.xpass.top/', fn: resolveXpassLink }
+            ];
+            await Promise.all(directHosts.map(async function(host) {
+                try {
+                    const resolved = await host.fn(ctxInfo);
+                    if (resolved && resolved.streamUrl) {
+                        streams.push({
+                            title: host.name,
+                            name: host.name,
+                            quality: host.name,
+                            streamUrl: resolved.streamUrl,
+                            url: resolved.streamUrl,
+                            headers: { 'Referer': host.origin, 'Origin': host.origin }
+                        });
+                    }
+                } catch (e) { /* skip this host */ }
+            }));
+            console.log('[HydraHD] Direct keyless streams=' + streams.length);
+        }
         if (streams.length === 0) {
             try {
                 const vidsrcResult = await resolveVidSrc(imdbId, isMovie, season, episodeNum);
@@ -706,15 +735,11 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
             }));
         if (subtitles.length === 0) return null;
 
-        // English-only mode: drop every non-English track right at the source,
-        // so the picker and auto-load can never offer/serve a foreign language.
+        // v1.0.21-style list: EVERY language the provider offers goes into the
+        // picker so the user can choose. English stays the auto-load default:
+        // pick the first full-dialogue English track for the `subtitle` field
+        // and leave the rest of the languages for the selector.
         const english = subtitles.filter(isEnglishStremioSubtitle);
-        if (english.length === 0) return null;
-        const filteredSubtitles = english.slice();
-
-        // Prefer the first full-dialogue English track over the possibly-forced
-        // one stremio returns first, so auto-loaded subtitles are real dialogue
-        // ("characters talking") rather than background/signs translation.
         const cacheKey = type + '/' + imdbId + '/' + (season || '') + '/' + (episode || '');
         let bestEnglishUrl = '';
         if (english.length > 1) {
@@ -725,15 +750,14 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
                 fullTrackCache[cacheKey] = bestEnglishUrl || '';
             }
         }
-
         const preferred = english[0] || subtitles[0];
         if (preferred && bestEnglishUrl) {
-            preferred.url = bestEnglishUrl;   // picker + auto-load both use the full track
+            preferred.url = bestEnglishUrl;   // auto-load uses the full track
             preferred.label = 'English';
         }
         return {
             subtitle: preferred && preferred.url ? preferred.url : '',
-            subtitles: filteredSubtitles,
+            subtitles: subtitles,
             pickedEnglish: english.length > 0
         };
     } catch (e) {
@@ -787,17 +811,19 @@ async function resolveCommunitySubtitle(imdbId, type, season, episode) {
 
         // SCS answers titles it has no data for with a 1-cue "Test Subtitle"
         // placeholder, and can list forced/signs-only English tracks first.
-        // Download-verify the English candidates (bounded, concurrent) and keep
-        // only real full-dialogue tracks: they are the auto-load AND the picker
-        // entries, so a fake track never shows up in front of the user.
-        // English-only mode: all non-English tracks are dropped entirely.
+        // Download-verify the English candidates (bounded, concurrent) so the
+        // auto-loaded track is real full-dialogue English; every other language
+        // the provider offers goes straight into the picker (v1.0.21-style list,
+        // still series-capable).
         const englishCandidates = subtitles.filter(isEnglishStremioSubtitle);
         const verifiedEnglish = await verifyScEnglishTracks(englishCandidates);
         const autoLoadUrl = verifiedEnglish.length > 0 ? verifiedEnglish[0].url : '';
+        const otherLanguages = subtitles.filter(function(s) { return !isEnglishStremioSubtitle(s); });
+        const list = verifiedEnglish.concat(otherLanguages);
 
         const result = {
             subtitle: autoLoadUrl,
-            subtitles: verifiedEnglish,
+            subtitles: list,
             pickedEnglish: verifiedEnglish.length > 0
         };
         scsResultCache[cacheKey] = result;
