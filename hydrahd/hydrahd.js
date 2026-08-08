@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.36 (workers never abort the result + allSettled polyfill)');
+console.log('[HydraHD] module script loaded v1.0.37 (per-provider safety + multi-mirror server list)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -365,6 +365,15 @@ async function extractStreamUrl(url) {
                         if (resolved && resolved.streamUrl) {
                             pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
                             if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                            // Extra mirrors from the same resolver become their
+                            // own selectable entries (VidSrc returns up to 3).
+                            const extra = resolved.extra || [];
+                            for (let i = 0; i < extra.length && streams.length < 6; i++) {
+                                if (extra[i] && extra[i].streamUrl) {
+                                    pushStream(title + ' #' + (i + 2), extra[i].streamUrl,
+                                        { 'Referer': origin, 'Origin': origin });
+                                }
+                            }
                         }
                     } catch (e) {
                         console.error(title + ' resolution failed:', e.message);
@@ -388,14 +397,24 @@ async function extractStreamUrl(url) {
             try {
                 if (!imdbId) return;
                 await new Promise(function(resolve) { setTimeout(resolve, 800); });
+                // Each provider is caught individually: the app's fetch bridge
+                // can throw Error('') on network failure, and a rejection in any
+                // provider must NEVER kill the other two (that was wiping ALL
+                // subtitles in-app).
+                const safe = function(p) {
+                    return Promise.resolve(p).catch(function(e) {
+                        console.error('[HydraHD] subs provider error: ' + (e && e.message ? e.message : String(e)));
+                        return null;
+                    });
+                };
                 const [osRestResult, stremioResult, communityResult] = await Promise.all([
-                    resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
-                    resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
-                    resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)
+                    safe(resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum)),
+                    safe(resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)),
+                    safe(resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum))
                 ]);
                 merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
             } catch (e) {
-                console.error('[HydraHD] Subs worker error:', e && e.message ? e.message : e);
+                console.error('[HydraHD] Subs worker error: ' + (e && e.message ? e.message : String(e)));
             }
         })();
         // Everything runs concurrently; a worker failure must NEVER abort the
@@ -1336,25 +1355,31 @@ async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = nu
     if (!servers || !servers.length) {
         throw new Error('No vidsrc servers available');
     }
+    // Collect up to 3 working mirrors so the app can offer a real server list
+    // even when the origin embed hosts are unreachable from the app.
+    const found = [];
     for (const server of servers) {
         if (!server || !server.ref) continue;
+        if (found.length >= 3) break;
         try {
             const playResponse = await soraFetch(`https://vidsrc.hair/api.php?a=play&ref=${encodeURIComponent(server.ref)}`, { headers: apiHeaders });
             const playData = await playResponse.json();
             if (!playData || !playData.url) continue;
             const streamUrl = /^https?:\/\//.test(playData.url) ? playData.url : new URL(playData.url, 'https://vidsrc.hair/').href;
             if (await verifyStreamUrl(streamUrl)) {
-                return {
+                found.push({
                     streamUrl,
                     subtitle: '',
                     headers: { 'Referer': 'https://vidsrc.hair/', 'Origin': 'https://vidsrc.hair' }
-                };
+                });
             }
         } catch (e) {
             continue;
         }
     }
-    throw new Error('No working vidsrc stream found');
+    if (found.length === 0) throw new Error('No working vidsrc stream found');
+    // resolveVidSrc can return several mirrors; the extra ones ride in .extra.
+    return Object.assign({}, found[0], { extra: found.slice(1) });
 }
 
 async function verifyStreamUrl(streamUrl) {
