@@ -205,12 +205,7 @@ async function extractStreamUrl(url) {
                 }
                 return { e: e, master: master, label: label, headers: headers };
             })();
-            return await Promise.race([
-                job,
-                new Promise(function (resolve) {
-                    setTimeout(function () { resolve({ e: e, master: null, label: '', headers: null }); }, 5000);
-                })
-            ]);
+            return await withTimeout(job, 5000, { e: e, master: null, label: '', headers: null });
         };
 
         const buildStreams = function (resolved) {
@@ -752,6 +747,20 @@ function joinUrl(base, rel) {
     return base + rel;
 }
 
+// Race a promise against a deadline. Some targets (Sora sandbox) expose no
+// setTimeout — there the cap is skipped rather than crashing the module.
+// Resolves `fallback` (default null) when the deadline wins.
+function withTimeout(promise, ms, fallback) {
+    if (typeof setTimeout === 'undefined') return promise;
+    const fb = typeof fallback === 'undefined' ? null : fallback;
+    return Promise.race([
+        promise,
+        new Promise(function (resolve) {
+            setTimeout(function () { resolve(fb); }, ms);
+        })
+    ]);
+}
+
 // Find the Movie/TVSeries JSON-LD block.
 function findSchema(html) {
     const re = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
@@ -826,12 +835,7 @@ async function soraFetch(url, options) {
     // Cap every HTML/JSON fetch so a black-holed embed/gate host can't stall
     // the whole stream resolution forever. Media segments are downloaded by
     // the app, never through soraFetch.
-    return await Promise.race([
-        attempt(),
-        new Promise(function (resolve) {
-            setTimeout(function () { resolve(null); }, 8000);
-        })
-    ]);
+    return await withTimeout(attempt(), 8000);
 }
 
 /* ============================================================

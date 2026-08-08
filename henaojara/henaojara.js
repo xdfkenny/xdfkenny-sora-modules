@@ -262,12 +262,7 @@ async function extractStreamUrl(url) {
                         }
                         return null;
                     })();
-                    return await Promise.race([
-                        resolve,
-                        new Promise(function (resolve) {
-                            setTimeout(function () { resolve(null); }, 4000);
-                        })
-                    ]);
+                    return await withTimeout(resolve, 4000);
                 });
                 
                 const resolvedServers = await Promise.all(serverPromises);
@@ -293,12 +288,7 @@ async function extractStreamUrl(url) {
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
                 const validServers = servers.filter(s => s && s.url && s.url.trim() !== '').slice(0, 6);
-                const results = await Promise.all(validServers.map(s => Promise.race([
-                    resolveServerToDirectUrl(s.url, s.name),
-                    new Promise(function (resolve) {
-                        setTimeout(function () { resolve(null); }, 4000);
-                    })
-                ])));
+                const results = await Promise.all(validServers.map(s => withTimeout(resolveServerToDirectUrl(s.url, s.name), 4000)));
                 const streams = results.filter(r => r && r.streamUrl);
 
                 if (streams.length > 0) {
@@ -1377,6 +1367,20 @@ function toAbsoluteUrl(base, url) {
     }
 }
 
+// Race a promise against a deadline. Some targets (Sora sandbox) expose no
+// setTimeout — there the cap is skipped rather than crashing the module.
+// Resolves `fallback` (default null) when the deadline wins.
+function withTimeout(promise, ms, fallback) {
+    if (typeof setTimeout === 'undefined') return promise;
+    const fb = typeof fallback === 'undefined' ? null : fallback;
+    return Promise.race([
+        promise,
+        new Promise(function (resolve) {
+            setTimeout(function () { resolve(fb); }, ms);
+        })
+    ]);
+}
+
 function cleanText(text) {
     return decodeHtml(String(text || ''))
         .replace(/<br\s*\/?>/gi, '\n')
@@ -1426,12 +1430,7 @@ async function soraFetch(url, options) {
     // Cap every HTML/JSON fetch so a black-holed embed server can't stall
     // the whole stream resolution (Promise.all waits for the slowest). Media
     // segments are downloaded by the app, never through soraFetch.
-    return await Promise.race([
-        attempt(),
-        new Promise(function (resolve) {
-            setTimeout(function () { resolve(null); }, 8000);
-        })
-    ]);
+    return await withTimeout(attempt(), 8000);
 }
 
 function mergeHeaders(url, opts) {
