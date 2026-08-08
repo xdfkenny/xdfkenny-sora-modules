@@ -144,7 +144,11 @@ async function extractStreamUrl(url) {
         const embeds = await resolveVidurl(iframeMatch[1]);
         if (!embeds || embeds.length === 0) return JSON.stringify(fallback);
 
-        const streams = [];
+        // Resolve every resolvable embed in parallel — each VidHide/voe embed
+        // needs its own network round trips (and voe its Altcha solve), so
+        // serial awaits would stack several seconds per server and leave the
+        // app stuck on "loading stream".
+        const jobs = [];
         const seen = new Set(); // "server|lang" — VidHide AND voe are both offered per language
         // Prefer LAT/ESP (dubbed) over SUB/VOSE (subtitled), keeping both.
         const ordered = embeds.slice().sort(function (a, b) {
@@ -158,6 +162,11 @@ async function extractStreamUrl(url) {
             const langKey = e.lang || 'lat';
             const dedupKey = e.server + '|' + langKey;
             if (seen.has(dedupKey)) continue;
+            seen.add(dedupKey);
+            jobs.push(e);
+        }
+
+        const resolved = await Promise.all(jobs.map(async function (e) {
             let master;
             let label;
             let headers;
@@ -177,12 +186,17 @@ async function extractStreamUrl(url) {
                     'User-Agent': USER_AGENT
                 };
             }
-            if (!master) continue;
-            seen.add(dedupKey);
+            return { e: e, master: master, label: label, headers: headers };
+        }));
+
+        const streams = [];
+        for (let i = 0; i < resolved.length; i++) {
+            const r = resolved[i];
+            if (!r.master) continue;
             streams.push({
-                title: (e.lang || 'LAT').toUpperCase() + label,
-                streamUrl: master,
-                headers: headers
+                title: (r.e.lang || 'LAT').toUpperCase() + r.label,
+                streamUrl: r.master,
+                headers: r.headers
             });
             if (streams.length >= 6) break;
         }
@@ -221,6 +235,7 @@ async function resolveVidurl(vidurlPath) {
     const dataLink = JSON.parse(dataLinkMatch[1]);
 
     const aesKey = solvePoW(challenge[1], parseInt(difficulty[1], 10), salt[1]);
+    if (!aesKey) return null;
 
     const embeds = [];
     for (let f = 0; f < dataLink.length; f++) {
@@ -240,11 +255,14 @@ async function resolveVidurl(vidurlPath) {
 
 // SHA-256 proof-of-work: nonce such that sha256(challenge+nonce) starts
 // with difficulty zeros. AES key = first 32 bytes of sha256(challenge+nonce+salt).
+// Bounded at ~10s so a raised difficulty can't stall extractStreamUrl forever.
 function solvePoW(challenge, difficulty, salt) {
     let prefix = '';
     for (let i = 0; i < difficulty; i++) prefix += '0';
+    const start = Date.now();
     let nonce = 0;
     while (true) {
+        if (nonce % 256 === 0 && Date.now() - start > 10000) return null;
         if (flixSha256Hex(challenge + nonce).indexOf(prefix) === 0) {
             const keyHex = flixSha256Hex(challenge + nonce + salt);
             const keyBytes = [];
