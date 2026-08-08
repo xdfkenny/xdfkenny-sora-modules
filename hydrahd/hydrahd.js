@@ -12,7 +12,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.26 (keyless English-only subtitles: stremio v3 + Stremio Community Subtitles)');
+console.log('[HydraHD] module script loaded v1.0.27 (keyless English-only subtitles + selectable embed servers)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -32,6 +32,17 @@ async function soraFetch(url, options = {}) {
         opts.headers = headers;
         return await fetch(url, opts);
     }
+}
+
+// Wrap a fetch so a dead server cannot stall the whole stream resolution.
+function soraFetchTimed(url, options, timeoutMs) {
+    const limit = timeoutMs || 9000;
+    return Promise.race([
+        soraFetch(url, options),
+        new Promise(function(resolve) {
+            setTimeout(function() { resolve(null); }, limit);
+        })
+    ]);
 }
 
 async function searchResults(keyword) {
@@ -188,19 +199,51 @@ async function extractStreamUrl(url) {
             }
         });
         const ajaxHtml = await ajaxResponse.text();
-        const serverLinks = [...ajaxHtml.matchAll(/data-link="([^"]+)"/g)].map(m => m[1]);
-        for (const link of serverLinks) {
-            const resolved = await resolveGenericLink(link);
-            if (resolved && resolved.streamUrl) {
-                streams.push({
-                    title: getServerTitle(link),
-                    streamUrl: resolved.streamUrl,
-                    headers: {}
-                });
-                if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                if (streams.length >= 3) break;
+        // Server picker buttons carry the human name ("Hydra1", "Whiskey", ...)
+        // next to the embed link; fall back to the domain name when missing.
+        const serverEntries = [];
+        const buttonRe = /class="iframe-server-button\s*"[^>]*data-id="\d+"[^>]*data-link="([^"]+)"[^>]*>[^<]*<(?:p|b|span)[^>]*>([^<]+)<\//g;
+        let btnMatch;
+        while ((btnMatch = buttonRe.exec(ajaxHtml)) !== null) {
+            const name = String(btnMatch[2] || '').trim();
+            if (name && btnMatch[1]) {
+                serverEntries.push({ name: name, link: btnMatch[1] });
             }
         }
+        if (serverEntries.length === 0) {
+            // Fallback: no named buttons found — use every embed link in order.
+            [...ajaxHtml.matchAll(/data-link="([^"]+)"/g)].forEach(function(m) {
+                serverEntries.push({ name: getServerTitle(m[1]), link: m[1] });
+            });
+        }
+                // Resolve every named server in parallel batches (4 at a time, 6s each),
+        // collecting all working streams so the user can pick one in the app.
+        const BATCH = 4;
+        for (let i = 0; i < serverEntries.length; i += BATCH) {
+            const batch = serverEntries.slice(i, i + BATCH);
+            await Promise.all(batch.map(async function(entry) {
+                try {
+                    const resolved = await resolveGenericLink(entry.link);
+                    if (resolved && resolved.streamUrl) {
+                        const embedOrigin = (function() {
+                            try { return new URL(entry.link).origin; } catch (e) { return ''; }
+                        })();
+                        streams.push({
+                            title: entry.name || getServerTitle(entry.link),
+                            streamUrl: resolved.streamUrl,
+                            headers: embedOrigin ? {
+                                'Referer': embedOrigin + '/',
+                                'Origin': embedOrigin,
+                            } : {}
+                        });
+                        if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                    }
+                } catch (e) {
+                    // keep trying the next server
+                }
+            }));
+        }
+        console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
         if (streams.length === 0) {
             try {
                 const vidsrcResult = await resolveVidSrc(imdbId, isMovie, season, episodeNum);
@@ -317,9 +360,9 @@ function getServerTitle(link) {
 
 async function resolveGenericLink(link) {
     try {
-        const r = await soraFetch(link, {
+        const r = await soraFetchTimed(link, {
             headers: { 'Referer': `${BASE_URL}/`, 'User-Agent': USER_AGENT }
-        });
+        }, 9000);
         const text = await r.text();
         const m3u8Match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
         if (!m3u8Match) return null;
