@@ -1,6 +1,8 @@
 const BASE_URL = 'https://hydrahd.ru';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
+const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
+const OS_FILE_DOWNLOAD_URL = 'https://dl.opensubtitles.org/en/download/filead';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
 // Shared community token for the "Stremio Community Subtitles" addon. This is
@@ -12,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.27 (keyless English-only subtitles + selectable embed servers)');
+console.log('[HydraHD] module script loaded v1.0.28 (OS REST keyless series subs + selectable embed servers)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -278,15 +280,18 @@ async function extractStreamUrl(url) {
             }
         }
         // Resolve keyless subtitle providers whenever we have an ID — movies
-        // AND series (series episode pages carry the imdb id). Two sources,
-        // both free with no API key: OpenSubtitles v3 (strem.io) and the
-        // Stremio Community Subtitles addon (public community token).
+        // AND series (series episode pages carry the imdb id). Three sources,
+        // all free with no API key: OpenSubtitles REST (rest.opensubtitles.org
+        // — the same keyless engine the ythd web player uses, full OS set for
+        // series AND movies), OpenSubtitles v3 (strem.io) and the Stremio
+        // Community Subtitles addon (public community token).
         // English-only: verified full-dialogue English is auto-loaded; foreign
-        // tracks are dropped from both providers and never appear or auto-load.
+        // tracks are dropped from every provider and never appear or auto-load.
         if (imdbId) {
+            const osRestResult = await resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum);
             const stremioResult = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
             const communityResult = await resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
-            const merged = mergeSubtitleResults(stremioResult, communityResult);
+            const merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
             if (merged && merged.subtitles && merged.subtitles.length > 0) {
                 subtitleList = merged.subtitles;
                 // Auto-load only when a full-dialogue English track was verified;
@@ -640,43 +645,148 @@ async function verifyScEnglishTracks(englishCandidates) {
 return verified;
 }
 
-// Merge the two keyless providers' results into one picker list. v3 English
-// entries come first (full OpenSubtitles set), SCS fills in English coverage
-// v3 lacks and adds series support. URLs are deduplicated so the same file
-// never appears twice. All entries are English-only (see resolvers above).
-function mergeSubtitleResults(stremioResult, communityResult) {
+// ---- OpenSubtitles REST (keyless series + movie source) --------------------
+// The public rest.opensubtitles.org search API is what the web player's
+// subtitles panel uses (ythd worker -> cloudorchestranova). It works with no
+// login and no API key: the search accepts a plain imdbid (WITHOUT the "tt"
+// prefix) and an X-User-Agent header, and every hit carries a direct download
+// link. The same keyless engine covers series, which v3 (movies only) and
+// the stalled SCS connector cannot. English-only: we search with
+// sublanguageid-eng and verify full-dialogue cue counts before offering a track.
+// Alt: rest.opensubtitles.org redirects searches that carry the "tt" prefix
+// to a dead "_" host, so we strip it. The classic filead/ path serves plain
+// SRT (no gzip), which the app's fetch bridge can render directly.
+const osRestCache = {};                          // per-episode result cache
+
+async function resolveOsRestSubtitle(imdbId, isMovie, season, episode) {
+    const cacheKey = 'osrest/' + imdbId + '/' + (isMovie ? 'm' : 's') + '/' + String(season || '') + ':' + String(episode || '');
+    if (Object.prototype.hasOwnProperty.call(osRestCache, cacheKey)) {
+        return osRestCache[cacheKey];
+    }
+    try {
+        const bare = String(imdbId || '').replace(/^tt/i, '');
+        if (!/^\d+$/.test(bare)) return null;
+        let url = OS_REST_SEARCH_URL + '/';
+        if (!isMovie) {
+            url += 'episode-' + encodeURIComponent(String(episode || 1)) + '/';
+        }
+        url += 'imdbid-' + bare;
+        if (!isMovie) {
+            url += '/season-' + encodeURIComponent(String(season || 1));
+        }
+        url += '/sublanguageid-eng';
+        const headers = { 'X-User-Agent': 'trailers.to-UA', 'Accept': 'application/json' };
+        const response = await soraFetch(url, { headers });
+        if (!response) return null;
+        const data = await response.json();
+        if (!Array.isArray(data) || data.length === 0) return null;
+        // Map hits to direct plain-SRT download URLs (filead serves utf-8 SRT
+        // with no gzip, no token). English-only: the search was eng, but
+        // double-check the language fields just in case a row slips through.
+        const candidates = [];
+        for (const item of data) {
+            const rawLang = String((item && (item.SubLanguageID || item.LanguageName || item.lang)) || '').toLowerCase();
+            if (rawLang && !_osTagIsEnglish(rawLang)) continue;
+            const fileId = item && (item.IDSubtitleFile || (item.SubDownloadLink || '').match(/filead\/(\d+)/) && (item.SubDownloadLink.match(/filead\/(\d+)/))[1]);
+            if (!fileId) continue;
+            const label = String((item && (item.SubFileName || item.file)) || '').replace(/\.srt$/i, '');
+            candidates.push({
+                url: OS_FILE_DOWNLOAD_URL + '/' + String(fileId),
+                lang: 'eng',
+                label: label || 'English'
+            });
+        }
+        if (candidates.length === 0) return null;
+        // Keep only full-dialogue English tracks: verify by downloading the
+        // plaintext SRT and counting cues (real episodes have 250+, signs-only
+        // tracks stay under ~100, and OS "ads"/placeholder stubs have few).
+        const verified = await verifyOsRestTracks(candidates);
+        if (verified.length === 0) return null;
+        const result = {
+            subtitle: verified[0].url,
+            subtitles: verified,
+            pickedEnglish: true
+        };
+        osRestCache[cacheKey] = result;
+        return result;
+    } catch (e) {
+        console.log('[HydraHD] OS REST subs error: ' + (e && e.message ? e.message : e));
+        return null;
+    }
+}
+
+function _osTagIsEnglish(tag) {
+    const t = String(tag || '').toLowerCase().trim();
+    return !t || t === 'eng' || t === 'en' || t === 'english' || t.indexOf('english') !== -1;
+}
+
+async function verifyOsRestTracks(candidates) {
+    const MIN_CUES = 120;
+    const MAX_CHECK = 6;
+    const cands = candidates.slice(0, MAX_CHECK);
+    const counts = await Promise.all(cands.map(function(cand) {
+        return (async function() {
+            try {
+                const resp = await soraFetch(cand.url, {
+                    headers: { 'Referer': 'https://www.opensubtitles.org/', 'Accept': '*/*' }
+                });
+                if (!resp) return 0;
+                const text = String((await resp.text()) || '');
+                if (text.indexOf('Download failed') !== -1) return 0;
+                if (text.indexOf('try a different subtitle') !== -1) return 0;
+                if (text.length < 200) return 0;
+                return (text.match(/-->/g) || []).length;
+            } catch (e) {
+                return 0;
+            }
+        })();
+    }));
+    const verified = [];
+    for (let i = 0; i < cands.length; i++) {
+        if (counts[i] >= MIN_CUES) {
+            verified.push({
+                url: cands[i].url,
+                lang: 'eng',
+                label: cands[i].label || 'English'
+            });
+        }
+    }
+    return verified;
+}
+
+// Merge the three keyless providers' results into one picker list. OS REST
+// English entries come first (full OpenSubtitles set for series AND movies),
+// v3 fills in movie English, SCS adds community tracks. URLs are deduplicated
+// so the same file never appears twice. All entries are English-only.
+function mergeSubtitleResults(stremioResult, communityResult, osRestResult) {
     const mergedSubtitles = [];
     const seenUrls = {};
     const sources = [];
-    if (stremioResult && Array.isArray(stremioResult.subtitles)) {
-        stremioResult.subtitles.forEach(function(item) {
+    function absorb(result, srcLabel) {
+        if (!result || !Array.isArray(result.subtitles)) return;
+        result.subtitles.forEach(function(item) {
             if (!item || !item.url) return;
             if (seenUrls[item.url]) return;
             seenUrls[item.url] = true;
             mergedSubtitles.push(item);
         });
-        sources.push('v3');
+        sources.push(srcLabel);
     }
-    if (communityResult && Array.isArray(communityResult.subtitles)) {
-        communityResult.subtitles.forEach(function(item) {
-            if (!item || !item.url) return;
-            if (seenUrls[item.url]) return;
-            seenUrls[item.url] = true;
-            mergedSubtitles.push(item);
-        });
-        sources.push('scs');
-    }
+    absorb(osRestResult, 'osrest');
+    absorb(stremioResult, 'v3');
+    absorb(communityResult, 'scs');
     if (mergedSubtitles.length === 0) return null;
-    // Auto-load priority: full-dialogue English from v3, then SCS's English,
-    // then whatever the first provider flagged as default.
+    // Auto-load priority: OS REST verified full-dialogue English, then v3, then
+    // whatever the first provider flagged as default.
     const preferredUrl =
+        (osRestResult && osRestResult.subtitle) ||
         (stremioResult && stremioResult.subtitle) ||
         (communityResult && communityResult.subtitle) ||
         (mergedSubtitles[0] && mergedSubtitles[0].url) || '';
     return {
         subtitle: preferredUrl,
         subtitles: mergedSubtitles,
-        pickedEnglish: (stremioResult && stremioResult.pickedEnglish) || (communityResult && communityResult.pickedEnglish) || false,
+        pickedEnglish: (osRestResult && osRestResult.pickedEnglish) || (stremioResult && stremioResult.pickedEnglish) || (communityResult && communityResult.pickedEnglish) || false,
         sources: sources
     };
 }
