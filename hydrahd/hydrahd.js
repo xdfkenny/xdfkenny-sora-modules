@@ -4,7 +4,7 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.21 (subtitle language names ACTIVE)');
+console.log('[HydraHD] module script loaded v1.0.22 (full-dialogue English track)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -356,6 +356,47 @@ function getVidfastSubtitle(result) {
     return '';
 }
 
+// Cache of the verified full-dialogue English track per title, so re-resolving
+// the same episode doesn't re-download subtitle files.
+const fullTrackCache = {};
+
+// Stremio can list a forced/signs-only track first for the default language
+// (e.g. English anime subs that only translate on-screen text, TV news, phone
+// screens — not the dialogue). Those tracks have a handful of cues while full
+// tracks have hundreds or thousands. Metadata fields don't expose this, so
+// download a few English candidates and return the first full-dialogue track,
+// remembering the most complete one as a fallback. Preserves stremio's ordering
+// among full tracks (the first qualifying one wins) and stays bounded.
+async function pickFullEnglishTrack(englishCandidates) {
+    if (!Array.isArray(englishCandidates) || englishCandidates.length === 0) return '';
+    if (englishCandidates.length === 1) return englishCandidates[0].url;
+    const MIN_CUES = 120;   // a real episode has 250+; signs-only tracks stay under ~100
+    const MAX_CHECK = 6;    // bound worst-case sequential fetches
+    let bestUrl = englishCandidates[0].url;
+    let bestCues = -1;
+    for (let i = 0; i < englishCandidates.length && i < MAX_CHECK; i++) {
+        const cand = englishCandidates[i];
+        let cues = 0;
+        try {
+            const resp = await soraFetch(cand.url, {
+                headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
+            });
+            if (resp) {
+                const text = await resp.text();
+                cues = (String(text || '').match(/-->/g) || []).length;
+            }
+        } catch (e) {
+            // failed fetch -> treat as unusable, keep checking the rest
+        }
+        if (cues > bestCues) {
+            bestCues = cues;
+            bestUrl = cand.url;
+        }
+        if (cues >= MIN_CUES) return cand.url; // first full-dialogue track wins
+    }
+    return bestUrl;
+}
+
 async function resolveStremioSubtitle(imdbId, type, season, episode) {
     try {
         const params = [];
@@ -381,8 +422,26 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
             }));
         if (subtitles.length === 0) return null;
 
-        const preferred = subtitles.find(isEnglishStremioSubtitle)
-            || subtitles[0];
+        // Prefer the first full-dialogue English track over the possibly-forced
+        // one stremio returns first, so auto-loaded subtitles are real dialogue
+        // ("characters talking") rather than background/signs translation.
+        const english = subtitles.filter(isEnglishStremioSubtitle);
+        const cacheKey = type + '/' + imdbId + '/' + (season || '') + '/' + (episode || '');
+        let bestEnglishUrl = '';
+        if (english.length > 1) {
+            if (Object.prototype.hasOwnProperty.call(fullTrackCache, cacheKey)) {
+                bestEnglishUrl = fullTrackCache[cacheKey];
+            } else {
+                bestEnglishUrl = await pickFullEnglishTrack(english);
+                fullTrackCache[cacheKey] = bestEnglishUrl || '';
+            }
+        }
+
+        const preferred = english[0] || subtitles[0];
+        if (preferred && bestEnglishUrl) {
+            preferred.url = bestEnglishUrl;   // picker + auto-load both use the full track
+            preferred.label = 'English';
+        }
         return {
             subtitle: preferred && preferred.url ? preferred.url : '',
             subtitles
