@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Resuelve streams vía servidor embed + resolvers keyless (MoviesAPI/Vidora, VixSrc, xpass) + vidfast.vc. Subtítulos: lista completa de idiomas en el selector (pistas embebidas del playlist + OpenSubtitles REST + strem.io v3 + Stremio Community), el inglés verificado se autoselecciona; funciona igual en películas y series. Sin claves API.",
-  "version": "1.0.33",
+  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Streams vía servidores embebidos + resolvers keyless (VixSrc, MoviesAPI, xpass) + espejos VidSrc/VidFast siempre listados; fetch endurecido para el puente de la app (nunca lanza, envuelve cuerpos string) y todas las tareas en paralelo (asyncJS) con timeouts acotados. Subtítulos: lista completa de idiomas en el selector (playlist + OpenSubtitles REST + v3 + Community), inglés verificado se autoselecciona, igual en películas y series. Sin claves API.",
+  "version": "1.0.34",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",

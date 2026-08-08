@@ -14,7 +14,30 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.33 (full subtitle language list for movies AND series + direct keyless stream fallback)');
+console.log('[HydraHD] module script loaded v1.0.34 (all workers parallel: servers+keyless+mirrors+subs, hardened fetch, bounded timeouts)');
+
+// Normalize whatever the app's fetch/fetchv2 returned into a Response-like
+// object. Some app builds resolve with the body STRING instead of a Response
+// (the docs show `const data = await JSON.parse(response)`), others reject on
+// non-2xx — handle every shape so callers can always .text()/.json().
+function toResponseLike(value) {
+    if (value && typeof value.text === 'function' && typeof value.json === 'function') {
+        return value; // already Response-like (Node fetch / fetchv2 bridge)
+    }
+    let str = '';
+    try {
+        if (value == null) str = '';
+        else if (typeof value === 'string') str = value;
+        else if (typeof value.toString === 'function') str = String(value);
+    } catch (e) { str = ''; }
+    return {
+        status: 200,
+        ok: true,
+        headers: { get: function() { return null; } },
+        text: async function() { return str; },
+        json: async function() { return JSON.parse(str); }
+    };
+}
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -27,13 +50,24 @@ async function soraFetch(url, options = {}) {
     if (!headers['Accept-Encoding']) {
         headers['Accept-Encoding'] = 'identity';
     }
+    // App bridge first: fetchv2(url, headers, method, body). May throw on
+    // non-2xx or resolve with the raw body — never let that escape.
     try {
-        return await fetchv2(url, headers, options.method || 'GET', options.body || null);
-    } catch (e) {
-        const opts = options || {};
-        opts.headers = headers;
-        return await fetch(url, opts);
-    }
+        const r = await fetchv2(url, headers, options.method || 'GET', options.body || null);
+        if (r) return toResponseLike(r);
+    } catch (e) { /* fall through to plain fetch */ }
+    // Plain fetch fallback (two call signatures the app accepts). Wrap string
+    // bodies into a Response-like object so .text()/.json() always exist.
+    try {
+        const r = await fetch(url, headers);
+        if (r) return toResponseLike(r);
+    } catch (e) { /* try the options-object signature */ }
+    try {
+        const r = await fetch(url, { headers: headers, method: options.method || 'GET', body: options.body || null });
+        if (r) return toResponseLike(r);
+    } catch (e) { /* give up below */ }
+    console.log('[HydraHD] fetch failed (all attempts): ' + String(url).slice(0, 100));
+    return toResponseLike(null);
 }
 
 // Wrap a fetch so a dead server cannot stall the whole stream resolution.
@@ -166,6 +200,11 @@ async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
     let subtitleList = [];
+    // The app kills stream resolution after a bounded timeout (~40s), so the
+    // whole function must stay well under it: server batch + keyless + mirrors
+    // + subtitles. Phases check this deadline and bail early when exceeded.
+    const startTime = Date.now();
+    const timeLeft = function() { return 28000 - (Date.now() - startTime); };
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const response = await soraFetch(fullUrl);
@@ -231,136 +270,111 @@ async function extractStreamUrl(url) {
         // uses the Vidora API, Hydra2/VixSrc mints a playlist token, Whiskey/
         // xpass exposes mdata playlist files — all keyless like the site does.
         const ctxInfo = { imdbId: imdbId, tmdbId: tmdbId, isMovie: isMovie, season: season, episode: episodeNum };
-        // Resolve every named server in parallel batches (6 at a time, 6s each),
-        // collecting all working streams so the user can pick one in the app.
-        const BATCH = 6;
-        for (let i = 0; i < serverEntries.length; i += BATCH) {
-            const batch = serverEntries.slice(i, i + BATCH);
-            await Promise.all(batch.map(async function(entry) {
-                try {
-                    const resolved = await resolveServerLink(entry.link, ctxInfo);
-                    if (resolved && resolved.streamUrl) {
-                        const embedOrigin = (function() {
-                            try { return new URL(entry.link).origin; } catch (e) { return ''; }
-                        })();
-                        const streamTitle = entry.name || getServerTitle(entry.link);
-                        streams.push({
-                            title: streamTitle,
-                            name: streamTitle,
-                            quality: streamTitle,
-                            streamUrl: resolved.streamUrl,
-                            url: resolved.streamUrl,
-                            headers: embedOrigin ? {
-                                'Referer': embedOrigin + '/',
-                                'Origin': embedOrigin,
-                            } : {}
-                        });
-                        if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                    }
-                } catch (e) {
-                    // keep trying the next server
-                }
-            }));
+        // AsyncJS: every independent workstream below runs CONCURRENTLY — server
+        // buttons, direct keyless hosts, the VidSrc/VidFast mirrors and the three
+        // subtitle providers — instead of chaining one after another. Results
+        // merge into the same arrays with URL dedupe, so wall time ≈ the slowest
+        // single worker, not their sum.
+        const seenStreamUrls = {};
+        function pushStream(title, streamUrl, headers) {
+            if (!streamUrl || seenStreamUrls[streamUrl]) return;
+            seenStreamUrls[streamUrl] = true;
+            streams.push({
+                title: title, name: title, quality: title,
+                streamUrl: streamUrl, url: streamUrl,
+                headers: headers || {}
+            });
         }
-        console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
-        // The keyless embed hosts (Hydra2/VixSrc, Golf/MoviesAPI, Whiskey/xpass)
-        // only need the IDs, not the parsed server buttons. Resolve them
-        // directly from ctxInfo so the server list still shows even when the
-        // ajax button fragment failed to parse (seen on series in some app
-        // builds) — the app then has real selectable streams, not just the
-        // single fallback.
-        if (streams.length === 0) {
+        // Worker 1: every named server button, in parallel batches.
+        const serverWorker = (async function() {
+            const BATCH = 6;
+            for (let i = 0; i < serverEntries.length; i += BATCH) {
+                if (timeLeft() < 8000) break;
+                const batch = serverEntries.slice(i, i + BATCH);
+                await Promise.all(batch.map(async function(entry) {
+                    try {
+                        const resolved = await resolveServerLink(entry.link, ctxInfo);
+                        if (resolved && resolved.streamUrl) {
+                            const embedOrigin = (function() {
+                                try { return new URL(entry.link).origin; } catch (e) { return ''; }
+                            })();
+                            pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
+                                embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
+                            if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                        }
+                    } catch (e) { /* keep trying the next server */ }
+                }));
+            }
+            console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
+        })();
+        // Worker 2: the keyless hosts need only the IDs, so they resolve even
+        // when the ajax button fragment failed to parse in-app.
+        const keylessWorker = (async function() {
             const directHosts = [
                 { name: 'Hydra2 (Original)', origin: 'https://vixsrc.to/', fn: resolveVixsrcLink },
                 { name: 'Golf (Original)', origin: 'https://moviesapi.to/', fn: resolveMoviesapiLink },
                 { name: 'Whiskey (Original)', origin: 'https://play.xpass.top/', fn: resolveXpassLink }
             ];
             await Promise.all(directHosts.map(async function(host) {
+                if (timeLeft() < 4000) return;
                 try {
                     const resolved = await host.fn(ctxInfo);
                     if (resolved && resolved.streamUrl) {
-                        streams.push({
-                            title: host.name,
-                            name: host.name,
-                            quality: host.name,
-                            streamUrl: resolved.streamUrl,
-                            url: resolved.streamUrl,
-                            headers: { 'Referer': host.origin, 'Origin': host.origin }
-                        });
+                        pushStream(host.name, resolved.streamUrl, { 'Referer': host.origin, 'Origin': host.origin });
                     }
                 } catch (e) { /* skip this host */ }
             }));
             console.log('[HydraHD] Direct keyless streams=' + streams.length);
-        }
-        if (streams.length === 0) {
-            try {
-                const vidsrcResult = await resolveVidSrc(imdbId, isMovie, season, episodeNum);
-                if (vidsrcResult && vidsrcResult.streamUrl) {
-                    streams.push({
-                        title: 'VidSrc',
-                        name: 'VidSrc',
-                        quality: 'VidSrc',
-                        streamUrl: vidsrcResult.streamUrl,
-                        url: vidsrcResult.streamUrl,
-                        headers: vidsrcResult.headers || { 'Referer': 'https://vidsrc.hair/' }
-                    });
-                    if (!subtitle && vidsrcResult.subtitle) subtitle = vidsrcResult.subtitle;
+        })();
+        // Worker 3+4: VidSrc/VidFast mirrors — the hosts the app can actually
+        // reach when origin embed sites block it. Always offered as selectable
+        // streams so the server list is never empty.
+        const mirrorWorker = (async function() {
+            async function addMirror(title, origin, resolver) {
+                if (streams.length >= 6 || timeLeft() < 5000) return;
+                try {
+                    const resolved = await resolver();
+                    if (resolved && resolved.streamUrl) {
+                        pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
+                        if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                    }
+                } catch (e) {
+                    console.error(title + ' resolution failed:', e.message);
                 }
-            } catch (e) {
-                console.error('VidSrc resolution failed:', e.message);
             }
-        }
-        if (streams.length === 0) {
-            try {
-                const vidfastResult = await resolveVidfast(imdbId, isMovie, season, episodeNum);
-                if (vidfastResult && vidfastResult.streamUrl) {
-                    streams.push({
-                        title: 'VidFast',
-                        name: 'VidFast',
-                        quality: 'VidFast',
-                        streamUrl: vidfastResult.streamUrl,
-                        url: vidfastResult.streamUrl,
-                        headers: {
-                            'Referer': 'https://vidfast.vc/',
-                            'Origin': 'https://vidfast.vc',
-                        }
-                    });
-                    if (!subtitle && vidfastResult.subtitle) subtitle = vidfastResult.subtitle;
-                }
-            } catch (e) {
-                console.error('VidFast resolution failed:', e.message);
-            }
-        }
-        // Resolve keyless subtitle providers whenever we have an ID — movies
-        // AND series (series episode pages carry the imdb id). Three sources,
-        // all free with no API key: OpenSubtitles REST (rest.opensubtitles.org
-        // — the same keyless engine the ythd web player uses, full OS set for
-        // series AND movies), OpenSubtitles v3 (strem.io) and the Stremio
-        // Community Subtitles addon (public community token).
-        // English-only: verified full-dialogue English is auto-loaded; foreign
-        // tracks are dropped from every provider and never appear or auto-load.
-        if (imdbId) {
-            // Three independent providers — resolve them concurrently instead
-            // of chaining one-after-another (each can take seconds).
+            await addMirror('VidSrc', 'https://vidsrc.hair/', function() {
+                return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 10000));
+            });
+            await addMirror('VidFast', 'https://vidfast.vc/', function() {
+                return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
+            });
+        })();
+        // Subtitle providers run at the same time as the stream workers.
+        let merged = null;
+        const subsWorker = (async function() {
+            if (!imdbId) return;
             const [osRestResult, stremioResult, communityResult] = await Promise.all([
                 resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
                 resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
                 resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)
             ]);
-            const merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
-            if (merged && merged.subtitles && merged.subtitles.length > 0) {
-                subtitleList = merged.subtitles;
-                // Auto-load only when a full-dialogue English track was verified;
-                // otherwise the embed-provided subtitle stays. English-only
-                // mode: a foreign (or placeholder) track is never forced on.
-                if (merged.pickedEnglish && merged.subtitle) {
-                    subtitle = merged.subtitle;
-                }
-                console.log('[HydraHD] Subs loaded imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' eng=' + (merged.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE') + ' src=' + merged.sources.join(','));
-            } else {
-                console.log('[HydraHD] Subs empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum + ' keepEmbedSub=' + (subtitle ? 'yes' : 'no'));
+            merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
+        })();
+        // Everything runs concurrently; wait for the slowest worker only.
+        await Promise.all([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
+        if (merged && merged.subtitles && merged.subtitles.length > 0) {
+            subtitleList = merged.subtitles;
+            // Auto-load only when a full-dialogue English track was verified;
+            // otherwise the embed-provided subtitle stays. English-only
+            // mode: a foreign (or placeholder) track is never forced on.
+            if (merged.pickedEnglish && merged.subtitle) {
+                subtitle = merged.subtitle;
             }
+            console.log('[HydraHD] Subs loaded imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' eng=' + (merged.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE') + ' src=' + merged.sources.join(','));
+        } else {
+            console.log('[HydraHD] Subs empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum + ' keepEmbedSub=' + (subtitle ? 'yes' : 'no'));
         }
+        console.log('[HydraHD] Stream list final streams=' + streams.length);
         if (!subtitle && (imdbId === 'tt10872600' || String(tmdbId || '') === '634649')) {
             subtitle = 'https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/1957577261';
             console.log('[HydraHD] Canary subtitle injected for Spider-Man No Way Home');
@@ -445,7 +459,7 @@ async function resolveGenericLink(link) {
     try {
         const r = await soraFetchTimed(link, {
             headers: { 'Referer': `${BASE_URL}/`, 'User-Agent': USER_AGENT }
-        }, 6000);
+        }, 5000);
         const text = await r.text();
         const m3u8Match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
         if (!m3u8Match) return null;
@@ -682,9 +696,9 @@ async function pickFullEnglishTrack(englishCandidates) {
     const pending = cands.map(function(cand) {
         return (async function() {
             try {
-                const resp = await soraFetch(cand.url, {
+                const resp = await soraFetchTimed(cand.url, {
                     headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
-                });
+                }, 6000);
                 if (!resp) return 0;
                 const text = await resp.text();
                 return (String(text || '').match(/-->/g) || []).length;
@@ -844,9 +858,9 @@ async function verifyScEnglishTracks(englishCandidates) {
     const counts = await Promise.all(cands.map(function(cand) {
         return (async function() {
             try {
-                const resp = await soraFetch(cand.url, {
+                const resp = await soraFetchTimed(cand.url, {
                     headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
-                });
+                }, 6000);
                 if (!resp) return 0;
                 const text = String((await resp.text()) || '');
                 return (text.match(/-->/g) || []).length;
@@ -950,9 +964,9 @@ async function verifyOsRestTracks(candidates) {
     const counts = await Promise.all(cands.map(function(cand) {
         return (async function() {
             try {
-                const resp = await soraFetch(cand.url, {
+                const resp = await soraFetchTimed(cand.url, {
                     headers: { 'Referer': 'https://www.opensubtitles.org/', 'Accept': '*/*' }
-                });
+                }, 6000);
                 if (!resp) return 0;
                 const text = String((await resp.text()) || '');
                 if (text.indexOf('Download failed') !== -1) return 0;
@@ -1127,7 +1141,9 @@ function getSubtitleFile(item) {
     return item.file || item.url || item.src || item.link || '';
 }
 
-async function resolveVidfast(imdbId, isMovie = true, season = null, episode = null) {
+async function resolveVidfast(imdbId, isMovie = true, season = null, episode = null, budgetMs = 30000) {
+    const vfStart = Date.now();
+    const vfLeft = function() { return budgetMs - (Date.now() - vfStart); };
     let baseUrl;
     if (isMovie) {
         baseUrl = `https://vidfast.vc/movie/${imdbId}`;
@@ -1174,6 +1190,7 @@ async function resolveVidfast(imdbId, isMovie = true, season = null, episode = n
         throw new Error('No servers available or failed to decrypt servers');
     }
     for (const serverObj of decServersData.result) {
+        if (vfLeft() < 4000) break;
         try {
             const server = serverObj.data;
             const apiStream = streamBase + '/' + server;
@@ -1189,8 +1206,15 @@ async function resolveVidfast(imdbId, isMovie = true, season = null, episode = n
             });
             const decStreamData = await decStreamResponse.json();
             if (decStreamData.status === 200 && decStreamData.result && decStreamData.result.url) {
+                const candidate = decStreamData.result.url;
+                // Reject non-HLS pages: some mirrors answer with an HTML/JS
+                // player page instead of a media file ("formato no compatible"
+                // in the app). Prefer real .m3u8 URLs; verify when uncertain.
+                if (!/\.m3u8/i.test(candidate) && !/\.(mp4|webm|mkv)(\?|$)/i.test(candidate)) {
+                    if (!(await verifyStreamUrl(candidate))) continue;
+                }
                 return {
-                    streamUrl: decStreamData.result.url,
+                    streamUrl: candidate,
                     subtitle: getVidfastSubtitle(decStreamData.result)
                 };
             }
@@ -1201,7 +1225,7 @@ async function resolveVidfast(imdbId, isMovie = true, season = null, episode = n
     throw new Error('No working stream found');
 }
 
-async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = null) {
+async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = null, budgetMs = 30000) {
     const embedPath = isMovie
         ? `https://vidsrc.hair/embed/movie/${imdbId}`
         : `https://vidsrc.hair/embed/tv/${imdbId}/${season || 1}/${episode || 1}`;
@@ -1225,7 +1249,9 @@ async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = nu
     const apiHeaders = { 'User-Agent': USER_AGENT, 'Referer': embedPath };
     const sourcesUrl = `https://vidsrc.hair/api.php?a=sources&type=${encodeURIComponent(String(qJson.type))}&id=${encodeURIComponent(qJson.id)}&s=${encodeURIComponent(String(qJson.s))}&e=${encodeURIComponent(String(qJson.e))}&t=${encodeURIComponent(token)}`;
     let servers = null;
+    const pollStart = Date.now();
     for (let i = 0; i < 15; i++) {
+        if (Date.now() - pollStart > budgetMs) break;
         let sourcesData;
         try {
             const sourcesResponse = await soraFetch(sourcesUrl, { headers: apiHeaders });
