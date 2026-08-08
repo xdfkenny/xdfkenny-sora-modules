@@ -180,26 +180,37 @@ async function extractStreamUrl(url) {
         };
 
         const resolveEmbed = async function (e) {
-            let master;
-            let label;
-            let headers;
-            if (e.server === 'voe') {
-                master = await resolveVoe(e.link);
-                label = ' (VOE)';
-                const origin = /^https?:\/\/[^/]+/i.exec(String(e.link) || '');
-                headers = {
-                    'Referer': (origin ? origin[0] : 'https://voe.sx') + '/',
-                    'User-Agent': USER_AGENT
-                };
-            } else {
-                master = await resolveMino(e.link);
-                label = ' (VidHide)';
-                headers = {
-                    'Referer': MINO_ORIGIN + '/',
-                    'User-Agent': USER_AGENT
-                };
-            }
-            return { e: e, master: master, label: label, headers: headers };
+            // Cap each embed at ~5s: a pathological voe challenge (or a slow
+            // gate host) must not delay the whole stream list — the other
+            // languages/servers keep their streams either way.
+            const job = (async function () {
+                let master;
+                let label;
+                let headers;
+                if (e.server === 'voe') {
+                    master = await resolveVoe(e.link);
+                    label = ' (VOE)';
+                    const origin = /^https?:\/\/[^/]+/i.exec(String(e.link) || '');
+                    headers = {
+                        'Referer': (origin ? origin[0] : 'https://voe.sx') + '/',
+                        'User-Agent': USER_AGENT
+                    };
+                } else {
+                    master = await resolveMino(e.link);
+                    label = ' (VidHide)';
+                    headers = {
+                        'Referer': MINO_ORIGIN + '/',
+                        'User-Agent': USER_AGENT
+                    };
+                }
+                return { e: e, master: master, label: label, headers: headers };
+            })();
+            return await Promise.race([
+                job,
+                new Promise(function (resolve) {
+                    setTimeout(function () { resolve({ e: e, master: null, label: '', headers: null }); }, 5000);
+                })
+            ]);
         };
 
         const buildStreams = function (resolved) {
@@ -490,12 +501,12 @@ function solveAltcha(p) {
     const pass = new Array(nonceBytes.length + 4);
     for (let i = 0; i < nonceBytes.length; i++) pass[i] = nonceBytes[i];
     // Bound the solve: a 1-byte prefix ("00") needs ~256 iterations on
-    // average (~1s), but the tail is exponential — abort past ~6s so a
+    // average (~1s), but the tail is exponential — abort past ~4.5s so a
     // pathological challenge can't stall extractStreamUrl (3 voe solves
     // already add several seconds on top of vidhide).
     const start = Date.now();
     for (let counter = 0; counter < 100000; counter++) {
-        if ((counter & 63) === 0 && Date.now() - start > 6000) return null;
+        if ((counter & 63) === 0 && Date.now() - start > 4500) return null;
         pass[nonceBytes.length] = (counter >>> 24) & 0xff;
         pass[nonceBytes.length + 1] = (counter >>> 16) & 0xff;
         pass[nonceBytes.length + 2] = (counter >>> 8) & 0xff;
@@ -785,29 +796,42 @@ async function soraFetch(url, options) {
     if (!headers['User-Agent']) headers['User-Agent'] = USER_AGENT;
     const method = opts.method || 'GET';
     const body = typeof opts.body === 'undefined' ? null : opts.body;
-    try {
-        return await fetchv2(url, headers, method, body);
-    } catch (e) {
-        // fetchv2 failed (e.g. network error) — fall back to plain fetch. Read
-        // the body once and cache it: returning the Response object as "text"
-        // made callers like resolveVoe crash with "gateHtml.indexOf is not a
-        // function" whenever this fallback ran.
+
+    const attempt = async function () {
         try {
-            const response = await fetch(url, { method: method, headers: headers, body: body });
-            let cached = null;
-            const bodyOf = async function () {
-                if (cached === null) cached = await response.text();
-                return cached;
-            };
-            return {
-                text: bodyOf,
-                json: async function () { return JSON.parse(await bodyOf()); }
-            };
-        } catch (error) {
-            console.log('soraFetch error: ' + error);
-            return null;
+            return await fetchv2(url, headers, method, body);
+        } catch (e) {
+            // fetchv2 failed (e.g. network error) — fall back to plain fetch. Read
+            // the body once and cache it: returning the Response object as "text"
+            // made callers like resolveVoe crash with "gateHtml.indexOf is not a
+            // function" whenever this fallback ran.
+            try {
+                const response = await fetch(url, { method: method, headers: headers, body: body });
+                let cached = null;
+                const bodyOf = async function () {
+                    if (cached === null) cached = await response.text();
+                    return cached;
+                };
+                return {
+                    text: bodyOf,
+                    json: async function () { return JSON.parse(await bodyOf()); }
+                };
+            } catch (error) {
+                console.log('soraFetch error: ' + error);
+                return null;
+            }
         }
-    }
+    };
+
+    // Cap every HTML/JSON fetch so a black-holed embed/gate host can't stall
+    // the whole stream resolution forever. Media segments are downloaded by
+    // the app, never through soraFetch.
+    return await Promise.race([
+        attempt(),
+        new Promise(function (resolve) {
+            setTimeout(function () { resolve(null); }, 8000);
+        })
+    ]);
 }
 
 /* ============================================================

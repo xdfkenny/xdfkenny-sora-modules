@@ -242,18 +242,32 @@ async function extractStreamUrl(url) {
                 const servers = await extractDirectServerFromEmbed(embedUrl);
                 if (!servers || servers.length === 0) return [];
                 
-                const serverPromises = servers.map(async (server) => {
+                // Cap servers per embed: embed pages often list 8-9 hosts,
+                // many of them browser-only junk. The first ones are the
+                // reliable ones; resolving the tail just wastes fetches.
+                const candidateServers = servers.slice(0, 6);
+                const serverPromises = candidateServers.map(async (server) => {
                     if (!server.url || server.url.trim() === '') return null;
                     
-                    const result = await resolveServerToDirectUrl(server.url, server.name);
-                    if (result && result.streamUrl) {
-                        return {
-                            title: `${langLabel} - ${result.title}`,
-                            streamUrl: result.streamUrl,
-                            headers: result.headers
-                        };
-                    }
-                    return null;
+                    // Cap each server at ~4s so one slow/junk host (e.g. a
+                    // black-holed dood clone) can't delay the whole embed.
+                    const resolve = (async () => {
+                        const result = await resolveServerToDirectUrl(server.url, server.name);
+                        if (result && result.streamUrl) {
+                            return {
+                                title: `${langLabel} - ${result.title}`,
+                                streamUrl: result.streamUrl,
+                                headers: result.headers
+                            };
+                        }
+                        return null;
+                    })();
+                    return await Promise.race([
+                        resolve,
+                        new Promise(function (resolve) {
+                            setTimeout(function () { resolve(null); }, 4000);
+                        })
+                    ]);
                 });
                 
                 const resolvedServers = await Promise.all(serverPromises);
@@ -278,8 +292,13 @@ async function extractStreamUrl(url) {
             const servers = await extractDirectServerFromEmbed(iframeUrl);
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
-                const validServers = servers.filter(s => s && s.url && s.url.trim() !== '');
-                const results = await Promise.all(validServers.map(s => resolveServerToDirectUrl(s.url, s.name)));
+                const validServers = servers.filter(s => s && s.url && s.url.trim() !== '').slice(0, 6);
+                const results = await Promise.all(validServers.map(s => Promise.race([
+                    resolveServerToDirectUrl(s.url, s.name),
+                    new Promise(function (resolve) {
+                        setTimeout(function () { resolve(null); }, 4000);
+                    })
+                ])));
                 const streams = results.filter(r => r && r.streamUrl);
 
                 if (streams.length > 0) {
@@ -314,6 +333,7 @@ function prettifyServerName(name, url) {
         'filelions': '🟣 FileLions',
         'streamtape': '🔴 StreamTape',
         'uqload': '🔵 UqLoad',
+        'voe': '🟠 VOE',
     };
     
     if (nameMap[raw]) return nameMap[raw];
@@ -328,6 +348,7 @@ function prettifyServerName(name, url) {
         if (/netu/i.test(host)) return '🟠 Netu';
         if (/vidhide/i.test(host)) return '🟡 VidHide';
         if (/uqload/i.test(host)) return '🔵 UqLoad';
+        if (/voe/i.test(host)) return '🟠 VOE';
         // Use the hostname as a fallback
         const shortHost = host.replace(/\..+$/, '');
         return shortHost.charAt(0).toUpperCase() + shortHost.slice(1);
@@ -345,6 +366,7 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         
         // Skip known problematic servers
         if (/streamtape\.com/i.test(serverUrl)) return null;  // anti-hotlink
+        if (/dood\.(so|re|stream|la)/i.test(serverUrl)) return null;  // token API, browser-only
         
         // Get the origin/referer from the embed URL
         const urlObj = serverUrl.match(/^(https?:\/\/[^\/]+)/);
@@ -363,6 +385,12 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         if (/filelions\.|vidhide\./i.test(serverUrl)) {
             const filelionsResult = await resolveFilelionsServer(serverUrl, displayName, referer, origin);
             if (filelionsResult) return filelionsResult;
+        }
+        
+        // --- Handler 2b: Voe (Altcha PoW challenge gate) ---
+        if (/voe\.sx|jessicachoosemake\.com/i.test(serverUrl)) {
+            const voeResult = await resolveVoeServer(serverUrl, displayName, referer, origin);
+            if (voeResult) return voeResult;
         }
         
         // --- Handler 3: StreamHG / HGCloud ---
@@ -436,12 +464,13 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         
         if (m3u8) {
             const cleanM3u8 = decodeHtml(m3u8).trim();
+            const resolvedM3u8 = toAbsoluteUrl(serverUrl, cleanM3u8);
             // Verify it's actually an m3u8 URL
-            if (!cleanM3u8.includes('.m3u8') && !cleanM3u8.includes('.mp4')) return null;
+            if (!resolvedM3u8.includes('.m3u8') && !resolvedM3u8.includes('.mp4')) return null;
             
             return {
                 title: displayName,
-                streamUrl: cleanM3u8,
+                streamUrl: resolvedM3u8,
                 headers: {
                     "Referer": referer,
                     "Origin": origin,
@@ -575,7 +604,9 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
                 for (const hls of hlsMatch) {
                     const urlMatch = hls.match(/"hls[234]"\s*:\s*"([^"]+)"/i);
                     if (urlMatch && urlMatch[1]) {
-                        const url = urlMatch[1].trim();
+                        // VidHide serves the hls keys as same-origin relative paths
+                        // (e.g. /stream/xxxx/.../master.m3u8), resolve them against the embed host
+                        const url = toAbsoluteUrl(serverUrl, urlMatch[1]);
                         if (url.includes('.m3u8')) {
                             return {
                                 title: displayName,
@@ -609,7 +640,7 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
             if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
                 return {
                     title: displayName,
-                    streamUrl: url,
+                    streamUrl: toAbsoluteUrl(serverUrl, url),
                     headers: {
                         "Referer": referer,
                         "Origin": origin,
@@ -740,6 +771,315 @@ function deobfuscateSimpleEval(source) {
         console.error('deobfuscateSimpleEval error:', e);
         return null;
     }
+}
+
+/* ============================================================
+   VOE RESOLVER — voe.sx → jessicachoosemake.com Altcha gate
+   Ported from flixlatam: the voe embed JS-redirects to the gate
+   host, which blocks the player behind an Altcha v4 PBKDF2/SHA-256
+   "confirm you're human" challenge, then serves the HLS source in
+   an obfuscated JSON config blob. Full chain solved in pure JS.
+   ============================================================ */
+
+async function resolveVoeServer(serverUrl, displayName, referer, origin) {
+    try {
+        const master = await resolveVoe(serverUrl);
+        if (!master) return null;
+        return {
+            title: displayName,
+            streamUrl: master,
+            headers: {
+                "Referer": (referer || 'https://voe.sx/'),
+                "Origin": (origin || 'https://voe.sx'),
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+        };
+    } catch (e) {
+        console.error('resolveVoeServer error:', e);
+        return null;
+    }
+}
+
+async function resolveVoe(embedUrl) {
+    const voeUrl = /^https?:/i.test(String(embedUrl || '')) ? embedUrl : 'https://voe.sx/' + String(embedUrl).replace(/^\/+/, '');
+
+    // 1) voe.sx serves a JS redirect (no localStorage → the gate host).
+    let gateUrl = voeUrl;
+    let gateHtml = '';
+    const voeRes = await soraFetch(voeUrl);
+    if (voeRes) {
+        const voeText = await voeRes.text();
+        if (voeText.indexOf('altcha-widget') !== -1) {
+            gateHtml = voeText; // already the gate page
+        } else {
+            const redir = voeText.match(/window\.location\.href\s*=\s*'([^']+)'/);
+            if (redir) gateUrl = redir[1].split('#')[0];
+        }
+    }
+
+    // 2) gate HTML: _token input + altcha challenge URL
+    if (!gateHtml) {
+        const gateRes = await soraFetch(gateUrl);
+        if (!gateRes) return null;
+        gateHtml = await gateRes.text();
+    }
+    if (gateHtml.indexOf('altcha-widget') === -1) return null;
+    const tokenMatch = gateHtml.match(/name="_token" value="([^"]+)"/);
+    const chalMatch = gateHtml.match(/challenge="([^"]+)"/);
+    if (!tokenMatch || !chalMatch) return null;
+
+    // 3) challenge JSON — fresh PBKDF2 parameters on every fetch
+    const chalRes = await soraFetch(chalMatch[1], { headers: { 'Referer': gateUrl } });
+    if (!chalRes) return null;
+    let chal;
+    try { chal = JSON.parse(await chalRes.text()); } catch (e) { return null; }
+    const p = chal && chal.parameters;
+    if (!p || !p.nonce || !p.salt || !p.cost || !p.keyLength || !p.keyPrefix) return null;
+
+    const sol = solveAltcha(p);
+    if (!sol) return null;
+
+    // 4) POST the solved challenge — same payload the widget submits
+    const payload = voeB64FromBytes(voeStrToBytes(JSON.stringify({
+        challenge: { parameters: p, signature: chal.signature },
+        solution: { counter: sol.counter, derivedKey: sol.derivedKey, time: 0 }
+    })));
+    const origin = gateUrl.match(/^https?:\/\/[^/]+/i);
+    const postBody = '_token=' + encodeURIComponent(tokenMatch[1]) + '&access=0&altcha=' + encodeURIComponent(payload);
+    const postRes = await soraFetch(gateUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': origin ? origin[0] : '',
+            'Referer': gateUrl
+        },
+        body: postBody
+    });
+    if (!postRes) return null;
+    const playerHtml = await postRes.text();
+    if (playerHtml.indexOf('altcha-widget') !== -1 || playerHtml.indexOf('Confirm you') !== -1) return null;
+
+    // 5) player page: decrypt the embedded config, read the HLS source
+    const blobMatch = playerHtml.match(/<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/);
+    if (!blobMatch) return null;
+    let blobStr;
+    try { blobStr = JSON.parse(blobMatch[1])[0]; } catch (e) { return null; }
+    if (typeof blobStr !== 'string' || blobStr.length < 8) return null;
+    const cfg = decryptVoeConfig(blobStr);
+    if (!cfg) return null;
+    return cfg.source || cfg.direct_access_url || null;
+}
+
+// Altcha v4 PBKDF2/SHA-256 solve. password = nonceBytes || uint32-be(counter),
+// salt = saltBytes, iterations = cost, dkLen = keyLength. Return the first
+// counter whose derived key starts with keyPrefix (00...). Bound the solve:
+// a 1-byte prefix needs ~256 iterations on average (~1s); abort past ~6s so
+// a pathological challenge can't stall the whole stream loading.
+function solveAltcha(p) {
+    const cost = p.cost;
+    const prefix = parseInt(p.keyPrefix, 16);
+    const nonceBytes = voeHexToBytesArr(p.nonce);
+    const saltBytes = voeHexToBytesArr(p.salt);
+    const pass = new Array(nonceBytes.length + 4);
+    for (let i = 0; i < nonceBytes.length; i++) pass[i] = nonceBytes[i];
+    const start = Date.now();
+    for (let counter = 0; counter < 100000; counter++) {
+        if ((counter & 63) === 0 && Date.now() - start > 4500) return null;
+        pass[nonceBytes.length] = (counter >>> 24) & 0xff;
+        pass[nonceBytes.length + 1] = (counter >>> 16) & 0xff;
+        pass[nonceBytes.length + 2] = (counter >>> 8) & 0xff;
+        pass[nonceBytes.length + 3] = counter & 0xff;
+        const dk = voePbkdf2Sha256Fast(pass, saltBytes, cost);
+        if (dk[0] === prefix) {
+            return { counter: counter, derivedKey: voeBytesArrToHex(dk) };
+        }
+    }
+    return null;
+}
+
+/* Fast SHA-256 for the Altcha PoW: typed-array block compressor + HMAC
+   mid-state precomputation make a full PBKDF2(10000) cost ~4ms in V8
+   (vs ~500ms string-based), keeping every solve under ~2s. */
+
+const VOE_SHA_INIT = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+const VOE_SHA_K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+]);
+
+// h: Uint32Array[8] (state, mutated in place). w: Uint32Array[16] input block.
+// sched: Uint32Array[16] reusable message-schedule scratch.
+function voeCompress(h, w, sched) {
+    let a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+    const s = sched;
+    for (let i = 0; i < 64; i++) {
+        if (i < 16) {
+            s[i] = w[i];
+        } else {
+            const x2 = s[(i + 14) & 15], x15 = s[(i + 1) & 15], x7 = s[(i + 9) & 15], x16 = s[i & 15];
+            const s0 = (((x15 >>> 7) | (x15 << 25)) ^ ((x15 >>> 18) | (x15 << 14)) ^ (x15 >>> 3)) >>> 0;
+            const s1 = (((x2 >>> 17) | (x2 << 15)) ^ ((x2 >>> 19) | (x2 << 13)) ^ (x2 >>> 10)) >>> 0;
+            s[i & 15] = (s1 + x7 + s0 + x16) | 0;
+        }
+        const x = s[i & 15];
+        const t1 = (hh + (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) + ((e & f) ^ (~e & g)) + VOE_SHA_K[i] + x) | 0;
+        const t2 = ((((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    h[0] = (h[0] + a) | 0; h[1] = (h[1] + b) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+    h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
+}
+
+// Pack a 64-byte buffer (Uint8Array) into 16 big-endian words.
+function voeWordsFromBytes(src, w) {
+    for (let i = 0; i < 16; i++) {
+        const j = i * 4;
+        w[i] = ((src[j] << 24) | (src[j + 1] << 16) | (src[j + 2] << 8) | src[j + 3]) >>> 0;
+    }
+}
+
+// PBKDF2-HMAC-SHA256, single dkLen block (32 bytes). password/salt are
+// number arrays (0-255). HMAC mid-states (ipad/opad xor key) compressed once
+// per call; every iteration then compresses only the extra message block.
+function voePbkdf2Sha256Fast(password, salt, cost) {
+    const key = new Uint8Array(64);
+    for (let i = 0; i < password.length && i < 64; i++) key[i] = password[i];
+    const ipad = new Uint8Array(64), opad = new Uint8Array(64);
+    for (let i = 0; i < 64; i++) { ipad[i] = key[i] ^ 0x36; opad[i] = key[i] ^ 0x5c; }
+
+    const w = new Uint32Array(16), sched = new Uint32Array(16);
+    const innerMid = new Uint32Array(VOE_SHA_INIT);
+    voeWordsFromBytes(ipad, w); voeCompress(innerMid, w, sched);
+    const outerMid = new Uint32Array(VOE_SHA_INIT);
+    voeWordsFromBytes(opad, w); voeCompress(outerMid, w, sched);
+
+    // U_1 = HMAC(password, salt || 0x00000001); inner block2 = salt + 1 + pad.
+    // The SHA-256 length field counts the WHOLE message (64-byte ipad block +
+    // salt + 4-byte counter), so word layout depends on the salt length.
+    const saltWords = salt.length >> 2;
+    const b2 = new Uint32Array(16);
+    for (let i = 0; i < saltWords; i++) {
+        const j = i * 4;
+        b2[i] = ((salt[j] << 24) | (salt[j + 1] << 16) | (salt[j + 2] << 8) | salt[j + 3]) >>> 0;
+    }
+    b2[saltWords] = 1;                    // 0x00000001 counter suffix
+    b2[saltWords + 1] = 0x80000000;       // 0x80 padding
+    b2[15] = (64 + salt.length + 4) * 8;  // message bit length
+    const ob2 = new Uint32Array(16);
+    ob2[8] = 0x80000000; ob2[15] = 96 * 8;
+
+    const u = new Uint32Array(VOE_SHA_INIT);
+    u.set(innerMid); voeCompress(u, b2, sched);
+    for (let j = 0; j < 8; j++) ob2[j] = u[j];
+    u.set(outerMid); voeCompress(u, ob2, sched);
+    const T = new Uint32Array(u);
+    for (let i = 1; i < cost; i++) {
+        for (let j = 0; j < 8; j++) b2[j] = u[j];
+        b2[8] = 0x80000000; b2[9] = 0; b2[15] = 96 * 8;
+        u.set(innerMid); voeCompress(u, b2, sched);
+        for (let j = 0; j < 8; j++) ob2[j] = u[j];
+        u.set(outerMid); voeCompress(u, ob2, sched);
+        for (let j = 0; j < 8; j++) T[j] = (T[j] ^ u[j]) | 0;
+    }
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 8; i++) {
+        out[i * 4] = (T[i] >>> 24) & 255;
+        out[i * 4 + 1] = (T[i] >>> 16) & 255;
+        out[i * 4 + 2] = (T[i] >>> 8) & 255;
+        out[i * 4 + 3] = T[i] & 255;
+    }
+    return out;
+}
+
+function voeHexToBytesArr(hex) {
+    const out = [];
+    for (let i = 0; i < hex.length; i += 2) out.push(parseInt(hex.slice(i, i + 2), 16));
+    return out;
+}
+
+function voeBytesArrToHex(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i] & 0xff;
+        out += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return out;
+}
+
+// Obfuscated player-config blob → JSON (mirrors the voe loader.js decoder):
+// ROT13 → token-substitute → strip _ → b64 → -3 → reverse → b64 → JSON.
+function decryptVoeConfig(blob) {
+    try {
+        let s = String(blob);
+        s = s.replace(/[a-zA-Z]/g, function (c) {
+            const base = c <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+        });
+        const tokens = ['@$', '^^', '~@', '%?', '*~', '!!', '#&'];
+        for (let i = 0; i < tokens.length; i++) s = s.split(tokens[i]).join('_');
+        s = s.split('_').join('');
+        let b = voeB64ToStr(s);
+        let c = '';
+        for (let i = 0; i < b.length; i++) c += String.fromCharCode(b.charCodeAt(i) - 3);
+        let r = '';
+        for (let i = c.length - 1; i >= 0; i--) r += c.charAt(i);
+        return JSON.parse(voeB64ToStr(r));
+    } catch (e) {
+        return null;
+    }
+}
+
+function voeStrToBytes(s) {
+    const out = [];
+    for (let i = 0; i < s.length; i++) out.push(s.charCodeAt(i) & 0xff);
+    return out;
+}
+
+function voeB64FromBytes(bytes) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+        const b0 = bytes[i];
+        const b1 = bytes[i + 1];
+        const b2 = bytes[i + 2];
+        out += chars[b0 >> 2];
+        out += chars[((b0 & 3) << 4) | ((b1 >>> 4) & 0x0f)];
+        out += (b1 !== undefined) ? chars[((b1 & 0x0f) << 2) | ((b2 >>> 6) & 3)] : '=';
+        out += (b2 !== undefined) ? chars[b2 & 0x3f] : '=';
+    }
+    return out;
+}
+
+function voeB64ToStr(b64) {
+    const bytes = voeB64ToBytes(b64);
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+    return out;
+}
+
+function voeB64ToBytes(b64) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const out = [];
+    let buffer = 0, bits = 0;
+    for (let i = 0; i < b64.length; i++) {
+        const ch = b64.charAt(i);
+        if (ch === '=') break;
+        const v = chars.indexOf(ch);
+        if (v === -1) continue;
+        buffer = (buffer << 6) | v;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push((buffer >> bits) & 0xff);
+        }
+    }
+    return out;
 }
 
 /* HELPERS */
@@ -1018,6 +1358,25 @@ function normalizeExternalUrl(url) {
     return normalized;
 }
 
+// Resolve a possibly-relative media URL against the embed/server base URL.
+// VidHide and similar hosts expose hls keys as same-origin relative paths
+// (e.g. /stream/xxx/master.m3u8); absolute URLs are returned untouched.
+function toAbsoluteUrl(base, url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^\/\//.test(raw)) return 'https:' + raw;
+    if (/^\//.test(raw)) {
+        const m = String(base).match(/^(https?:\/\/[^/]+)/i);
+        return (m ? m[1] : BASE_URL) + raw;
+    }
+    try {
+        return new URL(raw, base).href;
+    } catch (e) {
+        return raw;
+    }
+}
+
 function cleanText(text) {
     return decodeHtml(String(text || ''))
         .replace(/<br\s*\/?>/gi, '\n')
@@ -1034,24 +1393,45 @@ async function soraFetch(url, options) {
     const method = opts.method || 'GET';
     const body = typeof opts.body === 'undefined' ? null : opts.body;
 
-    try {
-        return await fetchv2(url, mergedHeaders, method, body);
-    } catch (e) {
+    const attempt = async function () {
         try {
-            const text = await fetch(url, {
-                method: method,
-                headers: mergedHeaders,
-                body: body
-            });
-            return {
-                text: async () => text,
-                json: async () => JSON.parse(text)
-            };
-        } catch (error) {
-            console.log('soraFetch error: ' + error);
-            return null;
+            return await fetchv2(url, mergedHeaders, method, body);
+        } catch (e) {
+            try {
+                // fetchv2 failed (e.g. network error) — fall back to plain fetch.
+                // Read the body once and cache it: returning the raw Response
+                // object as "text" made callers crash with "text.match is not a
+                // function" whenever this fallback ran.
+                const response = await fetch(url, {
+                    method: method,
+                    headers: mergedHeaders,
+                    body: body
+                });
+                let cached = null;
+                const bodyOf = async function () {
+                    if (cached === null) cached = await response.text();
+                    return cached;
+                };
+                return {
+                    text: bodyOf,
+                    json: async function () { return JSON.parse(await bodyOf()); }
+                };
+            } catch (error) {
+                console.log('soraFetch error: ' + error);
+                return null;
+            }
         }
-    }
+    };
+
+    // Cap every HTML/JSON fetch so a black-holed embed server can't stall
+    // the whole stream resolution (Promise.all waits for the slowest). Media
+    // segments are downloaded by the app, never through soraFetch.
+    return await Promise.race([
+        attempt(),
+        new Promise(function (resolve) {
+            setTimeout(function () { resolve(null); }, 8000);
+        })
+    ]);
 }
 
 function mergeHeaders(url, opts) {
