@@ -587,28 +587,28 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
         // Step 2: Look for 'links' object with hls2/hls3/hls4
         const linksMatch = html.match(/links\s*=\s*\{[\s\S]*?\}/i);
         if (linksMatch) {
-            // Extract hls URLs from links object
-            const hlsMatch = linksMatch[0].match(/"hls[234]"\s*:\s*"([^"]+)"/gi);
-            if (hlsMatch) {
-                // Get the first hls URL (prefer hls2, then hls3, then hls4)
-                for (const hls of hlsMatch) {
-                    const urlMatch = hls.match(/"hls[234]"\s*:\s*"([^"]+)"/i);
-                    if (urlMatch && urlMatch[1]) {
-                        // VidHide serves the hls keys as same-origin relative paths
-                        // (e.g. /stream/xxxx/.../master.m3u8), resolve them against the embed host
-                        const url = toAbsoluteUrl(serverUrl, urlMatch[1]);
-                        if (url.includes('.m3u8')) {
-                            return {
-                                title: displayName,
-                                streamUrl: url,
-                                headers: {
-                                    "Referer": referer,
-                                    "Origin": origin,
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                                }
-                            };
+            // Prefer the same-origin proxy wrapper (hls4): it relays the CDN
+            // server-side, so the app's player gets HTTP 200 with no special
+            // headers. The direct-CDN hls2 URL is IP/token-bound and 403s
+            // in-app ("No tienes autorización"); hls3 is a .txt anti-HLS
+            // rename. Same priority as flixlatam's resolveMino.
+            const hlsPriority = ['hls4', 'hls2', 'hls3'];
+            for (const key of hlsPriority) {
+                const km = linksMatch[0].match(new RegExp('"' + key + '"\\s*:\\s*"([^"]+)"'));
+                if (!km || !km[1]) continue;
+                // VidHide serves the hls keys as same-origin relative paths
+                // (e.g. /stream/xxxx/.../master.m3u8), resolve against the embed host
+                const url = toAbsoluteUrl(serverUrl, km[1]);
+                if (url.includes('.m3u8')) {
+                    return {
+                        title: displayName,
+                        streamUrl: url,
+                        headers: {
+                            "Referer": referer,
+                            "Origin": origin,
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                         }
-                    }
+                    };
                 }
             }
         }
@@ -620,9 +620,19 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
             let url = '';
             
             if (fileRef.startsWith('links.')) {
-                const linkKey = fileRef.replace('links.', '');
-                const linkMatch = html.match(new RegExp(`"${linkKey}"\\s*:\\s*"([^"]+)"`));
-                if (linkMatch) url = linkMatch[1];
+                // Prefer the same-origin wrapper key (hls4) over the direct
+                // CDN — same reasoning as Step 2 (hls2 403s in-app).
+                const requestedKey = fileRef.replace('links.', '');
+                const keys = ['hls4', 'hls2', 'hls3'].indexOf(requestedKey) !== -1
+                    ? ['hls4', 'hls2', 'hls3']
+                    : [requestedKey];
+                for (const key of keys) {
+                    const linkMatch = html.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`));
+                    if (linkMatch && linkMatch[1]) {
+                        url = linkMatch[1];
+                        break;
+                    }
+                }
             } else {
                 url = fileRef.replace(/["']/g, '');
             }
