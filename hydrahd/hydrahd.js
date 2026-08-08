@@ -12,7 +12,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.25 (keyless: stremio v3 + Stremio Community Subtitles)');
+console.log('[HydraHD] module script loaded v1.0.26 (keyless English-only subtitles: stremio v3 + Stremio Community Subtitles)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -237,12 +237,9 @@ async function extractStreamUrl(url) {
         // Resolve keyless subtitle providers whenever we have an ID — movies
         // AND series (series episode pages carry the imdb id). Two sources,
         // both free with no API key: OpenSubtitles v3 (strem.io) and the
-        // Stremio Community Subtitles addon (public community token). This
-        // gives every title a full multi-language picker plus a guaranteed
-        // full-dialogue English auto-load track, with no personal key that
-        // could be abused or rate-limited. When neither has an English track,
-        // keep the embed-provided subtitle for auto-load instead of displacing
-        // it with a foreign track; the other languages still appear in the picker.
+        // Stremio Community Subtitles addon (public community token).
+        // English-only: verified full-dialogue English is auto-loaded; foreign
+        // tracks are dropped from both providers and never appear or auto-load.
         if (imdbId) {
             const stremioResult = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
             const communityResult = await resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
@@ -250,11 +247,9 @@ async function extractStreamUrl(url) {
             if (merged && merged.subtitles && merged.subtitles.length > 0) {
                 subtitleList = merged.subtitles;
                 // Auto-load only when a full-dialogue English track was verified;
-                // otherwise the embed-provided subtitle stays (or a foreign track
-                // only fills in when nothing else is available).
+                // otherwise the embed-provided subtitle stays. English-only
+                // mode: a foreign (or placeholder) track is never forced on.
                 if (merged.pickedEnglish && merged.subtitle) {
-                    subtitle = merged.subtitle;
-                } else if (!subtitle) {
                     subtitle = merged.subtitle;
                 }
                 console.log('[HydraHD] Subs loaded imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' eng=' + (merged.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE') + ' src=' + merged.sources.join(','));
@@ -466,10 +461,15 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
             }));
         if (subtitles.length === 0) return null;
 
+        // English-only mode: drop every non-English track right at the source,
+        // so the picker and auto-load can never offer/serve a foreign language.
+        const english = subtitles.filter(isEnglishStremioSubtitle);
+        if (english.length === 0) return null;
+        const filteredSubtitles = english.slice();
+
         // Prefer the first full-dialogue English track over the possibly-forced
         // one stremio returns first, so auto-loaded subtitles are real dialogue
         // ("characters talking") rather than background/signs translation.
-        const english = subtitles.filter(isEnglishStremioSubtitle);
         const cacheKey = type + '/' + imdbId + '/' + (season || '') + '/' + (episode || '');
         let bestEnglishUrl = '';
         if (english.length > 1) {
@@ -488,7 +488,7 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
         }
         return {
             subtitle: preferred && preferred.url ? preferred.url : '',
-            subtitles,
+            subtitles: filteredSubtitles,
             pickedEnglish: english.length > 0
         };
     } catch (e) {
@@ -499,8 +499,8 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
 // ---- Stremio Community Subtitles (keyless) --------------------------------
 // The "Stremio Community Subtitles" addon serves community-curated tracks through
 // a shared public identityToken — no personal API key, no daily quota, no login.
-// It covers SERIES (v3 has none) and adds extra languages to movies. Searches
-// are cached per title so re-watching the same episode is instant.
+// It covers SERIES (v3 has none) and provides extra English tracks for movies.
+// Searches are cached per title so re-watching the same episode is instant.
 const scsResultCache = {};                      // per-episode result cache
 
 function decodeScsToken() {
@@ -545,15 +545,14 @@ async function resolveCommunitySubtitle(imdbId, type, season, episode) {
         // Download-verify the English candidates (bounded, concurrent) and keep
         // only real full-dialogue tracks: they are the auto-load AND the picker
         // entries, so a fake track never shows up in front of the user.
+        // English-only mode: all non-English tracks are dropped entirely.
         const englishCandidates = subtitles.filter(isEnglishStremioSubtitle);
         const verifiedEnglish = await verifyScEnglishTracks(englishCandidates);
-        const nonEnglish = subtitles.filter(function(item) { return !isEnglishStremioSubtitle(item); });
-        const kept = verifiedEnglish.concat(nonEnglish);
-        const autoLoadUrl = kept.length > 0 ? kept[0].url : '';
+        const autoLoadUrl = verifiedEnglish.length > 0 ? verifiedEnglish[0].url : '';
 
         const result = {
             subtitle: autoLoadUrl,
-            subtitles: kept,
+            subtitles: verifiedEnglish,
             pickedEnglish: verifiedEnglish.length > 0
         };
         scsResultCache[cacheKey] = result;
@@ -598,9 +597,10 @@ async function verifyScEnglishTracks(englishCandidates) {
 return verified;
 }
 
-// Merge the two keyless providers' results into one picker list. v3 entries come
-// first (full OpenSubtitles set), SCS entries fill in languages v3 lacks and add
-// series coverage. URLs are deduplicated so the same file never appears twice.
+// Merge the two keyless providers' results into one picker list. v3 English
+// entries come first (full OpenSubtitles set), SCS fills in English coverage
+// v3 lacks and adds series support. URLs are deduplicated so the same file
+// never appears twice. All entries are English-only (see resolvers above).
 function mergeSubtitleResults(stremioResult, communityResult) {
     const mergedSubtitles = [];
     const seenUrls = {};

@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Busca contenido, obtiene detalles, lista de episodios agrupados por temporada para series, y resuelve streams via servidor embed (mov_0.php/tv_0.php) + vidfast.vc para HLS/MP4. Subtítulos sin claves API vía OpenSubtitles (strem.io v3) + Stremio Community Subtitles, con pista en inglés de diálogo completo para películas y series.",
-  "version": "1.0.25",
+  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Busca contenido, obtiene detalles, lista de episodios agrupados por temporada para series, y resuelve streams via servidor embed (mov_0.php/tv_0.php) + vidfast.vc para HLS/MP4. Subtítulos solo en inglés, sin claves API, vía OpenSubtitles (strem.io v3) + Stremio Community Subtitles, con pista en inglés de diálogo completo para películas y series.",
+  "version": "1.0.26",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
