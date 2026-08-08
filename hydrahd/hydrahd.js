@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.30 (OS REST keyless subs + embedded playlist subtitle list + 3 extra embed-server resolvers)');
+console.log('[HydraHD] module script loaded v1.0.31 (forced subtitle list + parallel providers, faster)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -231,9 +231,9 @@ async function extractStreamUrl(url) {
         // uses the Vidora API, Hydra2/VixSrc mints a playlist token, Whiskey/
         // xpass exposes mdata playlist files — all keyless like the site does.
         const ctxInfo = { imdbId: imdbId, tmdbId: tmdbId, isMovie: isMovie, season: season, episode: episodeNum };
-        // Resolve every named server in parallel batches (4 at a time, 6s each),
+        // Resolve every named server in parallel batches (6 at a time, 6s each),
         // collecting all working streams so the user can pick one in the app.
-        const BATCH = 4;
+        const BATCH = 6;
         for (let i = 0; i < serverEntries.length; i += BATCH) {
             const batch = serverEntries.slice(i, i + BATCH);
             await Promise.all(batch.map(async function(entry) {
@@ -301,9 +301,13 @@ async function extractStreamUrl(url) {
         // English-only: verified full-dialogue English is auto-loaded; foreign
         // tracks are dropped from every provider and never appear or auto-load.
         if (imdbId) {
-            const osRestResult = await resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum);
-            const stremioResult = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
-            const communityResult = await resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
+            // Three independent providers — resolve them concurrently instead
+            // of chaining one-after-another (each can take seconds).
+            const [osRestResult, stremioResult, communityResult] = await Promise.all([
+                resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
+                resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
+                resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)
+            ]);
             const merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
             if (merged && merged.subtitles && merged.subtitles.length > 0) {
                 subtitleList = merged.subtitles;
@@ -361,10 +365,8 @@ async function extractStreamUrl(url) {
         subtitlePairs.push(subtitleLanguageName(entry.lang), entry.url);
     });
     let finalSubtitles;
-    if (subtitlePairs.length > 2) {
-        finalSubtitles = subtitlePairs;                 // [label,url,label,url,...]
-    } else if (subtitlePairs.length === 2) {
-        finalSubtitles = subtitlePairs[1];              // single language -> bare URL
+    if (subtitlePairs.length >= 2) {
+        finalSubtitles = subtitlePairs;                 // [label,url,label,url,...] always
     } else if (subtitle) {
         finalSubtitles = subtitle;                      // plain URL fallback (vidfast)
     } else {
@@ -404,7 +406,7 @@ async function resolveGenericLink(link) {
     try {
         const r = await soraFetchTimed(link, {
             headers: { 'Referer': `${BASE_URL}/`, 'User-Agent': USER_AGENT }
-        }, 9000);
+        }, 6000);
         const text = await r.text();
         const m3u8Match = text.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/);
         if (!m3u8Match) return null;
