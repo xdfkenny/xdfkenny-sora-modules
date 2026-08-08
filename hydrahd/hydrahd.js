@@ -4,7 +4,7 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.22 (full-dialogue English track)');
+console.log('[HydraHD] module script loaded v1.0.23 (season-grouped episodes, stremio for series, faster subtitle check)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -124,7 +124,16 @@ async function extractEpisodes(url) {
         if (uniqueEpisodes.length === 0) {
             uniqueEpisodes.push({ href: fullUrl, number: 1 });
         }
-        uniqueEpisodes.sort((a, b) => a.number - b.number);
+        // Order by season then episode so the app's season detector (which splits
+        // a flat list on an episode-number reset) groups multi-season shows into
+        // real seasons. Sorting by episode number alone would interleave seasons
+        // into 1,1,1,2,2,2,... and render as one flat list.
+        uniqueEpisodes.sort(function(a, b) {
+            const seasonA = parseInt((a.href.match(/season\/(\d+)/) || [])[1] || '1', 10);
+            const seasonB = parseInt((b.href.match(/season\/(\d+)/) || [])[1] || '1', 10);
+            if (seasonA !== seasonB) return seasonA - seasonB;
+            return a.number - b.number;
+        });
         return JSON.stringify(uniqueEpisodes);
     } catch (error) {
         console.error('Episodes error:', error);
@@ -217,14 +226,24 @@ async function extractStreamUrl(url) {
                 console.error('VidFast resolution failed:', e.message);
             }
         }
-        if (!subtitle && imdbId) {
+        // Resolve stremio/OpenSubtitles whenever we have an ID — movies AND
+        // series (series episode pages carry the imdb id). This gives every
+        // title a full multi-language picker plus a guaranteed full-dialogue
+        // English auto-load track. When stremio has no English track, keep the
+        // embed-provided subtitle for auto-load instead of displacing it with a
+        // foreign track; the stremio languages still appear in the picker.
+        if (imdbId) {
             const stremioResult = await resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum);
-            if (stremioResult) {
-                subtitle = stremioResult.subtitle || '';
-                subtitleList = stremioResult.subtitles || [];
-                console.log('[HydraHD] Stremio fallback hit imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' picked=' + (subtitle ? subtitle.slice(0, 120) : ''));
+            if (stremioResult && stremioResult.subtitles && stremioResult.subtitles.length > 0) {
+                subtitleList = stremioResult.subtitles;
+                if (stremioResult.pickedEnglish && stremioResult.subtitle) {
+                    subtitle = stremioResult.subtitle;
+                } else if (!subtitle) {
+                    subtitle = stremioResult.subtitle;
+                }
+                console.log('[HydraHD] Stremio loaded imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' eng=' + (stremioResult.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE'));
             } else {
-                console.log('[HydraHD] Stremio fallback empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum);
+                console.log('[HydraHD] Stremio empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum + ' keepEmbedSub=' + (subtitle ? 'yes' : 'no'));
             }
         }
         if (!subtitle && (imdbId === 'tt10872600' || String(tmdbId || '') === '634649')) {
@@ -364,35 +383,44 @@ const fullTrackCache = {};
 // (e.g. English anime subs that only translate on-screen text, TV news, phone
 // screens — not the dialogue). Those tracks have a handful of cues while full
 // tracks have hundreds or thousands. Metadata fields don't expose this, so
-// download a few English candidates and return the first full-dialogue track,
-// remembering the most complete one as a fallback. Preserves stremio's ordering
-// among full tracks (the first qualifying one wins) and stays bounded.
+// download the English candidates and return the first full-dialogue track,
+// remembering the most complete one as a fallback. All candidate downloads are
+// kicked off CONCURRENTLY and we return as soon as the first full track in
+// stremio order lands — typically one round-trip (~0.5s) instead of one per
+// track. Preserves stremio's ordering among full tracks and stays bounded.
 async function pickFullEnglishTrack(englishCandidates) {
     if (!Array.isArray(englishCandidates) || englishCandidates.length === 0) return '';
     if (englishCandidates.length === 1) return englishCandidates[0].url;
     const MIN_CUES = 120;   // a real episode has 250+; signs-only tracks stay under ~100
-    const MAX_CHECK = 6;    // bound worst-case sequential fetches
-    let bestUrl = englishCandidates[0].url;
-    let bestCues = -1;
-    for (let i = 0; i < englishCandidates.length && i < MAX_CHECK; i++) {
-        const cand = englishCandidates[i];
-        let cues = 0;
-        try {
-            const resp = await soraFetch(cand.url, {
-                headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
-            });
-            if (resp) {
+    const MAX_CHECK = 6;    // bound concurrent fetches
+    const cands = englishCandidates.slice(0, MAX_CHECK);
+    const pending = cands.map(function(cand) {
+        return (async function() {
+            try {
+                const resp = await soraFetch(cand.url, {
+                    headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
+                });
+                if (!resp) return 0;
                 const text = await resp.text();
-                cues = (String(text || '').match(/-->/g) || []).length;
+                return (String(text || '').match(/-->/g) || []).length;
+            } catch (e) {
+                return 0; // failed fetch -> treat as unusable
             }
-        } catch (e) {
-            // failed fetch -> treat as unusable, keep checking the rest
+        })();
+    });
+    for (let i = 0; i < cands.length; i++) {
+        const cues = await pending[i];
+        if (cues >= MIN_CUES) return cands[i].url; // first full-dialogue track wins
+    }
+    // No full-dialogue track: wait for any stragglers and use the most complete.
+    const counts = await Promise.all(pending);
+    let bestUrl = cands[0].url;
+    let bestCues = counts[0];
+    for (let i = 1; i < cands.length; i++) {
+        if (counts[i] > bestCues) {
+            bestCues = counts[i];
+            bestUrl = cands[i].url;
         }
-        if (cues > bestCues) {
-            bestCues = cues;
-            bestUrl = cand.url;
-        }
-        if (cues >= MIN_CUES) return cand.url; // first full-dialogue track wins
     }
     return bestUrl;
 }
@@ -444,7 +472,8 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
         }
         return {
             subtitle: preferred && preferred.url ? preferred.url : '',
-            subtitles
+            subtitles,
+            pickedEnglish: english.length > 0
         };
     } catch (e) {
         return null;
