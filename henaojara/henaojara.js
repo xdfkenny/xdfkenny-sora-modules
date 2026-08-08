@@ -372,9 +372,11 @@ async function resolveServerToDirectUrl(serverUrl, serverName) {
         }
         
         // --- Handler 2: Filelions / VidHide (eval obfuscation) ---
-        if (/filelions\.|vidhide\./i.test(serverUrl)) {
-            const filelionsResult = await resolveFilelionsServer(serverUrl, displayName, referer, origin);
-            if (filelionsResult) return filelionsResult;
+        // Terminal: never fall through to the generic handler — it would
+        // re-extract the gated direct-CDN URL (hls2/hls3), which 403s in-app.
+        // Same-origin wrapper (hls4) only.
+        if (/filelions\.|vidhide\.|minochinos\.|dramiyos-cdn|acek-cdn/i.test(serverUrl)) {
+            return await resolveFilelionsServer(serverUrl, displayName, referer, origin);
         }
         
         // --- Handler 2b: Voe (Altcha PoW challenge gate) ---
@@ -587,16 +589,14 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
         // Step 2: Look for 'links' object with hls2/hls3/hls4
         const linksMatch = html.match(/links\s*=\s*\{[\s\S]*?\}/i);
         if (linksMatch) {
-            // Prefer the same-origin proxy wrapper (hls4): it relays the CDN
-            // server-side, so the app's player gets HTTP 200 with no special
-            // headers. The direct-CDN hls2 URL is IP/token-bound and 403s
-            // in-app ("No tienes autorización"); hls3 is a .txt anti-HLS
-            // rename. Same priority as flixlatam's resolveMino.
-            const hlsPriority = ['hls4', 'hls2', 'hls3'];
-            for (const key of hlsPriority) {
-                const km = linksMatch[0].match(new RegExp('"' + key + '"\\s*:\\s*"([^"]+)"'));
-                if (!km || !km[1]) continue;
-                // VidHide serves the hls keys as same-origin relative paths
+            // ONLY the same-origin proxy wrapper (hls4) is usable: it relays
+            // the CDN server-side so the app's player gets HTTP 200 with no
+            // special headers. The direct-CDN hls2 URL 403s in-app ("No tienes
+            // autorización") and hls3 (.txt anti-HLS rename) is unreachable,
+            // so a title without hls4 simply has no playable VidHide stream.
+            const km = linksMatch[0].match(/"hls4"\s*:\s*"([^"]+)"/);
+            if (km && km[1]) {
+                // VidHide serves hls4 as a same-origin relative path
                 // (e.g. /stream/xxxx/.../master.m3u8), resolve against the embed host
                 const url = toAbsoluteUrl(serverUrl, km[1]);
                 if (url.includes('.m3u8')) {
@@ -620,27 +620,24 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
             let url = '';
             
             if (fileRef.startsWith('links.')) {
-                // Prefer the same-origin wrapper key (hls4) over the direct
-                // CDN — same reasoning as Step 2 (hls2 403s in-app).
-                const requestedKey = fileRef.replace('links.', '');
-                const keys = ['hls4', 'hls2', 'hls3'].indexOf(requestedKey) !== -1
-                    ? ['hls4', 'hls2', 'hls3']
-                    : [requestedKey];
-                for (const key of keys) {
-                    const linkMatch = html.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`));
-                    if (linkMatch && linkMatch[1]) {
-                        url = linkMatch[1];
-                        break;
-                    }
-                }
+                // Only the same-origin wrapper key (hls4) is playable — the
+                // direct-CDN hls2/hls3 URLs 403/504 in-app.
+                if (fileRef.replace('links.', '') !== 'hls4') return null;
+                const linkMatch = html.match(/"hls4"\s*:\s*"([^"]+)"/);
+                if (linkMatch) url = linkMatch[1];
             } else {
                 url = fileRef.replace(/["']/g, '');
             }
             
             if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
+                // Only accept same-origin (wrapper) URLs; cross-origin ones
+                // are the gated direct CDN and 403 in-app.
+                const serverHost = (serverUrl.match(/^https?:\/\/[^/]+/i) || [''])[0];
+                const absolute = toAbsoluteUrl(serverUrl, url);
+                if (absolute.indexOf(serverHost) !== 0) return null;
                 return {
                     title: displayName,
-                    streamUrl: toAbsoluteUrl(serverUrl, url),
+                    streamUrl: absolute,
                     headers: {
                         "Referer": referer,
                         "Origin": origin,
@@ -650,9 +647,12 @@ async function resolveFilelionsServer(serverUrl, displayName, referer, origin) {
             }
         }
         
-        // Step 4: Fallback - look for any m3u8 or mp4 URL
+        // Step 4: Fallback - look for any m3u8 or mp4 URL, but only accept
+        // same-origin ones (the wrapper proxy). Cross-origin URLs are the
+        // gated direct CDN and 403 in-app.
+        const serverHost = (serverUrl.match(/^https?:\/\/[^/]+/i) || [''])[0];
         const directMatch = html.match(/(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/i);
-        if (directMatch && directMatch[1]) {
+        if (directMatch && directMatch[1] && directMatch[1].indexOf(serverHost) === 0) {
             return {
                 title: displayName,
                 streamUrl: directMatch[1].trim(),

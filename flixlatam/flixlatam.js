@@ -373,13 +373,12 @@ async function resolveMino(embedUrl) {
         return null;
     }
 
-    // Prefer the minochinos wrapper (hls4): it is same-origin proxied so it
-    // keeps working no matter which CDN host sits behind it. Otherwise prefer
-    // the signed .m3u8 direct CDN (hls2) over the .txt anti-HLS-detection
-    // rename (hls3) — .m3u8 is detected as HLS by the player. A direct-CDN host
-    // that is down simply shows as a non-loading stream and the user picks
-    // another server (voe is always offered per language).
-    const hls = links.hls4 || links.hls2 || links.hls3;
+    // ONLY the minochinos same-origin proxy wrapper (hls4) is usable: it
+    // relays the CDN server-side so the app's player gets HTTP 200 with no
+    // special headers. The direct-CDN hls2 URL 403s in-app ("No tienes
+    // autorización") and hls3 is a .txt anti-HLS-detection rename, so a
+    // title without hls4 simply has no playable VidHide stream.
+    const hls = links.hls4;
     if (!hls) return null;
     return joinUrl(embedUrl, hls);
 }
