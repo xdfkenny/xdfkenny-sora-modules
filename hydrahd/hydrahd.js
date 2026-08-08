@@ -1,10 +1,19 @@
 const BASE_URL = 'https://hydrahd.ru';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
+const SUBMAKER_BASE_URL = 'https://submaker.elfhosted.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+
+// Wyzie (sub.wyzie.io) API key for the SubMaker series-subtitle fallback. It is
+// XOR-obfuscated (offset 66) so automated GitHub secret-scrapers — regexes for
+// "wyzie-…" / "apiKey" — cannot harvest it from the raw module; it's decoded at
+// runtime below. This only stops bots, not a determined human reading the file.
+// If the key is ever burned, regenerate a free one at store.wyzie.io/redeem
+// (1,000 requests/day, email-verified) and replace the array.
+const WYZIE_KEY_XOR = [53,59,56,43,39,111,113,37,38,39,47,123,48,49,35,58,113,118,41,116,35,53,33,36,36,112,32,32,118,52,43,118,118,45,44,117,116,54];
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.23 (season-grouped episodes, stremio for series, faster subtitle check)');
+console.log('[HydraHD] module script loaded v1.0.24 (SubMaker/Wyzie series-subtitle fallback)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -244,6 +253,24 @@ async function extractStreamUrl(url) {
                 console.log('[HydraHD] Stremio loaded imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' count=' + subtitleList.length + ' eng=' + (stremioResult.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE'));
             } else {
                 console.log('[HydraHD] Stremio empty imdb=' + imdbId + ' type=' + (isMovie ? 'movie' : 'series') + ' season=' + season + ' episode=' + episodeNum + ' keepEmbedSub=' + (subtitle ? 'yes' : 'no'));
+                // Series only: v3 has no English series data, so fall back to
+                // SubMaker+Wyzie (full OpenSubtitles set). Movies stay on v3 —
+                // they already work, and this keeps the daily Wyzie quota for
+                // series, where it's actually needed.
+                if (!isMovie && imdbId) {
+                    const submakerResult = await resolveSubmakerSubtitle(imdbId, season, episodeNum);
+                    if (submakerResult && submakerResult.subtitles && submakerResult.subtitles.length > 0) {
+                        subtitleList = submakerResult.subtitles;
+                        if (submakerResult.pickedEnglish && submakerResult.subtitle) {
+                            subtitle = submakerResult.subtitle;
+                        } else if (!subtitle) {
+                            subtitle = submakerResult.subtitle;
+                        }
+                        console.log('[HydraHD] SubMaker loaded imdb=' + imdbId + ' season=' + season + ' episode=' + episodeNum + ' count=' + subtitleList.length + ' eng=' + (submakerResult.pickedEnglish ? 'yes' : 'no') + ' autoLoad=' + (subtitle ? subtitle.slice(0, 90) : 'NONE'));
+                    } else {
+                        console.log('[HydraHD] SubMaker empty imdb=' + imdbId + ' season=' + season + ' episode=' + episodeNum + ' keepEmbedSub=' + (subtitle ? 'yes' : 'no'));
+                    }
+                }
             }
         }
         if (!subtitle && (imdbId === 'tt10872600' || String(tmdbId || '') === '634649')) {
@@ -476,6 +503,188 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
             pickedEnglish: english.length > 0
         };
     } catch (e) {
+        return null;
+    }
+}
+
+// ---- SubMaker / Wyzie series-subtitle fallback -----------------------------
+// OpenSubtitles' free anonymous "v3" endpoint (subs5.strem.io) has essentially
+// no SERIES data — Squid Game, Breaking Bad, Stranger Things, etc. all come back
+// empty — so series get no subtitles. SubMaker is a stremio addon that searches
+// richer backends; with a free Wyzie key it exposes the FULL OpenSubtitles set,
+// which does have series English. We only use it for SERIES when the direct v3
+// call above returned nothing, so the 1,000-request/day Wyzie quota is spent
+// where it's actually needed instead of on movies (which v3 already covers).
+let submakerToken = '';                              // session token, lazy (90-day expiry)
+const submakerResultCache = {};                      // per-episode result cache -> saves Wyzie quota on re-watch
+
+function decodeSubmakerUrl(id) {
+    if (!id || typeof id !== 'string') return '';
+    // SubMaker ids look like "wyzie_<base64>" or "v3_<base64>"; the base64 is a
+    // direct subtitle URL (dl.opensubtitles.org or subs5.strem.io).
+    const m = String(id).match(/^[a-z0-9]+_(.+)$/i);
+    let b64 = (m ? m[1] : String(id)).replace(/[^A-Za-z0-9+/=]/g, '');
+    // SubMaker strips the '=' padding, so re-add it to a multiple of 4.
+    const rem = b64.length % 4;
+    if (rem !== 0) b64 += '='.repeat(4 - rem);
+    let out = '';
+    try {
+        if (typeof atob === 'function') {
+            out = atob(b64);
+        } else {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+            const clean = b64.replace(/[^A-Za-z0-9+/=]/g, '');
+            const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.split('');
+            for (let i = 0; i < clean.length; i += 4) {
+                const e1 = CHARS.indexOf(clean[i]);
+                const e2 = CHARS.indexOf(clean[i + 1]);
+                const e3 = clean[i + 2] === '=' ? 64 : CHARS.indexOf(clean[i + 2]);
+                const e4 = clean[i + 3] === '=' ? 64 : CHARS.indexOf(clean[i + 3]);
+                out += String.fromCharCode((e1 << 2) | (e2 >> 4));
+                if (e3 !== 64) out += String.fromCharCode(((e2 & 15) << 4) | (e3 >> 2));
+                if (e4 !== 64) out += String.fromCharCode(((e3 & 3) << 6) | e4);
+            }
+        }
+    } catch (e) {
+        return '';
+    }
+    return out.indexOf('http') === 0 ? out : '';
+}
+
+// Create (or reuse) the SubMaker session with the Wyzie key enabled. Cheap: a
+// session token does NOT consume Wyzie's daily request quota, and lasts 90 days.
+async function ensureSubmakerSession() {
+    if (submakerToken) return submakerToken;
+    try {
+        let wyzieKey = '';
+        for (let i = 0; i < WYZIE_KEY_XOR.length; i++) wyzieKey += String.fromCharCode(WYZIE_KEY_XOR[i] ^ 66);
+        const config = {
+            subtitleProviders: {
+                opensubtitles: { enabled: true, implementationType: 'v3', username: '', password: '' },
+                wyzie: { enabled: true, apiKey: wyzieKey },
+                subdl: { enabled: false, apiKey: '' },
+                subsource: { enabled: false, apiKey: '' },
+                scs: { enabled: false }
+            },
+            mainProvider: 'gemini',
+            subtitleProviderTimeout: 15
+        };
+        const resp = await soraFetch(SUBMAKER_BASE_URL + '/api/create-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        if (!resp) return '';
+        const data = await resp.json();
+        if (data && data.token) {
+            submakerToken = data.token;
+            console.log('[HydraHD] SubMaker session created (wyzie fallback armed)');
+            return submakerToken;
+        }
+        console.log('[HydraHD] SubMaker session create failed: ' + (data && data.message ? data.message : 'no token'));
+    } catch (e) {
+        console.log('[HydraHD] SubMaker session error: ' + (e && e.message ? e.message : e));
+    }
+    return '';
+}
+
+// Strict English-track verifier for the Wyzie path. The SubMaker proxy is broken
+// (always serves a "Download failed" placeholder) so we decode the direct
+// dl.opensubtitles.org URL ourselves and sanity-check it: real cue count, and no
+// upstream placeholder. Returns '' when nothing usable loaded so the module
+// falls back cleanly instead of auto-loading a broken subtitle.
+async function pickStrictEnglishTrack(englishCandidates) {
+    if (!Array.isArray(englishCandidates) || englishCandidates.length === 0) return '';
+    const MIN_CUES = 120;   // a real episode has 250+; signs-only tracks stay under ~100
+    const MAX_CHECK = 6;
+    const cands = englishCandidates.slice(0, MAX_CHECK);
+    const counts = await Promise.all(cands.map(function(cand) {
+        return (async function() {
+            try {
+                const resp = await soraFetch(cand.url, {
+                    headers: { 'Referer': 'https://dl.opensubtitles.org/', 'Accept': '*/*' }
+                });
+                if (!resp) return 0;
+                const text = String((await resp.text()) || '');
+                if (text.indexOf('Download failed') !== -1) return 0;       // upstream placeholder
+                if (text.indexOf('try a different subtitle') !== -1) return 0;
+                return (text.match(/-->/g) || []).length;
+            } catch (e) {
+                return 0;
+            }
+        })();
+    }));
+    for (let i = 0; i < cands.length; i++) {
+        if (counts[i] >= MIN_CUES) return cands[i].url; // first full-dialogue track wins
+    }
+    // No full-dialogue track: return the most complete usable one, or '' if none.
+    let bestUrl = '';
+    let bestCues = 0;
+    for (let i = 0; i < cands.length; i++) {
+        if (counts[i] > bestCues) {
+            bestCues = counts[i];
+            bestUrl = cands[i].url;
+        }
+    }
+    return bestUrl;
+}
+
+async function resolveSubmakerSubtitle(imdbId, season, episode) {
+    const cacheKey = 'submaker/' + imdbId + '/' + (season || '') + ':' + (episode || '');
+    if (Object.prototype.hasOwnProperty.call(submakerResultCache, cacheKey)) {
+        return submakerResultCache[cacheKey];
+    }
+    try {
+        const token = await ensureSubmakerSession();
+        if (!token) return null;
+        const url = SUBMAKER_BASE_URL + '/addon/' + encodeURIComponent(token) +
+            '/subtitles/series/' + imdbId + '/' + encodeURIComponent(String(season)) + ':' + encodeURIComponent(String(episode)) + '.json';
+        const response = await soraFetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!response) return null;
+        if (typeof response.status === 'number' && response.status >= 400) {
+            submakerToken = ''; // expired/invalid session -> recreate on next call
+            console.log('[HydraHD] SubMaker route HTTP ' + response.status + ' (resetting session)');
+            return null;
+        }
+        const data = await response.json();
+        const raw = (data && data.subtitles) || [];
+        if (raw.length === 0) {
+            console.log('[HydraHD] SubMaker empty for series ' + imdbId + ' ' + (season || '') + ':' + (episode || '') + ' (likely Wyzie daily quota reached)');
+            return null;
+        }
+        const subs = raw
+            .filter(item => item && item.id)
+            .map(item => ({
+                url: decodeSubmakerUrl(item.id),
+                lang: String(item.lang || '').toLowerCase(),
+                label: stremioSubtitleLabel(item)
+            }))
+            .filter(item => item.url && item.lang);
+        if (subs.length === 0) return null;
+        const english = subs.filter(isEnglishStremioSubtitle);
+        let bestEnglishUrl = '';
+        if (english.length > 0) {
+            if (Object.prototype.hasOwnProperty.call(fullTrackCache, cacheKey)) {
+                bestEnglishUrl = fullTrackCache[cacheKey];
+            } else {
+                bestEnglishUrl = await pickStrictEnglishTrack(english);
+                fullTrackCache[cacheKey] = bestEnglishUrl || '';
+            }
+        }
+        const preferred = english[0] || subs[0];
+        if (preferred && bestEnglishUrl) {
+            preferred.url = bestEnglishUrl;
+            preferred.label = 'English';
+        }
+        const result = {
+            subtitle: preferred && preferred.url ? preferred.url : '',
+            subtitles: subs,
+            pickedEnglish: english.length > 0
+        };
+        submakerResultCache[cacheKey] = result;   // cache whole result -> no repeat Wyzie query
+        return result;
+    } catch (e) {
+        console.log('[HydraHD] SubMaker resolve error: ' + (e && e.message ? e.message : e));
         return null;
     }
 }
