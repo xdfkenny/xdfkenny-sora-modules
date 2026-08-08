@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.31 (forced subtitle list + parallel providers, faster)');
+console.log('[HydraHD] module script loaded v1.0.32 (forced subtitle list + server stream picker compat fields)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -243,9 +243,13 @@ async function extractStreamUrl(url) {
                         const embedOrigin = (function() {
                             try { return new URL(entry.link).origin; } catch (e) { return ''; }
                         })();
+                        const streamTitle = entry.name || getServerTitle(entry.link);
                         streams.push({
-                            title: entry.name || getServerTitle(entry.link),
+                            title: streamTitle,
+                            name: streamTitle,
+                            quality: streamTitle,
                             streamUrl: resolved.streamUrl,
+                            url: resolved.streamUrl,
                             headers: embedOrigin ? {
                                 'Referer': embedOrigin + '/',
                                 'Origin': embedOrigin,
@@ -265,7 +269,10 @@ async function extractStreamUrl(url) {
                 if (vidsrcResult && vidsrcResult.streamUrl) {
                     streams.push({
                         title: 'VidSrc',
+                        name: 'VidSrc',
+                        quality: 'VidSrc',
                         streamUrl: vidsrcResult.streamUrl,
+                        url: vidsrcResult.streamUrl,
                         headers: vidsrcResult.headers || { 'Referer': 'https://vidsrc.hair/' }
                     });
                     if (!subtitle && vidsrcResult.subtitle) subtitle = vidsrcResult.subtitle;
@@ -280,7 +287,10 @@ async function extractStreamUrl(url) {
                 if (vidfastResult && vidfastResult.streamUrl) {
                     streams.push({
                         title: 'VidFast',
+                        name: 'VidFast',
+                        quality: 'VidFast',
                         streamUrl: vidfastResult.streamUrl,
+                        url: vidfastResult.streamUrl,
                         headers: {
                             'Referer': 'https://vidfast.vc/',
                             'Origin': 'https://vidfast.vc',
