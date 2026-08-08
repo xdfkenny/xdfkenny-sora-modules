@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.29 (OS REST keyless subs + 3 extra embed-server resolvers)');
+console.log('[HydraHD] module script loaded v1.0.30 (OS REST keyless subs + embedded playlist subtitle list + 3 extra embed-server resolvers)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -322,6 +322,30 @@ async function extractStreamUrl(url) {
             subtitle = 'https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/1957577261';
             console.log('[HydraHD] Canary subtitle injected for Spider-Man No Way Home');
         }
+        // Embedded subtitle tracks ride in the master playlist itself (the same
+        // language selector the web player shows). Resolve each #EXT-X-MEDIA
+        // SUBTITLES rendition down to its real .vtt file — the playlist URI is
+        // just an HLS wrapper around one WebVTT segment. All languages surface
+        // in the picker; providers above keep priority for English since they
+        // are cue-verified full dialogue.
+        try {
+            const primaryHls = streams.length > 0 ? streams[0].streamUrl : null;
+            if (primaryHls && /\.m3u8|playlist/i.test(primaryHls)) {
+                const playlistTracks = await extractPlaylistSubtitleTracks(primaryHls);
+                if (playlistTracks.length) {
+                    subtitleList = (subtitleList || []).concat(playlistTracks);
+                    if (!subtitle) {
+                        const engTrack = playlistTracks.find(function(t) {
+                            return /^en$/i.test(String(t.lang)) || /(^|\s)english/i.test(String(t.label || ''));
+                        });
+                        if (engTrack) subtitle = engTrack.url;
+                    }
+                    console.log('[HydraHD] Playlist subs added langs=[' + playlistTracks.map(function(t) { return t.lang; }).join(',') + ']');
+                }
+            }
+        } catch (e) {
+            console.error('[HydraHD] Playlist subs error:', e.message);
+        }
     } catch (error) {
         console.error('Stream extraction error:', error);
     }
@@ -498,6 +522,47 @@ async function resolveXpassLink(ctx) {
         } catch (e) { /* try next mdata id */ }
     }
     return null;
+}
+
+// Embedded playlist subtitle tracks: the master playlist's #EXT-X-MEDIA
+// SUBTITLES lines are each an HLS wrapper around a single WebVTT segment.
+// Follow each wrapper to the real .vtt so the app can render it, and return
+// one {url, lang, label} entry per track (all languages the playout offers).
+async function extractPlaylistSubtitleTracks(masterUrl) {
+    const tracks = [];
+    try {
+        const r = await soraFetchTimed(masterUrl, {
+            headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/vnd.apple.mpegurl' }
+        }, 10000);
+        if (!r) return tracks;
+        const text = await r.text();
+        const mediaRe = /#EXT-X-MEDIA:[^\r\n]*/g;
+        let line;
+        while ((line = mediaRe.exec(text)) !== null) {
+            const entry = line[0];
+            if (!/TYPE=(?:SUBTITLES|subtitles)/.test(entry)) continue;
+            const name = (entry.match(/NAME="([^"]*)"/) || [])[1] || '';
+            const langCode = (entry.match(/LANGUAGE="([^"]*)"/) || [])[1] || '';
+            const uriAttr = (entry.match(/URI="([^"]*)"/) || [])[1] || '';
+            if (!uriAttr) continue;
+            const wrapperUrl = uriAttr.startsWith('http') ? uriAttr : new URL(uriAttr, masterUrl).href;
+            try {
+                const wr = await soraFetchTimed(wrapperUrl, {
+                    headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/vnd.apple.mpegurl' }
+                }, 8000);
+                if (!wr) continue;
+                const wt = await wr.text();
+                const vttMatch = wt.match(/https?:\/\/[^\s"'<>]+\.vtt[^\s"'<>]*/);
+                if (!vttMatch) continue;
+                tracks.push({
+                    url: vttMatch[0],
+                    lang: (langCode || '').toLowerCase() || (name || '').toLowerCase().slice(0, 3),
+                    label: name || 'Subtitle'
+                });
+            } catch (e) { /* skip this rendition */ }
+        }
+    } catch (e) { /* no embedded tracks */ }
+    return tracks;
 }
 
 function extractSubtitleUrl(text, baseUrl) {
@@ -947,13 +1012,14 @@ const SUB_LANG_NAMES = {
     zho: 'Chinese (Simplified)', zht: 'Chinese (Traditional)', jpn: 'Japanese',
     kor: 'Korean', rus: 'Russian', ara: 'Arabic', tur: 'Turkish', pol: 'Polish',
     hin: 'Hindi', ind: 'Indonesian', msa: 'Malay', vie: 'Vietnamese', tha: 'Thai',
-    nld: 'Dutch', dut: 'Dutch', ell: 'Greek', swe: 'Swedish', fin: 'Finnish',
+    nld: 'Dutch', dut: 'Dutch', ell: 'Greek', gre: 'Greek', swe: 'Swedish', fin: 'Finnish',
     dan: 'Danish', nor: 'Norwegian', hun: 'Hungarian', cze: 'Czech', ces: 'Czech',
     slk: 'Slovak', slv: 'Slovenian', bul: 'Bulgarian', hrv: 'Croatian',
     srp: 'Serbian', bos: 'Bosnian', ukr: 'Ukrainian', ron: 'Romanian',
     heb: 'Hebrew', est: 'Estonian', lav: 'Latvian', lit: 'Lithuanian',
     mal: 'Malayalam', tam: 'Tamil', tel: 'Telugu', ben: 'Bengali', fil: 'Filipino',
-    cat: 'Catalan', glg: 'Galician', eus: 'Basque', cym: 'Welsh', alb: 'Albanian'
+    cat: 'Catalan', glg: 'Galician', eus: 'Basque', cym: 'Welsh', alb: 'Albanian',
+    'forced-ita': 'Italian (Forced)', 'forced-eng': 'English (Forced)'
 };
 
 function subtitleLanguageName(lang) {
