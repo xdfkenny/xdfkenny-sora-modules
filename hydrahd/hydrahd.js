@@ -14,7 +14,20 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.35 (fix 50/50: absolute ajax referer, OS REST retry+unverified fallback, HLS verify, staggered burst)');
+console.log('[HydraHD] module script loaded v1.0.36 (workers never abort the result + allSettled polyfill)');
+
+// The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
+// single rejected worker can never abort the whole stream extraction.
+if (typeof Promise.allSettled !== 'function') {
+    Promise.allSettled = function(promises) {
+        return Promise.all(promises.map(function(p) {
+            return Promise.resolve(p).then(
+                function(value) { return { status: 'fulfilled', value: value }; },
+                function(reason) { return { status: 'rejected', reason: reason }; }
+            );
+        }));
+    };
+}
 
 // Normalize whatever the app's fetch/fetchv2 returned into a Response-like
 // object. Some app builds resolve with the body STRING instead of a Response
@@ -265,9 +278,12 @@ async function extractStreamUrl(url) {
         }
         if (serverEntries.length === 0) {
             // Fallback: no named buttons found — use every embed link in order.
-            [...ajaxHtml.matchAll(/data-link="([^"]+)"/g)].forEach(function(m) {
-                serverEntries.push({ name: getServerTitle(m[1]), link: m[1] });
-            });
+            // RegExp.exec loop (not matchAll) so it works on older JavaScriptCore.
+            const linkRe = /data-link="([^"]+)"/g;
+            let linkMatch;
+            while ((linkMatch = linkRe.exec(ajaxHtml)) !== null) {
+                serverEntries.push({ name: getServerTitle(linkMatch[1]), link: linkMatch[1] });
+            }
         }
         // Host-specific resolvers need the ids + episode context: Golf/MoviesAPI
         // uses the Vidora API, Hydra2/VixSrc mints a playlist token, Whiskey/
@@ -290,84 +306,101 @@ async function extractStreamUrl(url) {
         }
         // Worker 1: every named server button, in parallel batches.
         const serverWorker = (async function() {
-            const BATCH = 6;
-            for (let i = 0; i < serverEntries.length; i += BATCH) {
-                if (timeLeft() < 8000) break;
-                const batch = serverEntries.slice(i, i + BATCH);
-                await Promise.all(batch.map(async function(entry) {
-                    try {
-                        const resolved = await resolveServerLink(entry.link, ctxInfo);
-                        if (resolved && resolved.streamUrl) {
-                            const embedOrigin = (function() {
-                                try { return new URL(entry.link).origin; } catch (e) { return ''; }
-                            })();
-                            pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
-                                embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
-                            if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                        }
-                    } catch (e) { /* keep trying the next server */ }
-                }));
+            try {
+                const BATCH = 6;
+                for (let i = 0; i < serverEntries.length; i += BATCH) {
+                    if (timeLeft() < 8000) break;
+                    const batch = serverEntries.slice(i, i + BATCH);
+                    await Promise.all(batch.map(async function(entry) {
+                        try {
+                            const resolved = await resolveServerLink(entry.link, ctxInfo);
+                            if (resolved && resolved.streamUrl) {
+                                const embedOrigin = (function() {
+                                    try { return new URL(entry.link).origin; } catch (e) { return ''; }
+                                })();
+                                pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
+                                    embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
+                                if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                            }
+                        } catch (e) { /* keep trying the next server */ }
+                    }));
+                }
+                console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
+            } catch (e) {
+                console.error('[HydraHD] Server worker error:', e && e.message ? e.message : e);
             }
-            console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
         })();
         // Worker 2: the keyless hosts need only the IDs, so they resolve even
         // when the ajax button fragment failed to parse in-app.
         const keylessWorker = (async function() {
-            const directHosts = [
-                { name: 'Hydra2 (Original)', origin: 'https://vixsrc.to/', fn: resolveVixsrcLink },
-                { name: 'Golf (Original)', origin: 'https://moviesapi.to/', fn: resolveMoviesapiLink },
-                { name: 'Whiskey (Original)', origin: 'https://play.xpass.top/', fn: resolveXpassLink }
-            ];
-            await Promise.all(directHosts.map(async function(host) {
-                if (timeLeft() < 4000) return;
-                try {
-                    const resolved = await host.fn(ctxInfo);
-                    if (resolved && resolved.streamUrl) {
-                        pushStream(host.name, resolved.streamUrl, { 'Referer': host.origin, 'Origin': host.origin });
-                    }
-                } catch (e) { /* skip this host */ }
-            }));
-            console.log('[HydraHD] Direct keyless streams=' + streams.length);
+            try {
+                const directHosts = [
+                    { name: 'Hydra2 (Original)', origin: 'https://vixsrc.to/', fn: resolveVixsrcLink },
+                    { name: 'Golf (Original)', origin: 'https://moviesapi.to/', fn: resolveMoviesapiLink },
+                    { name: 'Whiskey (Original)', origin: 'https://play.xpass.top/', fn: resolveXpassLink }
+                ];
+                await Promise.all(directHosts.map(async function(host) {
+                    if (timeLeft() < 4000) return;
+                    try {
+                        const resolved = await host.fn(ctxInfo);
+                        if (resolved && resolved.streamUrl) {
+                            pushStream(host.name, resolved.streamUrl, { 'Referer': host.origin, 'Origin': host.origin });
+                        }
+                    } catch (e) { /* skip this host */ }
+                }));
+                console.log('[HydraHD] Direct keyless streams=' + streams.length);
+            } catch (e) {
+                console.error('[HydraHD] Keyless worker error:', e && e.message ? e.message : e);
+            }
         })();
         // Worker 3+4: VidSrc/VidFast mirrors — the hosts the app can actually
         // reach when origin embed sites block it. Always offered as selectable
         // streams so the server list is never empty.
         const mirrorWorker = (async function() {
-            async function addMirror(title, origin, resolver) {
-                if (streams.length >= 6 || timeLeft() < 5000) return;
-                try {
-                    const resolved = await resolver();
-                    if (resolved && resolved.streamUrl) {
-                        pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
-                        if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+            try {
+                async function addMirror(title, origin, resolver) {
+                    if (streams.length >= 6 || timeLeft() < 5000) return;
+                    try {
+                        const resolved = await resolver();
+                        if (resolved && resolved.streamUrl) {
+                            pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
+                            if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                        }
+                    } catch (e) {
+                        console.error(title + ' resolution failed:', e.message);
                     }
-                } catch (e) {
-                    console.error(title + ' resolution failed:', e.message);
                 }
+                await addMirror('VidSrc', 'https://vidsrc.hair/', function() {
+                    return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 10000));
+                });
+                await addMirror('VidFast', 'https://vidfast.vc/', function() {
+                    return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
+                });
+            } catch (e) {
+                console.error('[HydraHD] Mirror worker error:', e && e.message ? e.message : e);
             }
-            await addMirror('VidSrc', 'https://vidsrc.hair/', function() {
-                return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 10000));
-            });
-            await addMirror('VidFast', 'https://vidfast.vc/', function() {
-                return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
-            });
         })();
         // Subtitle providers run at the same time as the stream workers, with
         // a small stagger so the initial burst doesn't trip rate limits on the
         // free subtitle APIs (rest.opensubtitles.org / community addon).
         let merged = null;
         const subsWorker = (async function() {
-            if (!imdbId) return;
-            await new Promise(function(resolve) { setTimeout(resolve, 800); });
-            const [osRestResult, stremioResult, communityResult] = await Promise.all([
-                resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
-                resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
-                resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)
-            ]);
-            merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
+            try {
+                if (!imdbId) return;
+                await new Promise(function(resolve) { setTimeout(resolve, 800); });
+                const [osRestResult, stremioResult, communityResult] = await Promise.all([
+                    resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
+                    resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
+                    resolveCommunitySubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum)
+                ]);
+                merged = mergeSubtitleResults(stremioResult, communityResult, osRestResult);
+            } catch (e) {
+                console.error('[HydraHD] Subs worker error:', e && e.message ? e.message : e);
+            }
         })();
-        // Everything runs concurrently; wait for the slowest worker only.
-        await Promise.all([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
+        // Everything runs concurrently; a worker failure must NEVER abort the
+        // whole result (that was killing streams even when they succeeded).
+        await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
         if (merged && merged.subtitles && merged.subtitles.length > 0) {
             subtitleList = merged.subtitles;
             // Auto-load only when a full-dialogue English track was verified;
@@ -564,7 +597,12 @@ async function resolveXpassLink(ctx) {
     }, 12000);
     if (!pr) return null;
     const pageHtml = await pr.text();
-    const mdataIds = [...pageHtml.matchAll(/mdata\/([A-Za-z0-9_-]{16,})/g)];
+    const mdataIds = [];
+    const mdataRe = /mdata\/([A-Za-z0-9_-]{16,})/g;
+    let mdataMatch;
+    while ((mdataMatch = mdataRe.exec(pageHtml)) !== null) {
+        mdataIds.push(mdataMatch);
+    }
     for (const m of mdataIds) {
         try {
             const mdataUrl = `https://play.xpass.top/mdata/${m[1]}/1/playlist.json`;

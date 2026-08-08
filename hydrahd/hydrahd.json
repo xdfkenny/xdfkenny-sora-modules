@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Streams: servidores embebidos + resolvers keyless (VixSrc, MoviesAPI, xpass) + espejos VidSrc/VidFast siempre listados, todo en paralelo (asyncJS) con timeouts acotados; fetch endurecido para el puente de la app. Subtítulos: lista completa de idiomas (playlist + OpenSubtitles REST con retry y fallback sin verificar + v3 + Community), inglés verificado se autoselecciona. Corrección de intermitencias: Referer absoluto para el ajax de series, verificación HLS real de espejos, ráfaga escalonada. Sin claves API.",
-  "version": "1.0.35",
+  "description": "Módulo de HydraHD (hydrahd.ru) — películas y series en inglés (sub/dub) en 1080p. Streams: servidores embebidos + resolvers keyless (VixSrc, MoviesAPI, xpass) + espejos VidSrc/VidFast siempre listados, todo en paralelo con timeouts acotados; un fallo de un worker NUNCA aborta el resultado (Promise.allSettled + polyfill). Subtítulos: lista completa de idiomas (playlist + OpenSubtitles REST con retry/fallback + v3 + Community), inglés verificado se autoselecciona. Compatible con JavaScriptCore sin matchAll. Sin claves API.",
+  "version": "1.0.36",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
