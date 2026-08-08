@@ -4,7 +4,7 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.20 (subtitle language curation ACTIVE)');
+console.log('[HydraHD] module script loaded v1.0.21 (subtitle language names ACTIVE)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -235,31 +235,38 @@ async function extractStreamUrl(url) {
         console.error('Stream extraction error:', error);
     }
     const primaryStream = streams.length > 0 ? streams[0].streamUrl : null;
-    // One URL per language, English first (see curateSubtitleList). When the
-    // only subtitle is a plain URL (vidfast fallback), keep it as-is.
-    const subtitleStrings = subtitleList.length > 0
-        ? curateSubtitleList(subtitleList)
-        : (subtitle ? [subtitle] : []);
-    const curatedLangs = (function() {
-        if (!Array.isArray(subtitleList) || subtitleList.length === 0) return '';
-        const langOf = {};
-        subtitleList.forEach(function(item) {
-            if (!item || !item.url || langOf[item.url]) return;
-            if (item.lang) langOf[item.url] = item.lang;
-        });
-        return subtitleStrings.map(function(url) { return langOf[url] || '?'; }).join(',');
-    })();
+    // Curate one entry per language (English first), then emit them as
+    // alternating [label, url, label, url, ...] pairs. Sora's subtitle picker
+    // understands this convention and shows the label ("English", "Spanish",
+    // ...) instead of generic "Subtitle 1/2/3". When the only subtitle is a
+    // plain URL (vidfast fallback), keep it as-is.
+    const curatedEntries = subtitleList.length > 0 ? curatedSubtitleEntries(subtitleList) : [];
+    const subtitlePairs = [];
+    curatedEntries.forEach(function(entry) {
+        subtitlePairs.push(subtitleLanguageName(entry.lang), entry.url);
+    });
+    let finalSubtitles;
+    if (subtitlePairs.length > 2) {
+        finalSubtitles = subtitlePairs;                 // [label,url,label,url,...]
+    } else if (subtitlePairs.length === 2) {
+        finalSubtitles = subtitlePairs[1];              // single language -> bare URL
+    } else if (subtitle) {
+        finalSubtitles = subtitle;                      // plain URL fallback (vidfast)
+    } else {
+        finalSubtitles = [];
+    }
     if (subtitle) {
         streams.forEach(function(stream) {
             if (stream && !stream.subtitle) stream.subtitle = subtitle;
         });
     }
-    console.log('[HydraHD] Return summary streams=' + streams.length + ' primary=' + (primaryStream ? primaryStream.slice(0, 120) : 'null') + ' subtitle=' + (subtitle ? subtitle.slice(0, 120) : 'null') + ' subtitleEntries=' + subtitleStrings.length + ' langs=[' + curatedLangs + ']' + (subtitleStrings.length ? ' first=' + subtitleStrings[0].slice(0, 90) : ''));
+    const subsLog = curatedEntries.map(function(entry) { return subtitleLanguageName(entry.lang); }).join(',');
+    console.log('[HydraHD] Return summary streams=' + streams.length + ' primary=' + (primaryStream ? primaryStream.slice(0, 120) : 'null') + ' subtitle=' + (subtitle ? subtitle.slice(0, 120) : 'null') + ' subtitleCount=' + curatedEntries.length + ' subs=[' + subsLog + ']');
     return JSON.stringify({
         stream: primaryStream,
         streams,
         subtitle,
-        subtitles: subtitleStrings.length === 1 ? subtitleStrings[0] : subtitleStrings
+        subtitles: finalSubtitles
     });
 }
 
@@ -411,13 +418,36 @@ const SUB_LANG_RANK = {
     ukr: 32, ron: 33, heb: 34, est: 35, lav: 36, lit: 37, slk: 38, slv: 39
 };
 
-// Shrink a subtitle list to ONE URL per language and order it with English
-// first. Stremio returns many duplicate-language tracks (66 for one movie);
-// the app only ever displays the URL strings and auto-loads the first one,
-// so this dedupes to the unique languages and guarantees the auto-loaded
-// track is English. For each language a clean UTF-8 URL is preferred over a
-// legacy cp1250 one (?senc=cp1250) so the subtitle decodes correctly.
-function curateSubtitleList(subtitleList) {
+// Human-readable names for the subtitle picker. Sora's subtitle picker supports
+// an alternating [label, url, label, url, ...] convention: a non-URL string
+// followed by a URL is shown as that URL's label. Emitting these names is what
+// makes the app display "English", "Spanish", ... instead of "Subtitle 1/2/3".
+const SUB_LANG_NAMES = {
+    eng: 'English', spa: 'Spanish', por: 'Portuguese', pob: 'Portuguese (BR)',
+    fre: 'French', fra: 'French', deu: 'German', ger: 'German', ita: 'Italian',
+    zho: 'Chinese (Simplified)', zht: 'Chinese (Traditional)', jpn: 'Japanese',
+    kor: 'Korean', rus: 'Russian', ara: 'Arabic', tur: 'Turkish', pol: 'Polish',
+    hin: 'Hindi', ind: 'Indonesian', msa: 'Malay', vie: 'Vietnamese', tha: 'Thai',
+    nld: 'Dutch', dut: 'Dutch', ell: 'Greek', swe: 'Swedish', fin: 'Finnish',
+    dan: 'Danish', nor: 'Norwegian', hun: 'Hungarian', cze: 'Czech', ces: 'Czech',
+    slk: 'Slovak', slv: 'Slovenian', bul: 'Bulgarian', hrv: 'Croatian',
+    srp: 'Serbian', bos: 'Bosnian', ukr: 'Ukrainian', ron: 'Romanian',
+    heb: 'Hebrew', est: 'Estonian', lav: 'Latvian', lit: 'Lithuanian',
+    mal: 'Malayalam', tam: 'Tamil', tel: 'Telugu', ben: 'Bengali', fil: 'Filipino',
+    cat: 'Catalan', glg: 'Galician', eus: 'Basque', cym: 'Welsh', alb: 'Albanian'
+};
+
+function subtitleLanguageName(lang) {
+    const l = String(lang || '').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(SUB_LANG_NAMES, l)) return SUB_LANG_NAMES[l];
+    return l ? l.toUpperCase() : 'Subtitle';
+}
+
+// Shrink a subtitle list to ONE entry per language and order it with English
+// first. Stremio returns many duplicate-language tracks (66 for one movie),
+// so this dedupes to the unique languages. For each language a clean UTF-8 URL
+// is preferred over a legacy cp1250 one (?senc=cp1250) so it decodes correctly.
+function curatedSubtitleEntries(subtitleList) {
     if (!Array.isArray(subtitleList) || subtitleList.length === 0) return [];
     const byLang = {};
     subtitleList.forEach(function(item) {
@@ -442,7 +472,7 @@ function curateSubtitleList(subtitleList) {
         if (a.rank !== b.rank) return a.rank - b.rank;
         return a.lang < b.lang ? -1 : (a.lang > b.lang ? 1 : 0);
     });
-    return entries.map(function(entry) { return entry.url; });
+    return entries;
 }
 
 
