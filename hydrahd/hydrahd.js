@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.34 (all workers parallel: servers+keyless+mirrors+subs, hardened fetch, bounded timeouts)');
+console.log('[HydraHD] module script loaded v1.0.35 (fix 50/50: absolute ajax referer, OS REST retry+unverified fallback, HLS verify, staggered burst)');
 
 // Normalize whatever the app's fetch/fetchv2 returned into a Response-like
 // object. Some app builds resolve with the body STRING instead of a Response
@@ -233,9 +233,12 @@ async function extractStreamUrl(url) {
             ajaxParams = { i: imdbId, t: tmdbId, s: season, e: episodeNum };
         }
         const paramString = Object.keys(ajaxParams).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(ajaxParams[k])).join('&');
+        // Referer must be the ABSOLUTE page URL — the app hands series episode
+        // links as relative hrefs (/watchseries/...), and a relative Referer
+        // makes hydrahd return a non-ajax page (0 server buttons in-app).
         const ajaxResponse = await soraFetch(`${ajaxUrl}?${paramString}`, {
             headers: {
-                'Referer': url,
+                'Referer': fullUrl,
                 'X-Requested-With': 'XMLHttpRequest',
             }
         });
@@ -349,10 +352,13 @@ async function extractStreamUrl(url) {
                 return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
             });
         })();
-        // Subtitle providers run at the same time as the stream workers.
+        // Subtitle providers run at the same time as the stream workers, with
+        // a small stagger so the initial burst doesn't trip rate limits on the
+        // free subtitle APIs (rest.opensubtitles.org / community addon).
         let merged = null;
         const subsWorker = (async function() {
             if (!imdbId) return;
+            await new Promise(function(resolve) { setTimeout(resolve, 800); });
             const [osRestResult, stremioResult, communityResult] = await Promise.all([
                 resolveOsRestSubtitle(imdbId, isMovie, season, episodeNum),
                 resolveStremioSubtitle(imdbId, isMovie ? 'movie' : 'series', season, episodeNum),
@@ -913,9 +919,18 @@ async function resolveOsRestSubtitle(imdbId, isMovie, season, episode) {
         }
         url += '/sublanguageid-eng';
         const headers = { 'X-User-Agent': 'trailers.to-UA', 'Accept': 'application/json' };
-        const response = await soraFetch(url, { headers });
-        if (!response) return null;
-        const data = await response.json();
+        let data = null;
+        const fetchSearch = async function() {
+            const response = await soraFetch(url, { headers });
+            if (!response) return null;
+            return response.json().catch(function() { return null; });
+        };
+        data = await fetchSearch();
+        if (!Array.isArray(data) || data.length === 0) {
+            // Transient throttle / empty reply (flaky in-app): retry once.
+            await new Promise(function(resolve) { setTimeout(resolve, 1500); });
+            data = await fetchSearch();
+        }
         if (!Array.isArray(data) || data.length === 0) return null;
         // Map hits to direct plain-SRT download URLs (filead serves utf-8 SRT
         // with no gzip, no token). English-only: the search was eng, but
@@ -938,7 +953,19 @@ async function resolveOsRestSubtitle(imdbId, isMovie, season, episode) {
         // plaintext SRT and counting cues (real episodes have 250+, signs-only
         // tracks stay under ~100, and OS "ads"/placeholder stubs have few).
         const verified = await verifyOsRestTracks(candidates);
-        if (verified.length === 0) return null;
+        if (verified.length === 0) {
+            // Verification downloads failed (flaky in-app network). Never give
+            // up silently — surface the raw English candidates as the picker
+            // list WITHOUT auto-load, so series still show subtitles the user
+            // can choose from.
+            const fallbackResult = {
+                subtitle: '',
+                subtitles: candidates,
+                pickedEnglish: false
+            };
+            osRestCache[cacheKey] = fallbackResult;
+            return fallbackResult;
+        }
         const result = {
             subtitle: verified[0].url,
             subtitles: verified,
@@ -1294,8 +1321,9 @@ async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = nu
 
 async function verifyStreamUrl(streamUrl) {
     try {
+        // A .m3u8 URL is HLS by construction — trust the extension.
+        if (/\.m3u8/i.test(streamUrl)) return true;
         const response = await soraFetch(streamUrl, {
-            method: 'HEAD',
             headers: { 'User-Agent': USER_AGENT, 'Referer': 'https://vidsrc.hair/' }
         });
         if (!response) return false;
@@ -1307,8 +1335,13 @@ async function verifyStreamUrl(streamUrl) {
         } else if (response.headers && response.headers['content-type']) {
             contentType = String(response.headers['content-type']).toLowerCase();
         }
-        if (!contentType) return true;
-        return !contentType.startsWith('text/html');
+        // Non-HLS pages (HTML players, ads) are rejected. Mirrors sometimes
+        // serve the playlist under a .txt/.m3u8-less URL — accept only when
+        // the body actually looks like an HLS manifest.
+        if (contentType && contentType.startsWith('text/html')) return false;
+        const body = String((await response.text()) || '').slice(0, 2000);
+        if (/\.m3u8|\.txt/i.test(streamUrl)) return body.indexOf('#EXTM3U') !== -1;
+        return true;
     } catch (e) {
         return false;
     }
