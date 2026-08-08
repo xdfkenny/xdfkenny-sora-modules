@@ -101,7 +101,7 @@ async function extractEpisodes(url) {
 
         const episodes = [];
         const seen = new Set();
-        const epRe = /href="(\/serie\/[^"]*temporada\/(\d+)\/capitulo\/(\d+))"/g;
+        const epRe = /href="(\/(?:serie|anime)\/[^"]*temporada\/(\d+)\/capitulo\/(\d+))"/g;
         let match;
         while ((match = epRe.exec(html)) !== null) {
             const href = BASE_URL + match[1];
