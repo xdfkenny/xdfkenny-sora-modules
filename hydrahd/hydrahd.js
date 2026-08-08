@@ -4,7 +4,7 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.19 (subtitle language curation ACTIVE)');
+console.log('[HydraHD] module script loaded v1.0.20 (subtitle language curation ACTIVE)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -241,14 +241,13 @@ async function extractStreamUrl(url) {
         ? curateSubtitleList(subtitleList)
         : (subtitle ? [subtitle] : []);
     const curatedLangs = (function() {
-        if (!Array.isArray(subtitleList)) return '';
-        const seen = [];
+        if (!Array.isArray(subtitleList) || subtitleList.length === 0) return '';
+        const langOf = {};
         subtitleList.forEach(function(item) {
-            if (!item || !item.lang) return;
-            const l = String(item.lang).toLowerCase();
-            if (seen.indexOf(l) === -1) seen.push(l);
+            if (!item || !item.url || langOf[item.url]) return;
+            if (item.lang) langOf[item.url] = item.lang;
         });
-        return seen.join(',');
+        return subtitleStrings.map(function(url) { return langOf[url] || '?'; }).join(',');
     })();
     if (subtitle) {
         streams.forEach(function(stream) {
