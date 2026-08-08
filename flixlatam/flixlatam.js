@@ -155,29 +155,31 @@ async function extractStreamUrl(url) {
         const embeds = await resolveVidurl(iframeMatch[1]);
         if (!embeds || embeds.length === 0) return JSON.stringify(fallback);
 
-        // Resolve every resolvable embed in parallel — each VidHide/voe embed
-        // needs its own network round trips (and voe its Altcha solve), so
-        // serial awaits would stack several seconds per server and leave the
-        // app stuck on "loading stream".
-        const jobs = [];
-        const seen = new Set(); // "server|lang" — VidHide AND voe are both offered per language
-        // Prefer LAT/ESP (dubbed) over SUB/VOSE (subtitled), keeping both.
-        const ordered = embeds.slice().sort(function (a, b) {
-            return langPriority(a.lang) - langPriority(b.lang);
-        });
-        for (let i = 0; i < ordered.length; i++) {
-            const e = ordered[i];
-            // VidHide and voe resolve fully server-side; other servers (e.g.
-            // streamwish) need a real browser and are skipped.
-            if (e.server !== 'vidhide' && e.server !== 'voe') continue;
-            const langKey = e.lang || 'lat';
-            const dedupKey = e.server + '|' + langKey;
-            if (seen.has(dedupKey)) continue;
-            seen.add(dedupKey);
-            jobs.push(e);
-        }
+        // VidHide first, always. Each embed is one round trip; resolving them
+        // in parallel keeps this ~2 fetches. voe is fallback-ONLY: its Altcha
+        // chain needs 4-5 sequential fetches, and in-app each fetchv2 takes
+        // seconds — always running it made movies take 50-80s. Only pay that
+        // cost when VidHide yields nothing.
+        const pick = function (server) {
+            const out = [];
+            const seen = new Set(); // "server|lang"
+            const ordered = embeds.slice().sort(function (a, b) {
+                return langPriority(a.lang) - langPriority(b.lang);
+            });
+            for (let i = 0; i < ordered.length; i++) {
+                const e = ordered[i];
+                if (e.server !== server) continue;
+                const langKey = e.lang || 'lat';
+                const dedupKey = server + '|' + langKey;
+                if (seen.has(dedupKey)) continue;
+                seen.add(dedupKey);
+                out.push(e);
+                if (out.length >= 6) break;
+            }
+            return out;
+        };
 
-        const resolved = await Promise.all(jobs.map(async function (e) {
+        const resolveEmbed = async function (e) {
             let master;
             let label;
             let headers;
@@ -198,18 +200,28 @@ async function extractStreamUrl(url) {
                 };
             }
             return { e: e, master: master, label: label, headers: headers };
-        }));
+        };
 
-        const streams = [];
-        for (let i = 0; i < resolved.length; i++) {
-            const r = resolved[i];
-            if (!r.master) continue;
-            streams.push({
-                title: (r.e.lang || 'LAT').toUpperCase() + r.label,
-                streamUrl: r.master,
-                headers: r.headers
-            });
-            if (streams.length >= 6) break;
+        const buildStreams = function (resolved) {
+            const streams = [];
+            for (let i = 0; i < resolved.length; i++) {
+                const r = resolved[i];
+                if (!r.master) continue;
+                streams.push({
+                    title: (r.e.lang || 'LAT').toUpperCase() + r.label,
+                    streamUrl: r.master,
+                    headers: r.headers
+                });
+                if (streams.length >= 6) break;
+            }
+            return streams;
+        };
+
+        let streams = buildStreams(await Promise.all(pick('vidhide').map(resolveEmbed)));
+
+        // Fallback: if VidHide came up empty (down/CDN dead), run voe instead.
+        if (streams.length === 0) {
+            streams = buildStreams(await Promise.all(pick('voe').map(resolveEmbed)));
         }
 
         const primary = streams.length > 0 ? streams[0].streamUrl : null;
