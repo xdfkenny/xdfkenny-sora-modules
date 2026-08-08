@@ -150,7 +150,31 @@ async function extractStreamUrl(url) {
         const html = await pageRes.text();
 
         const iframeMatch = html.match(/<iframe[^>]+(?:data-src|src)="([^"]*\/vidurl\/[^"]*)"/);
-        if (!iframeMatch) return JSON.stringify(fallback);
+
+        // No vidurl iframe: some titles (older dubs, doramas) embed a netu
+        // player (waaw.to) directly. Fall back to it.
+        if (!iframeMatch) {
+            const netuMatch = html.match(/<iframe[^>]+(?:data-src|src)="(https?:\/\/(?:waaw|netu)[^"]*\/e\/[^"]*)"/);
+            if (netuMatch) {
+                const master = await resolveNetu(netuMatch[1]);
+                if (!master) return JSON.stringify(fallback);
+                const streams = [{
+                    title: 'LAT (Netu)',
+                    streamUrl: master,
+                    headers: {
+                        'Referer': /^(https?:\/\/[^/]+)/i.exec(netuMatch[1]) ? /^(https?:\/\/[^/]+)/i.exec(netuMatch[1])[1] + '/' : 'https://waaw.to/',
+                        'User-Agent': USER_AGENT
+                    }
+                }];
+                return JSON.stringify({
+                    stream: master,
+                    streams: streams,
+                    subtitle: '',
+                    subtitles: []
+                });
+            }
+            return JSON.stringify(fallback);
+        }
 
         const embeds = await resolveVidurl(iframeMatch[1]);
         if (!embeds || embeds.length === 0) return JSON.stringify(fallback);
@@ -305,6 +329,25 @@ function solvePoW(challenge, difficulty, salt) {
         }
         nonce++;
     }
+}
+
+/* ============================================================
+   LAYER 1b — netu (waaw.to): direct embed, m3u8 in page source
+   ============================================================
+   Some titles (older dubs, doramas) skip the vidurl system and embed
+   the netu player (waaw.to/e/<id>) directly on the episode page.
+   The embed HTML carries the signed HLS master URL in a
+   `src: '...m3u8'` assignment; the page's own player falls back to
+   it. One fetch, no crypto.
+   */
+
+async function resolveNetu(embedUrl) {
+    const res = await soraFetch(embedUrl, { headers: { 'Referer': BASE_URL + '/' } });
+    if (!res) return null;
+    const text = await res.text();
+    const m = text.match(/src:\s*'([^']*m3u8[^']*)'/);
+    if (!m) return null;
+    return m[1];
 }
 
 /* ============================================================
