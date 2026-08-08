@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.28 (OS REST keyless series subs + selectable embed servers)');
+console.log('[HydraHD] module script loaded v1.0.29 (OS REST keyless subs + 3 extra embed-server resolvers)');
 
 async function soraFetch(url, options = {}) {
     const headers = options.headers || {};
@@ -204,12 +204,21 @@ async function extractStreamUrl(url) {
         // Server picker buttons carry the human name ("Hydra1", "Whiskey", ...)
         // next to the embed link; fall back to the domain name when missing.
         const serverEntries = [];
-        const buttonRe = /class="iframe-server-button\s*"[^>]*data-id="\d+"[^>]*data-link="([^"]+)"[^>]*>[^<]*<(?:p|b|span)[^>]*>([^<]+)<\//g;
+        // Server buttons can carry a trailing-space class ("iframe-server-button ")
+        // or the selected-server variant ("iframe-server-button active") — both
+        // must match. The human name sits in the first <p>, the quality tag
+        // ("(Original)"/"(4K)") in the second <p class="iframe-server-quality">.
+        const buttonRe = /<div\s+class="iframe-server-button(?:\s+active)?\s*"[^>]*data-id="\d+"[^>]*data-link="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g;
         let btnMatch;
         while ((btnMatch = buttonRe.exec(ajaxHtml)) !== null) {
-            const name = String(btnMatch[2] || '').trim();
+            const seg = btnMatch[2] || '';
+            const name = (seg.match(/<p[^>]*>\s*([^<]+?)\s*<\/p>/) || [])[1];
             if (name && btnMatch[1]) {
-                serverEntries.push({ name: name, link: btnMatch[1] });
+                const quality = (seg.match(/iframe-server-quality[^>]*>\s*([^<]+?)\s*<\/p>/) || [])[1];
+                serverEntries.push({
+                    name: quality ? (name + ' ' + String(quality).trim()) : String(name).trim(),
+                    link: btnMatch[1]
+                });
             }
         }
         if (serverEntries.length === 0) {
@@ -218,14 +227,18 @@ async function extractStreamUrl(url) {
                 serverEntries.push({ name: getServerTitle(m[1]), link: m[1] });
             });
         }
-                // Resolve every named server in parallel batches (4 at a time, 6s each),
+        // Host-specific resolvers need the ids + episode context: Golf/MoviesAPI
+        // uses the Vidora API, Hydra2/VixSrc mints a playlist token, Whiskey/
+        // xpass exposes mdata playlist files — all keyless like the site does.
+        const ctxInfo = { imdbId: imdbId, tmdbId: tmdbId, isMovie: isMovie, season: season, episode: episodeNum };
+        // Resolve every named server in parallel batches (4 at a time, 6s each),
         // collecting all working streams so the user can pick one in the app.
         const BATCH = 4;
         for (let i = 0; i < serverEntries.length; i += BATCH) {
             const batch = serverEntries.slice(i, i + BATCH);
             await Promise.all(batch.map(async function(entry) {
                 try {
-                    const resolved = await resolveGenericLink(entry.link);
+                    const resolved = await resolveServerLink(entry.link, ctxInfo);
                     if (resolved && resolved.streamUrl) {
                         const embedOrigin = (function() {
                             try { return new URL(entry.link).origin; } catch (e) { return ''; }
@@ -378,6 +391,113 @@ async function resolveGenericLink(link) {
     } catch (e) {
         return null;
     }
+}
+
+// The web player's named servers each resolve through a small keyless API
+// chain (the same calls the site's player JS makes). Without these, most
+// embeds serve no m3u8 in raw HTML and the app showed just one fallback
+// stream. Resolvers below are per-host: MoviesAPI (Golf), VixSrc (Hydra2)
+// and xpass (Whiskey). Everything else falls back to the generic regex scan.
+const MOVIESAPI_PLAYER_KEY = '3a67e8866ae1d2bb9e81fe7f73315a56eb3bdf5e3e755c7554c8be6910aa6b13';
+
+async function resolveServerLink(link, ctx) {
+    const host = (function() {
+        try { return new URL(link).hostname; } catch (e) { return ''; }
+    })();
+    try {
+        if (host === 'moviesapi.to' || host === 'www.moviesapi.to') return await resolveMoviesapiLink(ctx);
+        if (host === 'vixsrc.to' || host === 'www.vixsrc.to') return await resolveVixsrcLink(ctx);
+        if (host === 'play.xpass.top') return await resolveXpassLink(ctx);
+    } catch (e) {
+        // fall through to generic scan for this host
+    }
+    return resolveGenericLink(link);
+}
+
+// Golf: GET https://moviesapi.to/api/vidora/v1/movie/{tmdb} (or /tv/{tmdb}/{s}/{e})
+// with the x-player-key header → response.sources[0].url is the master.m3u8.
+async function resolveMoviesapiLink(ctx) {
+    if (!ctx || !ctx.tmdbId) return null;
+    const apiPath = ctx.isMovie
+        ? `movie/${ctx.tmdbId}`
+        : `tv/${ctx.tmdbId}/${ctx.season || 1}/${ctx.episode || 1}`;
+    const apiUrl = `https://moviesapi.to/api/vidora/v1/${apiPath}`;
+    const r = await soraFetchTimed(apiUrl, {
+        headers: {
+            'Referer': 'https://moviesapi.to/',
+            'Origin': 'https://moviesapi.to',
+            'Accept': 'application/json',
+            'x-player-key': MOVIESAPI_PLAYER_KEY
+        }
+    }, 12000);
+    if (!r) return null;
+    const data = await r.json().catch(function() { return null; });
+    const src = data && data.sources && data.sources[0] && data.sources[0].url;
+    if (!src) return null;
+    return { streamUrl: src, subtitle: '' };
+}
+
+// Hydra2: GET https://vixsrc.to/api/movie/{tmdb} (or /api/tv/{tmdb}/{s}/{e})
+// → {"src":"/embed/{id}?token=...&expires=..."} → fetch the embed page and
+// read window.masterPlaylist.params (token/expires) → playlist URL resolves
+// the multi-audio master (this is the language selector the site shows).
+async function resolveVixsrcLink(ctx) {
+    if (!ctx || !(ctx.tmdbId || ctx.imdbId)) return null;
+    const apiPath = ctx.isMovie ? `movie/${ctx.tmdbId}` : `tv/${ctx.tmdbId}/${ctx.season || 1}/${ctx.episode || 1}`;
+    const apiUrl = `https://vixsrc.to/api/${apiPath}?primaryColor=B20710&autoplay=true`;
+    const ar = await soraFetchTimed(apiUrl, {
+        headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/json' }
+    }, 12000);
+    if (!ar) return null;
+    const ad = await ar.json().catch(function() { return null; });
+    const src = ad && ad.src;
+    if (!src) return null;
+    const embedUrl = src.startsWith('http') ? src : 'https://vixsrc.to' + src;
+    const er = await soraFetchTimed(embedUrl, {
+        headers: { 'Referer': apiUrl, 'Accept': 'text/html' }
+    }, 12000);
+    if (!er) return null;
+    const html = await er.text();
+    const tok = html.match(/['"]token['"]\s*:\s*['"]([0-9a-f]+)/);
+    const exp = html.match(/['"]expires['"]\s*:\s*['"](\d+)/);
+    const pl = html.match(/https:\/\/vixsrc\.to\/playlist\/\d+(?:\?b=1)?/);
+    if (!tok || !exp || !pl) return null;
+    const sep = pl[0].includes('?') ? '&' : '?';
+    const masterUrl = `${pl[0]}${sep}token=${tok[1]}&expires=${exp[1]}&h=1&lang=en`;
+    return { streamUrl: masterUrl, subtitle: '' };
+}
+
+// Whiskey: the embed page leaks mdata file ids → GET https://play.xpass.top/
+// mdata/{id}/1/playlist.json → {playlist:[{sources:[{file:"...master.m3u8"}]}]}
+// Movies only (series demands a signed data call).
+async function resolveXpassLink(ctx) {
+    if (!ctx || !ctx.tmdbId) return null;
+    if (!ctx.isMovie) return null;
+    const pageUrl = `https://play.xpass.top/e/movie/${ctx.tmdbId}`;
+    const pr = await soraFetchTimed(pageUrl, {
+        headers: { 'Referer': 'https://play.xpass.top/', 'Accept': 'text/html' }
+    }, 12000);
+    if (!pr) return null;
+    const pageHtml = await pr.text();
+    const mdataIds = [...pageHtml.matchAll(/mdata\/([A-Za-z0-9_-]{16,})/g)];
+    for (const m of mdataIds) {
+        try {
+            const mdataUrl = `https://play.xpass.top/mdata/${m[1]}/1/playlist.json`;
+            const mr = await soraFetchTimed(mdataUrl, {
+                headers: { 'Referer': pageUrl, 'Accept': 'application/json' }
+            }, 10000);
+            if (!mr) continue;
+            const md = await mr.json().catch(function() { return null; });
+            const sources = md && md.playlist && md.playlist[0] && md.playlist[0].sources;
+            if (!Array.isArray(sources) || sources.length === 0) continue;
+            for (const s of sources) {
+                if (s && /^https?:\/\//.test(s.file || '')) {
+                    return { streamUrl: s.file, subtitle: '' };
+                }
+            }
+        } catch (e) { /* try next mdata id */ }
+    }
+    return null;
 }
 
 function extractSubtitleUrl(text, baseUrl) {
