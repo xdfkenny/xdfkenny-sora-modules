@@ -107,9 +107,20 @@ async function extractEpisodes(url) {
             const href = BASE_URL + match[1];
             if (seen.has(href)) continue;
             seen.add(href);
-            episodes.push({ href: href, number: parseInt(match[3], 10) });
+            episodes.push({
+                href: href,
+                season: parseInt(match[2], 10),
+                number: parseInt(match[3], 10)
+            });
         }
-        episodes.sort(function (a, b) { return a.number - b.number; });
+        // Order by season then episode so the app's season detector (which splits
+        // a flat list on an episode-number reset) groups multi-season shows into
+        // real seasons. Sorting by episode number alone would interleave seasons
+        // into 1,1,1,2,2,2,... and render as one flat list.
+        episodes.sort(function (a, b) {
+            if (a.season !== b.season) return a.season - b.season;
+            return a.number - b.number;
+        });
         if (episodes.length === 0) episodes.push({ href: fullUrl, number: 1 });
         return JSON.stringify(episodes);
     } catch (error) {
