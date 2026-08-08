@@ -266,6 +266,9 @@ async function resolveVidurl(vidurlPath) {
 
 // SHA-256 proof-of-work: nonce such that sha256(challenge+nonce) starts
 // with difficulty zeros. AES key = first 32 bytes of sha256(challenge+nonce+salt).
+// Uses the fast typed-array SHA-256 (same compressor as the Altcha solver) — the
+// string-based flixSha256Hex is ~100x slower in JavaScriptCore and turned the
+// ~4096-iteration solve (difficulty 3) into a 20-30s stall in-app.
 // Bounded at ~10s so a raised difficulty can't stall extractStreamUrl forever.
 function solvePoW(challenge, difficulty, salt) {
     let prefix = '';
@@ -274,8 +277,8 @@ function solvePoW(challenge, difficulty, salt) {
     let nonce = 0;
     while (true) {
         if (nonce % 256 === 0 && Date.now() - start > 10000) return null;
-        if (flixSha256Hex(challenge + nonce).indexOf(prefix) === 0) {
-            const keyHex = flixSha256Hex(challenge + nonce + salt);
+        if (flixSha256FastHex(challenge + nonce).indexOf(prefix) === 0) {
+            const keyHex = flixSha256FastHex(challenge + nonce + salt);
             const keyBytes = [];
             for (let i = 0; i < keyHex.length; i += 2) {
                 keyBytes.push(parseInt(keyHex.slice(i, i + 2), 16));
@@ -496,9 +499,7 @@ function solveAltcha(p) {
 /* Fast SHA-256 for the Altcha PoW. Typed-array block compressor + HMAC
    mid-state precomputation make a full PBKDF2(10000) cost ~4ms in V8,
    vs ~500ms with the string-based SHA-256 — the difference between a 3s
-   solve and a 7-minute one. */
-
-const FLIX_SHA_INIT = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+   solve and a 7-minute one. */const FLIX_SHA_INIT = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
 const FLIX_SHA_K = new Uint32Array([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -539,6 +540,36 @@ function flixWordsFromBytes(src, w) {
         const j = i * 4;
         w[i] = ((src[j] << 24) | (src[j + 1] << 16) | (src[j + 2] << 8) | src[j + 3]) >>> 0;
     }
+}
+
+// Fast SHA-256 hex digest for short ASCII strings (vidurl PoW). Same typed-array
+// compressor as the Altcha solver — the string-based flixSha256Hex is ~100x
+// slower in JavaScriptCore, which made the ~4096-iteration PoW solve take
+// 20-30s in-app instead of milliseconds.
+function flixSha256FastHex(ascii) {
+    const n = ascii.length;
+    const bitLen = n * 8;
+    // Pad: message || 0x80 || zeros || 64-bit big-endian bit length.
+    // Messages here are short (<56 bytes), so a single 64-byte block suffices.
+    const padded = new Uint8Array(64);
+    for (let i = 0; i < n; i++) padded[i] = ascii.charCodeAt(i) & 0xff;
+    padded[n] = 0x80;
+    padded[62] = (bitLen >>> 8) & 0xff;
+    padded[63] = bitLen & 0xff;
+
+    const w = new Uint32Array(16), sched = new Uint32Array(16);
+    const h = new Uint32Array(FLIX_SHA_INIT);
+    flixWordsFromBytes(padded, w);
+    flixCompress(h, w, sched);
+
+    let out = '';
+    for (let i = 0; i < 8; i++) {
+        for (let j = 3; j >= 0; j--) {
+            const b = (h[i] >>> (j * 8)) & 255;
+            out += ((b < 16) ? '0' : '') + b.toString(16);
+        }
+    }
+    return out;
 }
 
 // PBKDF2-HMAC-SHA256, single dkLen block (32 bytes). password/salt are
