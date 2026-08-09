@@ -279,8 +279,33 @@ async function extractText(url) {
         const m = await apiGet('/chapters/' + id, {});
         const pages = (m.pages && m.pages.items) || [];
         if (!pages.length) return '<p>No pages</p>';
-        const imgs = pages.map(p => `<img src="${p.url}" referrerpolicy="origin" loading="eager" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>`).join('\n');
-        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="origin"><base href="https://comix.to/"><style>body{margin:0;padding:0;background:#000;}img{width:100%;}</style></head><body>${imgs}</body></html>`;
+
+        // Fetch first 5 images via soraFetch as data URIs (CDN requires Referer)
+        const prefetch = [];
+        for (let i = 0; i < pages.length && i < 5; i++) {
+            prefetch.push((async function(p) {
+                try {
+                    const r = await soraFetch(p.url, { headers: { 'Referer': 'https://comix.to/' } });
+                    if (!r || !r.ok) return null;
+                    let buf;
+                    if (typeof r.arrayBuffer === 'function') {
+                        buf = new Uint8Array(await r.arrayBuffer());
+                    } else {
+                        const t = await r.text();
+                        buf = new Uint8Array(t.length);
+                        for (let j = 0; j < t.length; j++) buf[j] = t.charCodeAt(j) & 0xff;
+                    }
+                    return 'data:image/webp;base64,' + bytesToB64url(buf);
+                } catch (_) { return null; }
+            })(pages[i]));
+        }
+        const dataUris = await Promise.all(prefetch);
+
+        const imgs = pages.map(function(p, i) {
+            const src = (i < dataUris.length && dataUris[i]) ? dataUris[i] : p.url;
+            return '<img src="' + src + '" referrerpolicy="origin" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>';
+        });
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="origin"><base href="https://comix.to/"><style>body{margin:0;padding:0;background:#000;}img{width:100%;}</style></head><body>' + imgs.join('\n') + '</body></html>';
     } catch (e) {
         console.log('comix extractText error: ' + e.message);
         return '<p>Error extracting pages</p>';
