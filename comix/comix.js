@@ -279,7 +279,8 @@ async function extractText(url) {
         const m = await apiGet('/chapters/' + id, {});
         const pages = (m.pages && m.pages.items) || [];
         if (!pages.length) return '<p>No pages</p>';
-        return pages.map(p => `<img src="${p.url}" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>`).join('<br/>');
+        const imgs = pages.map(p => `<img src="${p.url}" referrerpolicy="origin" loading="eager" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>`).join('\n');
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="origin"><base href="https://comix.to/"><style>body{margin:0;padding:0;background:#000;}img{width:100%;}</style></head><body>${imgs}</body></html>`;
     } catch (e) {
         console.log('comix extractText error: ' + e.message);
         return '<p>Error extracting pages</p>';
