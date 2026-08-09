@@ -279,11 +279,9 @@ async function extractText(url) {
         const m = await apiGet('/chapters/' + id, {});
         const pages = (m.pages && m.pages.items) || [];
         if (!pages.length) return '<p>No pages</p>';
-
-        const imgs = pages.map(function(p) {
-            return '<img src="' + p.url + '" referrerpolicy="origin" style="max-width:100%;height:auto;display:block;margin:0 auto;" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22800%22 height=%22100%22%3E%3Crect fill=%22%23333%22 width=%22800%22 height=%22100%22/%3E%3Ctext fill=%22%23999%22 x=%22400%22 y=%2255%22 text-anchor=%22middle%22%3EImage unavailable%3C/text%3E%3C/svg%3E\'"/>';
-        });
-        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="origin"><base href="https://comix.to/"><style>body{margin:0;padding:0;background:#000;}img{width:100%;}</style></head><body>' + imgs.join('\n') + '</body></html>';
+        return pages.map(function(p) {
+            return '<img src="' + p.url + '" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>';
+        }).join('<br/>');
     } catch (e) {
         console.log('comix extractText error: ' + e.message);
         return '<p>Error extracting pages</p>';
