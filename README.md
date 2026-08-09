@@ -23,6 +23,7 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | **YFSP** | [`yfsp`](yfsp/yfsp.json) | Movies, series, variety & anime in Chinese via the signed iYifan API — search without signature, detail/episodes/streams with rotating vv+pub (MD5) keys scraped from the page. | [YFSP](https://www.yfsp.tv/) |
 | **FlixLatam** | [`flixlatam`](flixlatam/flixlatam.json) | Movies, series & anime in Spanish (LAT/SUB) in 720p — vidurl embeds solved with pure-JS SHA-256 proof-of-work + AES-256-CBC, then HLS streams unpacked from the VidHide (minochinos.com) P.A.C.K.E.R. host. | [FlixLatam](https://flixlatam.com/) |
 
+| **Comix** | [`comix`](comix/comix.json) | Comics & manga in English via the X-Scramble-protected API. Pure-JS reimplementation of the anti-scraping client: per-request `_` token (chained S-box ciphers) + response decryption — no proxy, no browser. | [Comix](https://comix.to/) |
 ## Architecture
 
 The framework leverages a high-performance **fetchv2** bridge to handle complex network requests, bypass cross-origin restrictions, and manage session headers.
