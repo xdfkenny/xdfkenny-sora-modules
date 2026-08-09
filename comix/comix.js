@@ -280,30 +280,8 @@ async function extractText(url) {
         const pages = (m.pages && m.pages.items) || [];
         if (!pages.length) return '<p>No pages</p>';
 
-        // Fetch first 5 images via soraFetch as data URIs (CDN requires Referer)
-        const prefetch = [];
-        for (let i = 0; i < pages.length && i < 5; i++) {
-            prefetch.push((async function(p) {
-                try {
-                    const r = await soraFetch(p.url, { headers: { 'Referer': 'https://comix.to/' } });
-                    if (!r || !r.ok) return null;
-                    let buf;
-                    if (typeof r.arrayBuffer === 'function') {
-                        buf = new Uint8Array(await r.arrayBuffer());
-                    } else {
-                        const t = await r.text();
-                        buf = new Uint8Array(t.length);
-                        for (let j = 0; j < t.length; j++) buf[j] = t.charCodeAt(j) & 0xff;
-                    }
-                    return 'data:image/webp;base64,' + bytesToB64url(buf);
-                } catch (_) { return null; }
-            })(pages[i]));
-        }
-        const dataUris = await Promise.all(prefetch);
-
-        const imgs = pages.map(function(p, i) {
-            const src = (i < dataUris.length && dataUris[i]) ? dataUris[i] : p.url;
-            return '<img src="' + src + '" referrerpolicy="origin" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>';
+        const imgs = pages.map(function(p) {
+            return '<img src="' + p.url + '" referrerpolicy="origin" style="max-width:100%;height:auto;display:block;margin:0 auto;" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22800%22 height=%22100%22%3E%3Crect fill=%22%23333%22 width=%22800%22 height=%22100%22/%3E%3Ctext fill=%22%23999%22 x=%22400%22 y=%2255%22 text-anchor=%22middle%22%3EImage unavailable%3C/text%3E%3C/svg%3E\'"/>';
         });
         return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="origin"><base href="https://comix.to/"><style>body{margin:0;padding:0;background:#000;}img{width:100%;}</style></head><body>' + imgs.join('\n') + '</body></html>';
     } catch (e) {
