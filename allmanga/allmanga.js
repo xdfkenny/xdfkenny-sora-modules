@@ -16,7 +16,7 @@ const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslat
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
 const FALLBACK_KEYGEN = {
-    build_id: '96',
+    build_id: '81',
     epoch: 6891,
     lane: 'k7',
     key: 'f7bd37902f0d7fc067d82c7a4f9c52dff5f1539561773d38e20012d2b91f442e',
@@ -30,7 +30,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.6.4');
+if (typeof console !== 'undefined') console.log('allmanga module v1.6.5');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -209,10 +209,10 @@ async function aaFetchRemoteKeys() {
             });
             if (resp) {
                 const json = await resp.json();
-                if (json && json.build_id && json.key && json.epoch !== undefined && json.lane) {
+                if (json && json.key && json.lane) {
                     const keys = {
-                        build_id: String(json.build_id),
-                        epoch: String(json.epoch),
+                        build_id: String(FALLBACK_KEYGEN.build_id),
+                        epoch: String(FALLBACK_KEYGEN.epoch),
                         lane: String(json.lane),
                         key: String(json.key),
                         static_key: String(json.static_key || FALLBACK_KEYGEN.static_key)
