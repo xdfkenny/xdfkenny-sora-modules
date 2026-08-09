@@ -26,7 +26,11 @@ const FALLBACK_KEYGEN = {
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.6.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.6.2');
+
+function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -136,12 +140,12 @@ async function extractStreamUrl(url) {
         const { showId, episode } = parsed;
         const keys = aaGetKeys();
 
-        // Query sub and dub in parallel; each retries with a refreshed
-        // keygen only if the API rejects the token as stale.
-        const jobs = await Promise.all([
-            aaResolveTranslation(keys, showId, episode, 'sub'),
-            aaResolveTranslation(keys, showId, episode, 'dub')
-        ]);
+        // Query sub first, then dub with a small delay to avoid
+        // triggering the API rate limiter with parallel requests.
+        const subResult = await aaResolveTranslation(keys, showId, episode, 'sub');
+        await sleep(1500);
+        const dubResult = await aaResolveTranslation(keys, showId, episode, 'dub');
+        const jobs = [subResult, dubResult];
 
         const streams = [];
         let subtitle = '';
@@ -239,41 +243,59 @@ function aaBuildToken(keys, qh, ts) {
 }
 
 async function aaEpisodeQuery(keys, showId, tt, episode) {
-    const ts = Math.floor(Date.now() / 300000) * 300000;
     const qh = aaHex(aaSha256(aaAscii(EPISODE_QUERY)));
     const variables = { showId, translationType: tt, episodeString: String(episode) };
-    const extensions = {
-        persistedQuery: { version: 1, sha256Hash: qh },
-        aaReq: aaBuildToken(keys, qh, ts),
-        k: keys.lane
-    };
     console.log('Episode query -> ' + API_URLS.length + ' host(s), episode ' + episode + ', type ' + tt + ', qh ' + qh.slice(0, 8));
-    let rateLimited = false;
-    for (let i = 0; i < API_URLS.length; i++) {
-        const host = API_URLS[i];
-        // Official flow: GET with persisted query + aaReq token in the query string.
-        let json = await aaSendEpisodeRequest(host, 'GET', null, variables, extensions, keys);
-        let errMsg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
-        // If the host has not seen our query hash yet, POST the full query once to
-        // auto-register it in APQ (POST also returns the data directly).
-        if (json && !json.data && errMsg.indexOf('PersistedQueryNotFound') === 0) {
-            console.log('PersistedQueryNotFound on ' + host + '; registering via POST');
-            json = await aaSendEpisodeRequest(host, 'POST', EPISODE_QUERY, variables, extensions, keys);
+
+    var attempt, i, host, json, errMsg, hasTbp, dataKeys, rateLimited, rateLimitWait, waitMatch;
+    for (attempt = 0; attempt < 3; attempt++) {
+        var ts = Math.floor(Date.now() / 300000) * 300000;
+        var extensions = {
+            persistedQuery: { version: 1, sha256Hash: qh },
+            aaReq: aaBuildToken(keys, qh, ts),
+            k: keys.lane
+        };
+        rateLimited = false;
+        rateLimitWait = 5;
+
+        for (i = 0; i < API_URLS.length; i++) {
+            host = API_URLS[i];
+            json = await aaSendEpisodeRequest(host, 'GET', null, variables, extensions, keys);
             errMsg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
+
+            if (json && !json.data && errMsg.indexOf('PersistedQueryNotFound') === 0) {
+                console.log('PersistedQueryNotFound on ' + host + '; registering via POST');
+                json = await aaSendEpisodeRequest(host, 'POST', EPISODE_QUERY, variables, extensions, keys);
+                errMsg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
+            }
+
+            if (!json || typeof json !== 'object') continue;
+
+            hasTbp = !!(json.data && json.data.tobeparsed);
+            dataKeys = (json.data && typeof json.data === 'object') ? Object.keys(json.data).join(',') : 'none';
+            console.log('Episode response from ' + host + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
+
+            if (errMsg.indexOf('Too many requests') === 0) {
+                rateLimited = true;
+                waitMatch = errMsg.match(/try again in (\d+)\s*seconds?/i);
+                if (waitMatch) rateLimitWait = parseInt(waitMatch[1], 10);
+                console.log('Episode rate limited on ' + host + '; trying other hosts');
+                continue;
+            }
+
+            return json;
         }
-        if (!json || typeof json !== 'object') continue;
-        const hasTbp = !!(json.data && json.data.tobeparsed);
-        const dataKeys = (json.data && typeof json.data === 'object') ? Object.keys(json.data).join(',') : 'none';
-        console.log('Episode response from ' + host + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
-        if (errMsg.indexOf('Too many requests') === 0) {
-            rateLimited = true;
-            console.log('Episode rate limited on ' + host + '; trying other hosts');
-            continue;
+
+        if (rateLimited && attempt < 2) {
+            var waitMs = rateLimitWait * 1000 + Math.floor(Math.random() * 1000);
+            console.log('All ' + tt + ' hosts rate limited; waiting ' + Math.round(waitMs / 1000) + 's before retry ' + (attempt + 1));
+            await sleep(waitMs);
+            keys = aaGetKeys();
         }
-        return json;
     }
+
     if (rateLimited) {
-        console.log('All episode hosts rate limited');
+        console.log('All episode hosts rate limited for ' + tt);
     }
     return null;
 }
