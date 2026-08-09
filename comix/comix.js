@@ -31,17 +31,40 @@ const CIPHERS = [
     { S: S3, D: D3, seed: SEED3 },
 ];
 
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
 function b64ToBytes(b64) {
-    const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
-    const u = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-    return u;
+    const s = String(b64).replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
+    const out = [];
+    let buf = 0, bits = 0;
+    for (let i = 0; i < s.length; i++) {
+        const v = B64_CHARS.indexOf(s[i]);
+        if (v < 0) continue;
+        buf = (buf << 6) | v;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push((buf >>> bits) & 0xff);
+            buf = buf & ((1 << bits) - 1);
+        }
+    }
+    return new Uint8Array(out);
 }
 
 function bytesToB64url(bytes) {
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    let out = '';
+    const pad = bytes.length % 3;
+    for (let i = 0; i + 3 <= bytes.length; i += 3) {
+        const t = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+        out += B64_CHARS[(t >> 18) & 63] + B64_CHARS[(t >> 12) & 63] + B64_CHARS[(t >> 6) & 63] + B64_CHARS[t & 63];
+    }
+    if (pad === 1) {
+        out += B64_CHARS[(bytes[bytes.length - 1] >> 2) & 63] + B64_CHARS[(bytes[bytes.length - 1] << 4) & 63] + '==';
+    } else if (pad === 2) {
+        const t = (bytes[bytes.length - 2] << 8) | bytes[bytes.length - 1];
+        out += B64_CHARS[(t >> 10) & 63] + B64_CHARS[(t >> 4) & 63] + B64_CHARS[(t << 2) & 63] + '=';
+    }
+    return out.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function utf8Encode(str) {
