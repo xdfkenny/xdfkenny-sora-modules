@@ -4,7 +4,6 @@ const API_URLS = [
     'https://api.allanime.day/api'
 ];
 const API_URL = API_URLS[0];
-const CDN_BASE = 'https://allanimenews.com';
 const CLOCK_BASE = 'https://allanime.day';
 
 const KEYGEN_URLS = [
@@ -17,16 +16,21 @@ const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslat
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
 const FALLBACK_KEYGEN = {
-    build_id: '81',
-    epoch: 6888,
+    build_id: '96',
+    epoch: 6891,
     lane: 'k7',
-    key: 'bf44b51b82ef0736c06e62a4b889dc5b8494f8cb6fe7e8b820dd33494b99c540',
+    key: 'f7bd37902f0d7fc067d82c7a4f9c52dff5f1539561773d38e20012d2b91f442e',
     static_key: 'Xot36i3lK3:v1'
 };
 
+const CDN_BASES = [
+    'https://allmanga.to',
+    'https://mkissa.to'
+];
+
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.6.3');
+if (typeof console !== 'undefined') console.log('allmanga module v1.6.4');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -39,8 +43,8 @@ const API_HEADERS = {
 };
 
 const STREAM_HEADERS = {
-    'Referer': CDN_BASE + '/',
-    'Origin': CDN_BASE,
+    'Referer': 'https://allanimenews.com/',
+    'Origin': 'https://allanimenews.com',
     'User-Agent': UA
 };
 
@@ -617,13 +621,30 @@ async function aaLegacyStreams(showId, episode) {
         if (!ep) return JSON.stringify({ streams: [], subtitle: '' });
 
         const streams = [];
-        [['sub', ep.vidInforssub], ['dub', ep.vidInforsdub], ['raw', ep.vidInforsraw]].forEach(([label, info]) => {
+        [['sub', ep.vidInforssub], ['dub', ep.vidInforsdub], ['raw', ep.vidInforsraw]].forEach(function (pair) {
+            var label = pair[0];
+            var info = pair[1];
             if (!info || !info.vidPath) return;
-            streams.push({
-                title: `${label.toUpperCase()} ${info.vidResolution ? info.vidResolution + 'p' : 'auto'}`,
-                streamUrl: cdnUrl(info.vidPath),
-                headers: STREAM_HEADERS
-            });
+            var path = String(info.vidPath).trim();
+            if (/^https?:\/\//i.test(path)) {
+                streams.push({
+                    title: label.toUpperCase() + ' ' + (info.vidResolution ? info.vidResolution + 'p' : 'auto'),
+                    streamUrl: path,
+                    headers: STREAM_HEADERS
+                });
+            } else {
+                CDN_BASES.forEach(function (base) {
+                    streams.push({
+                        title: label.toUpperCase() + ' ' + (info.vidResolution ? info.vidResolution + 'p' : 'auto'),
+                        streamUrl: base + '/' + path.replace(/^\/+/, ''),
+                        headers: {
+                            'Referer': base + '/',
+                            'Origin': base,
+                            'User-Agent': UA
+                        }
+                    });
+                });
+            }
         });
 
         return JSON.stringify({ streams, subtitle: '' });
@@ -1112,9 +1133,9 @@ function parseEpisodeUrl(url) {
 
 function cdnUrl(path) {
     if (!path) return '';
-    const p = String(path).trim();
+    var p = String(path).trim();
     if (/^https?:\/\//i.test(p)) return p;
-    return CDN_BASE + '/' + p.replace(/^\/+/, '');
+    return CDN_BASES[0] + '/' + p.replace(/^\/+/, '');
 }
 
 function cleanText(text) {
