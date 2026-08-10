@@ -4,6 +4,14 @@
 //   - chapter pages:   chapterPages persisted query, gated by the aaReq
 //                      AES-GCM token (same keygen flow as the anime module)
 // All four functions return the novels contract from documentation/NovelModules.md.
+//
+// KNOWN LIMITATION (v1.0.2): chapter images do not render inside Sora's novel
+// reader. The reader loads the HTML with baseURL:nil (no Referer), and the
+// image CDN (aln.youtube-anime.com) 403s any request without a platform
+// Referer (allmanga.to/mkissa.to). Every workaround is a dead end: the JS
+// bridge has no binary support (no data URIs), public relays are blocked
+// upstream, and <base>/referrerpolicy cannot forge a Referer. Search,
+// details and the chapter list work; images load only in a normal browser.
 
 const BASE_URL = 'https://allmanga.to';
 const API_URLS = [
@@ -43,7 +51,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.0.1 (timer-safe for app JSContext)');
+console.log('[AllMangaNovels] module script loaded v1.0.2 (images need referer — see header note)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 

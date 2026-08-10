@@ -96,6 +96,23 @@ global.fetchv2 = (url, headers, method, body) => fetch(url, { method, headers, b
 
 ## 4. Gotchas (learned the hard way)
 
+- **Referer-locked image CDNs never render in the app.** The Sora novel
+  reader loads the HTML with `webView.loadHTMLString(html, baseURL: nil)`
+  (`Sora/Views/ReaderView/ReaderView.swift`), so the WebView sends **no
+  Referer** for `<img>` requests. Any CDN that 403s hotlinks without a
+  platform Referer (e.g. `aln.youtube-anime.com` for AllManga chapters —
+  verified: 403 no-referer, 200 with `allmanga.to`/`mkissa.to` referer)
+  shows broken-image placeholders in the app even though everything works
+  in a browser and in the Node harness. Workarounds that do NOT work:
+  data-URI prefetch (the JS bridge only exposes `.text()`/`.json()`, no
+  binary), `<base href>`/`referrerpolicy` (the Referer header is derived
+  from the document URL, not the base — verified in a real browser), and
+  public image relays (weserv/corsproxy/allorigins/photon/DDG all get
+  blocked upstream, which itself 403s referer-less fetches). MangaWorld's
+  module only works because `cdn.mangaworld.mx` has no hotlink protection.
+  Test a candidate module's image URLs FIRST: `curl -s -o /dev/null -w
+  "%{http_code}" <img-url>` with NO `-e`/`-H "Referer:"` — if it is not 200,
+  the module's images will not render in Sora.
 - **No timers in the Sora app JSContext.** The app only injects
   `console`/`fetch`/`fetchv2` — calling `setTimeout`/`setInterval` crashes the
   module in-app (`Can't find variable: setTimeout`). Guard every timer use
