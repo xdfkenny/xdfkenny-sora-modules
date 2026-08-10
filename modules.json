@@ -8,7 +8,7 @@
       "iconUrl": "https://www.yfsp.tv/favicon.ico",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.json",
-      "sampleQuery": "西游记"
+      "sampleQuery": "one piece"
     },
     {
       "id": "hydrahd",
@@ -16,7 +16,7 @@
       "iconUrl": "https://hydrahd.ru/fav-192.png",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.json",
-      "sampleQuery": "spider-man"
+      "sampleQuery": "one piece"
     },
     {
       "id": "anidb",
@@ -40,7 +40,7 @@
       "iconUrl": "https://flixlatam.com/themes/dooplay/assets/img/favicon.png",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/flixlatam/flixlatam.json",
-      "sampleQuery": "posesión"
+      "sampleQuery": "one piece"
     },
     {
       "id": "allmanga",
@@ -56,7 +56,7 @@
       "iconUrl": "https://comix.to/favicon.ico",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/comix/comix.json",
-      "sampleQuery": "naruto"
+      "sampleQuery": "one piece"
     }
   ]
 }
