@@ -84,6 +84,17 @@ so the lookup pattern is consistent with existing code. `Module` is
 
 ## Things that do NOT fix it (verified, do not retry)
 
+- **The keygen / aaReq token is irrelevant here.** It gates only the GraphQL
+  API (`api.allanime.day`); the chapter image CDN is a separate Cloudflare
+  WAF rule on `ytimgf.youtube-anime.com` that checks the `Referer` header
+  (403 body = CF "Sorry, you have been blocked"). URL-token bypasses all
+  fail: `?token=`, `?referer=`, `?sig=&expires=`, `?aaReq=`, and keygen
+  params `?k=&buildId=&epoch=` → 403. Path tricks (encoded slashes, `//`,
+  `/./`, case variants) → 403, Cloudflare normalizes them. Allowlist is
+  exactly the platform domains (`allmanga.to`, `mkissa.to`, `allanime.day` →
+  200; everything else, even `youtube-anime.com` itself, → 403). The reader
+  JS builds image URLs as plain `head + path` (no token) — verified in the
+  site bundle.
 - `<base href>` / `referrerpolicy` attributes in module HTML — the Referer
   header is derived from the document URL, not the base tag
 - Data-URI prefetch from the module — the JS bridge only exposes
