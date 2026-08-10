@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.38 (instant subtitle list, no download verification)');
+console.log('[HydraHD] module script loaded v1.0.39 (timer-safe for app JSContext, no setTimeout)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -83,8 +83,22 @@ async function soraFetch(url, options = {}) {
     return toResponseLike(null);
 }
 
+// The Sora app's JavaScriptCore exposes NO setTimeout/setInterval, so any
+// use of it crashes in-app ("Can't find variable: setTimeout"). timerSafe()
+// returns a promise that resolves after ms when timers exist, else resolves
+// immediately — keeping the module functional in BOTH environments.
+function timerSafe(ms) {
+    if (typeof setTimeout === 'function') {
+        return new Promise(function(resolve) { setTimeout(resolve, ms || 0); });
+    }
+    return Promise.resolve();
+}
+
 // Wrap a fetch so a dead server cannot stall the whole stream resolution.
+// Without timers there is no race to lose: the app enforces its own overall
+// timeout, so just pass the plain fetch through.
 function soraFetchTimed(url, options, timeoutMs) {
+    if (typeof setTimeout !== 'function') return soraFetch(url, options);
     const limit = timeoutMs || 9000;
     return Promise.race([
         soraFetch(url, options),
@@ -396,7 +410,7 @@ async function extractStreamUrl(url) {
         const subsWorker = (async function() {
             try {
                 if (!imdbId) return;
-                await new Promise(function(resolve) { setTimeout(resolve, 800); });
+                await timerSafe(800);
                 // Each provider is caught individually: the app's fetch bridge
                 // can throw Error('') on network failure, and a rejection in any
                 // provider must NEVER kill the other two (that was wiping ALL
@@ -1198,7 +1212,7 @@ async function resolveVidSrc(imdbId, isMovie = true, season = null, episode = nu
         if (sourcesData && (sourcesData.status === 'none' || sourcesData.error)) {
             break;
         }
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await timerSafe(2000);
     }
     if (!servers || !servers.length) {
         throw new Error('No vidsrc servers available');
