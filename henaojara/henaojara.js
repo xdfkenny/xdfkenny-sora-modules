@@ -262,7 +262,9 @@ async function extractStreamUrl(url) {
                         }
                         return null;
                     })();
-                    return await withTimeout(resolve, 4000);
+                    // uqload needs ~6s (embed -> player page -> hls redirect),
+                    // so the cap must be generous or its stream gets dropped.
+                    return await withTimeout(resolve, 10000);
                 });
                 
                 const resolvedServers = await Promise.all(serverPromises);
@@ -288,7 +290,7 @@ async function extractStreamUrl(url) {
             
             if (servers && Array.isArray(servers) && servers.length > 0) {
                 const validServers = servers.filter(s => s && s.url && s.url.trim() !== '').slice(0, 6);
-                const results = await Promise.all(validServers.map(s => withTimeout(resolveServerToDirectUrl(s.url, s.name), 4000)));
+                const results = await Promise.all(validServers.map(s => withTimeout(resolveServerToDirectUrl(s.url, s.name), 10000)));
                 const streams = results.filter(r => r && r.streamUrl);
 
                 if (streams.length > 0) {

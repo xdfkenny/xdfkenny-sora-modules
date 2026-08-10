@@ -138,12 +138,15 @@ async function extractStreamUrl(url) {
         if (cached) return cached;
 
         const { showId, episode } = parsed;
+        // The API's episodeString is 1-based; episodeIdNum in the URL is
+        // 0-based, and episode "0" has no sources. Clamp to >= 1.
+        const apiEpisode = String(Math.max(1, Number(episode)));
         const keys = aaGetKeys();
 
         // Query sub first, then dub sequentially to avoid parallel
         // requests hitting the API rate limiter simultaneously.
-        const subResult = await aaResolveTranslation(keys, showId, episode, 'sub');
-        const dubResult = await aaResolveTranslation(keys, showId, episode, 'dub');
+        const subResult = await aaResolveTranslation(keys, showId, apiEpisode, 'sub');
+        const dubResult = await aaResolveTranslation(keys, showId, apiEpisode, 'dub');
         const jobs = [subResult, dubResult];
 
         const streams = [];
@@ -156,7 +159,7 @@ async function extractStreamUrl(url) {
 
         let out;
         if (streams.length === 0) {
-            out = await aaLegacyStreams(showId, episode);
+            out = await aaLegacyStreams(showId, apiEpisode);
         } else {
             out = JSON.stringify({ streams, subtitle });
         }
