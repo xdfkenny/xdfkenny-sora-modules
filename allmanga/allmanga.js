@@ -16,10 +16,10 @@ const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslat
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
 const FALLBACK_KEYGEN = {
-    build_id: '81',
-    epoch: 6889,
+    build_id: '97',
+    epoch: 6891,
     lane: 'k7',
-    key: 'f7bd37902f0d7fc067d82c7a4f9c52dff5f1539561773d38e20012d2b91f442e',
+    key: '695af2782a31edc2c99a8b21a781d535fb0eab3b8574647f03931d3c3bed5f16',
     static_key: 'Xot36i3lK3:v1'
 };
 
