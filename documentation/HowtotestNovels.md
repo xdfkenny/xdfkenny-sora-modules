@@ -113,6 +113,9 @@ global.fetchv2 = (url, headers, method, body) => fetch(url, { method, headers, b
   Test a candidate module's image URLs FIRST: `curl -s -o /dev/null -w
   "%{http_code}" <img-url>` with NO `-e`/`-H "Referer:"` — if it is not 200,
   the module's images will not render in Sora.
+  The real fix is app-side: see
+  [Sora-reader-referer-fix.md](Sora-reader-referer-fix.md) (one-line change
+  in `ReaderView.swift` — load the HTML with the module's `baseUrl`).
 - **No timers in the Sora app JSContext.** The app only injects
   `console`/`fetch`/`fetchv2` — calling `setTimeout`/`setInterval` crashes the
   module in-app (`Can't find variable: setTimeout`). Guard every timer use
