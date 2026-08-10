@@ -43,7 +43,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.0.0');
+console.log('[AllMangaNovels] module script loaded v1.0.1 (timer-safe for app JSContext)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -86,11 +86,25 @@ function toResponseLike(value) {
     };
 }
 
+// The Sora app's JavaScriptCore exposes NO setTimeout/setInterval, so any
+// use of it crashes in-app ("Can't find variable: setTimeout"). timerSafe()
+// returns a promise that resolves after ms when timers exist, else resolves
+// immediately — keeping the module functional in BOTH environments.
+function timerSafe(ms) {
+    if (typeof setTimeout === 'function') {
+        return new Promise(function(resolve) { setTimeout(resolve, ms || 0); });
+    }
+    return Promise.resolve();
+}
+
+// Without timers there is no race to lose: the app enforces its own overall
+// timeout, so just pass the plain fetch through.
 async function soraFetchTimed(url, options, timeoutMs) {
+    if (typeof setTimeout !== 'function') return soraFetch(url, options);
     const limit = timeoutMs || 12000;
     return Promise.race([
         soraFetch(url, options),
-        new Promise(function(resolve) { setTimeout(function() { resolve(null); }, limit); })
+        timerSafe(limit).then(function() { return null; })
     ]);
 }
 
