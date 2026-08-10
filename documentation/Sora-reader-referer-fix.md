@@ -97,6 +97,11 @@ so the lookup pattern is consistent with existing code. `Module` is
   site bundle.
 - `<base href>` / `referrerpolicy` attributes in module HTML — the Referer
   header is derived from the document URL, not the base tag
+- JS forgery from the reader document — the engine blocks every vector
+  (tested live): `fetch(url, {referrer: 'https://mkissa.to/'})` strips the
+  cross-origin referrer (→ 403), `history.replaceState` to a platform origin
+  throws SecurityError, and `Referer` is a forbidden fetch header. WKWebView
+  enforces the same rules as Blink here.
 - Data-URI prefetch from the module — the JS bridge only exposes
   `.text()`/`.json()`, no binary/base64
 - Public image relays (weserv, corsproxy.io, allorigins, codetabs, photon,
