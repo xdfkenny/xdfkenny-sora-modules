@@ -766,8 +766,23 @@ function renderMediaResult(ref, result) {
   if (result.episodes && result.episodes.ok) {
     const eps = (result.episodes.items || []).map(e => String(e.number === undefined ? (e.href || '') : e.number));
     addMediaStep(ref, 'ok', 'Episodes', result.episodes.count + ' episodes' + (eps.length ? ' · first: ' + eps.slice(0, 8).join(', ') : ''));
-  } else {
+  } else if (result.episodes) {
     addMediaStep(ref, 'fail', 'Episodes', (result.episodes && result.episodes.error) || 'unavailable');
+  }
+
+  if (result.chapters && result.chapters.ok) {
+    const chs = (result.chapters.items || []).map(c => c.number !== undefined ? String(c.number) : (c.title || c.href));
+    addMediaStep(ref, 'ok', 'Chapters', result.chapters.count + ' chapters' + (chs.length ? ' · first: ' + chs.slice(0, 6).join(', ') : ''));
+    addMediaItems(ref, result.chapters.items.map(c => ({ label: c.title || ('Chapter ' + c.number), url: c.href })), 6);
+  } else if (result.chapters) {
+    addMediaStep(ref, 'fail', 'Chapters', (result.chapters && result.chapters.error) || 'unavailable');
+  }
+
+  if (result.text && result.text.ok) {
+    addMediaStep(ref, 'ok', 'Text', result.text.images + ' image page(s) · ' + result.text.htmlLength + ' chars');
+    if (result.text.sample) addMediaItems(ref, [{ label: 'sample', url: result.text.sample.slice(0, 140) }], 1);
+  } else if (result.text) {
+    addMediaStep(ref, 'fail', 'Text', (result.text && result.text.error) || (result.text && result.text.htmlLength === 0 ? 'empty response' : 'unavailable'));
   }
 
   if (result.stream && result.stream.ok && result.stream.count > 0) {

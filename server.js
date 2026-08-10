@@ -201,7 +201,13 @@ function loadModule(src) {
   const sandboxConsole = { log: () => {}, error: () => {}, warn: () => {} };
   const factory = new Function(
     'fetch', 'fetchv2', 'window', 'console', 'location',
-    src + '\n;return { searchResults, extractDetails, extractEpisodes, extractStreamUrl };'
+    src + '\n;return {' +
+      'searchResults, extractDetails,' +
+      'extractEpisodes: typeof extractEpisodes !== "undefined" ? extractEpisodes : null,' +
+      'extractStreamUrl: typeof extractStreamUrl !== "undefined" ? extractStreamUrl : null,' +
+      'extractChapters: typeof extractChapters !== "undefined" ? extractChapters : null,' +
+      'extractText: typeof extractText !== "undefined" ? extractText : null' +
+    '};'
   );
   return factory(fetcher, fetcher, { fetch: fetcher, fetchv2: fetcher }, sandboxConsole, undefined);
 }
@@ -256,7 +262,7 @@ function withTimeout(promise, ms, label) {
 }
 
 async function runMediaTest(entry, keyword) {
-  const out = { module: entry.id, keyword, search: null, details: null, episodes: null, stream: null };
+  const out = { module: entry.id, keyword, search: null, details: null };
 
   let manifest;
   let mod;
@@ -267,6 +273,9 @@ async function runMediaTest(entry, keyword) {
   } catch (e) {
     return { ...out, search: { ok: false, error: 'No se pudo cargar el módulo: ' + errText(e) } };
   }
+  // Novels swap the video pair (extractEpisodes/extractStreamUrl) for
+  // extractChapters/extractText — see documentation/NovelModules.md.
+  const isNovel = manifest.novel === true || String(manifest.type || '').includes('novels');
 
   /* search */
   let results = [];
@@ -284,7 +293,9 @@ async function runMediaTest(entry, keyword) {
 
   const first = results[0];
   if (!first || !first.href) {
-    out.details = out.episodes = out.stream = { ok: false, error: 'sin resultados de búsqueda' };
+    out.details = { ok: false, error: 'sin resultados de búsqueda' };
+    if (isNovel) { out.chapters = { ok: false, error: 'sin resultados de búsqueda' }; out.text = { ok: false, error: 'sin resultados de búsqueda' }; }
+    else { out.episodes = { ok: false, error: 'sin resultados de búsqueda' }; out.stream = { ok: false, error: 'sin resultados de búsqueda' }; }
     return out;
   }
 
@@ -301,6 +312,47 @@ async function runMediaTest(entry, keyword) {
   } catch (e) {
     out.details = { ok: false, error: errText(e) };
   }
+
+  /* novel pair: chapters + text (image or prose chapters) */
+  if (isNovel) {
+    out.chapters = null;
+    out.text = null;
+
+    let chapters = [];
+    try {
+      const rawCh = await withTimeout(mod.extractChapters(first.href), 25000, 'chapters');
+      chapters = normalizeArray(rawCh);
+      out.chapters = {
+        ok: true,
+        count: chapters.length,
+        items: chapters.slice(0, 8).map(ch => typeof ch === 'object'
+          ? { title: ch.title, number: ch.number, href: ch.href }
+          : { title: String(ch) })
+      };
+    } catch (e) {
+      out.chapters = { ok: false, error: errText(e) };
+    }
+
+    const chUrl = (chapters[0] && chapters[0].href) || first.href;
+    try {
+      // extractText returns a raw HTML fragment (reader view), not JSON.
+      const raw = await withTimeout(mod.extractText(chUrl), 40000, 'text');
+      const html = typeof raw === 'string' ? raw : String(raw || '');
+      out.text = {
+        ok: html.length > 0 && !/^(<p>Error|<p>Nessun|no content|error)/i.test(html),
+        htmlLength: html.length,
+        images: (html.match(/<img/g) || []).length,
+        sample: html.slice(0, 200)
+      };
+    } catch (e) {
+      out.text = { ok: false, error: errText(e) };
+    }
+    return out;
+  }
+
+  /* video pair: episodes + stream */
+  out.episodes = null;
+  out.stream = null;
 
   /* episodes */
   let episodes = [];
