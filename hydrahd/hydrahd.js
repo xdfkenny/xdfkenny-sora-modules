@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.37 (per-provider safety + multi-mirror server list)');
+console.log('[HydraHD] module script loaded v1.0.38 (instant subtitle list, no download verification)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -422,9 +422,9 @@ async function extractStreamUrl(url) {
         await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
         if (merged && merged.subtitles && merged.subtitles.length > 0) {
             subtitleList = merged.subtitles;
-            // Auto-load only when a full-dialogue English track was verified;
-            // otherwise the embed-provided subtitle stays. English-only
-            // mode: a foreign (or placeholder) track is never forced on.
+            // Auto-load only when a provider surfaced an English track (they
+            // pick real English by label, skipping forced/signs-only); a
+            // foreign-only result never overrides the embed subtitle.
             if (merged.pickedEnglish && merged.subtitle) {
                 subtitle = merged.subtitle;
             }
@@ -441,11 +441,11 @@ async function extractStreamUrl(url) {
         // language selector the web player shows). Resolve each #EXT-X-MEDIA
         // SUBTITLES rendition down to its real .vtt file — the playlist URI is
         // just an HLS wrapper around one WebVTT segment. All languages surface
-        // in the picker; providers above keep priority for English since they
-        // are cue-verified full dialogue.
+        // in the picker; providers above keep priority for English. Skipped
+        // entirely when the deadline is close — never delay the return.
         try {
             const primaryHls = streams.length > 0 ? streams[0].streamUrl : null;
-            if (primaryHls && /\.m3u8|playlist/i.test(primaryHls)) {
+            if (primaryHls && /\.m3u8|playlist/i.test(primaryHls) && timeLeft() > 7000) {
                 const playlistTracks = await extractPlaylistSubtitleTracks(primaryHls);
                 if (playlistTracks.length) {
                     subtitleList = (subtitleList || []).concat(playlistTracks);
@@ -659,6 +659,7 @@ async function extractPlaylistSubtitleTracks(masterUrl) {
         while ((line = mediaRe.exec(text)) !== null) {
             const entry = line[0];
             if (!/TYPE=(?:SUBTITLES|subtitles)/.test(entry)) continue;
+            if (tracks.length >= 8) break;   // bound the wrapper downloads
             const name = (entry.match(/NAME="([^"]*)"/) || [])[1] || '';
             const langCode = (entry.match(/LANGUAGE="([^"]*)"/) || [])[1] || '';
             const uriAttr = (entry.match(/URI="([^"]*)"/) || [])[1] || '';
@@ -737,56 +738,6 @@ function getVidfastSubtitle(result) {
     return '';
 }
 
-// Cache of the verified full-dialogue English track per title, so re-resolving
-// the same episode doesn't re-download subtitle files.
-const fullTrackCache = {};
-
-// Stremio can list a forced/signs-only track first for the default language
-// (e.g. English anime subs that only translate on-screen text, TV news, phone
-// screens — not the dialogue). Those tracks have a handful of cues while full
-// tracks have hundreds or thousands. Metadata fields don't expose this, so
-// download the English candidates and return the first full-dialogue track,
-// remembering the most complete one as a fallback. All candidate downloads are
-// kicked off CONCURRENTLY and we return as soon as the first full track in
-// stremio order lands — typically one round-trip (~0.5s) instead of one per
-// track. Preserves stremio's ordering among full tracks and stays bounded.
-async function pickFullEnglishTrack(englishCandidates) {
-    if (!Array.isArray(englishCandidates) || englishCandidates.length === 0) return '';
-    if (englishCandidates.length === 1) return englishCandidates[0].url;
-    const MIN_CUES = 120;   // a real episode has 250+; signs-only tracks stay under ~100
-    const MAX_CHECK = 6;    // bound concurrent fetches
-    const cands = englishCandidates.slice(0, MAX_CHECK);
-    const pending = cands.map(function(cand) {
-        return (async function() {
-            try {
-                const resp = await soraFetchTimed(cand.url, {
-                    headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
-                }, 6000);
-                if (!resp) return 0;
-                const text = await resp.text();
-                return (String(text || '').match(/-->/g) || []).length;
-            } catch (e) {
-                return 0; // failed fetch -> treat as unusable
-            }
-        })();
-    });
-    for (let i = 0; i < cands.length; i++) {
-        const cues = await pending[i];
-        if (cues >= MIN_CUES) return cands[i].url; // first full-dialogue track wins
-    }
-    // No full-dialogue track: wait for any stragglers and use the most complete.
-    const counts = await Promise.all(pending);
-    let bestUrl = cands[0].url;
-    let bestCues = counts[0];
-    for (let i = 1; i < cands.length; i++) {
-        if (counts[i] > bestCues) {
-            bestCues = counts[i];
-            bestUrl = cands[i].url;
-        }
-    }
-    return bestUrl;
-}
-
 async function resolveStremioSubtitle(imdbId, type, season, episode) {
     try {
         const params = [];
@@ -795,14 +746,14 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
             if (episode) params.push('episode=' + encodeURIComponent(String(episode)));
         }
         const query = params.length ? ('?' + params.join('&')) : '';
-        const response = await soraFetch(`${STREMIO_OPENSUBTITLES_URL}/subtitles/${type}/${imdbId}.json${query}`, {
+        const response = await soraFetchTimed(`${STREMIO_OPENSUBTITLES_URL}/subtitles/${type}/${imdbId}.json${query}`, {
             headers: {
                 'Accept': 'application/json',
                 'Referer': 'https://app.strem.io/'
             }
-        });
+        }, 8000);
         if (!response) return null;
-        const data = await response.json();
+        const data = await response.json().catch(function() { return null; });
         const subtitles = ((data && data.subtitles) || [])
             .filter(item => item && item.url)
             .map(item => ({
@@ -814,24 +765,13 @@ async function resolveStremioSubtitle(imdbId, type, season, episode) {
 
         // v1.0.21-style list: EVERY language the provider offers goes into the
         // picker so the user can choose. English stays the auto-load default:
-        // pick the first full-dialogue English track for the `subtitle` field
-        // and leave the rest of the languages for the selector.
+        // the first real English track (skipping forced/signs-only variants).
+        // No subtitle downloads — the list and auto-load ride on the provider
+        // metadata alone, so the picker always appears fast.
         const english = subtitles.filter(isEnglishStremioSubtitle);
-        const cacheKey = type + '/' + imdbId + '/' + (season || '') + '/' + (episode || '');
-        let bestEnglishUrl = '';
-        if (english.length > 1) {
-            if (Object.prototype.hasOwnProperty.call(fullTrackCache, cacheKey)) {
-                bestEnglishUrl = fullTrackCache[cacheKey];
-            } else {
-                bestEnglishUrl = await pickFullEnglishTrack(english);
-                fullTrackCache[cacheKey] = bestEnglishUrl || '';
-            }
-        }
-        const preferred = english[0] || subtitles[0];
-        if (preferred && bestEnglishUrl) {
-            preferred.url = bestEnglishUrl;   // auto-load uses the full track
-            preferred.label = 'English';
-        }
+        const preferred = english.find(function(s) {
+            return !/forced|signs|sdh|hi\b/i.test(String(s.label || ''));
+        }) || english[0] || subtitles[0];
         return {
             subtitle: preferred && preferred.url ? preferred.url : '',
             subtitles: subtitles,
@@ -869,16 +809,18 @@ async function resolveCommunitySubtitle(imdbId, type, season, episode) {
             ? imdbId + ':' + encodeURIComponent(String(season || 1)) + ':' + encodeURIComponent(String(episode || 1))
             : imdbId;
         const url = EMPIRE_COMMUNITY_URL + '/' + token + '/subtitles/' + encodeURIComponent(type) + '/' + contentId + '/.json';
-        const response = await soraFetch(url, {
+        const response = await soraFetchTimed(url, {
             headers: {
                 'Accept': 'application/json',
                 'Referer': 'https://app.strem.io/'
             }
-        });
+        }, 8000);
         if (!response) return null;
-        const data = await response.json();
+        const data = await response.json().catch(function() { return null; });
+        // The addon answers titles it has no data for with a 1-cue "Test
+        // Subtitle" placeholder — drop those from the list entirely.
         const subtitles = ((data && data.subtitles) || [])
-            .filter(item => item && item.url)
+            .filter(item => item && item.url && !/test subtitle/i.test(String(item.label || item.name || '')))
             .map(item => ({
                 url: item.url,
                 lang: String(item.lang || '').toLowerCase(),
@@ -886,22 +828,19 @@ async function resolveCommunitySubtitle(imdbId, type, season, episode) {
             }));
         if (subtitles.length === 0) return null;
 
-        // SCS answers titles it has no data for with a 1-cue "Test Subtitle"
-        // placeholder, and can list forced/signs-only English tracks first.
-        // Download-verify the English candidates (bounded, concurrent) so the
-        // auto-loaded track is real full-dialogue English; every other language
-        // the provider offers goes straight into the picker (v1.0.21-style list,
-        // still series-capable).
-        const englishCandidates = subtitles.filter(isEnglishStremioSubtitle);
-        const verifiedEnglish = await verifyScEnglishTracks(englishCandidates);
-        const autoLoadUrl = verifiedEnglish.length > 0 ? verifiedEnglish[0].url : '';
-        const otherLanguages = subtitles.filter(function(s) { return !isEnglishStremioSubtitle(s); });
-        const list = verifiedEnglish.concat(otherLanguages);
+        // v1.0.21-style list: every language the provider offers goes into the
+        // picker. English is the auto-load default (first real English track,
+        // skipping forced/signs-only variants). No subtitle downloads — the
+        // list rides on the provider metadata alone, so it always appears.
+        const english = subtitles.filter(isEnglishStremioSubtitle);
+        const preferred = english.find(function(s) {
+            return !/forced|signs|sdh|hi\b/i.test(String(s.label || ''));
+        }) || english[0];
 
         const result = {
-            subtitle: autoLoadUrl,
-            subtitles: list,
-            pickedEnglish: verifiedEnglish.length > 0
+            subtitle: preferred && preferred.url ? preferred.url : '',
+            subtitles: subtitles,
+            pickedEnglish: english.length > 0
         };
         scsResultCache[cacheKey] = result;
         return result;
@@ -911,40 +850,6 @@ async function resolveCommunitySubtitle(imdbId, type, season, episode) {
     }
 }
 
-// Download English candidates concurrently and return only full-dialogue tracks
-// (cue count, not the 1-cue placeholder). Keeps SCS's original ordering.
-async function verifyScEnglishTracks(englishCandidates) {
-    if (!Array.isArray(englishCandidates) || englishCandidates.length === 0) return [];
-    const MIN_CUES = 120;   // a real episode has 250+; the placeholder has 1
-    const MAX_CHECK = 6;
-    const cands = englishCandidates.slice(0, MAX_CHECK);
-    const counts = await Promise.all(cands.map(function(cand) {
-        return (async function() {
-            try {
-                const resp = await soraFetchTimed(cand.url, {
-                    headers: { 'Referer': 'https://app.strem.io/', 'Accept': '*/*' }
-                }, 6000);
-                if (!resp) return 0;
-                const text = String((await resp.text()) || '');
-                return (text.match(/-->/g) || []).length;
-            } catch (e) {
-                return 0;
-            }
-        })();
-    }));
-    const verified = [];
-    for (let i = 0; i < cands.length; i++) {
-        if (counts[i] >= MIN_CUES) {
-            verified.push({
-                url: cands[i].url,
-                lang: 'eng',
-                label: 'English'
-            });
-        }
-    }
-return verified;
-}
-
 // ---- OpenSubtitles REST (keyless series + movie source) --------------------
 // The public rest.opensubtitles.org search API is what the web player's
 // subtitles panel uses (ythd worker -> cloudorchestranova). It works with no
@@ -952,7 +857,7 @@ return verified;
 // prefix) and an X-User-Agent header, and every hit carries a direct download
 // link. The same keyless engine covers series, which v3 (movies only) and
 // the stalled SCS connector cannot. English-only: we search with
-// sublanguageid-eng and verify full-dialogue cue counts before offering a track.
+// sublanguageid-eng and offer every returned track in the picker.
 // Alt: rest.opensubtitles.org redirects searches that carry the "tt" prefix
 // to a dead "_" host, so we strip it. The classic filead/ path serves plain
 // SRT (no gzip), which the app's fetch bridge can render directly.
@@ -976,18 +881,9 @@ async function resolveOsRestSubtitle(imdbId, isMovie, season, episode) {
         }
         url += '/sublanguageid-eng';
         const headers = { 'X-User-Agent': 'trailers.to-UA', 'Accept': 'application/json' };
-        let data = null;
-        const fetchSearch = async function() {
-            const response = await soraFetch(url, { headers });
-            if (!response) return null;
-            return response.json().catch(function() { return null; });
-        };
-        data = await fetchSearch();
-        if (!Array.isArray(data) || data.length === 0) {
-            // Transient throttle / empty reply (flaky in-app): retry once.
-            await new Promise(function(resolve) { setTimeout(resolve, 1500); });
-            data = await fetchSearch();
-        }
+        const response = await soraFetchTimed(url, { headers }, 8000);
+        if (!response) return null;
+        const data = await response.json().catch(function() { return null; });
         if (!Array.isArray(data) || data.length === 0) return null;
         // Map hits to direct plain-SRT download URLs (filead serves utf-8 SRT
         // with no gzip, no token). English-only: the search was eng, but
@@ -1006,26 +902,12 @@ async function resolveOsRestSubtitle(imdbId, isMovie, season, episode) {
             });
         }
         if (candidates.length === 0) return null;
-        // Keep only full-dialogue English tracks: verify by downloading the
-        // plaintext SRT and counting cues (real episodes have 250+, signs-only
-        // tracks stay under ~100, and OS "ads"/placeholder stubs have few).
-        const verified = await verifyOsRestTracks(candidates);
-        if (verified.length === 0) {
-            // Verification downloads failed (flaky in-app network). Never give
-            // up silently — surface the raw English candidates as the picker
-            // list WITHOUT auto-load, so series still show subtitles the user
-            // can choose from.
-            const fallbackResult = {
-                subtitle: '',
-                subtitles: candidates,
-                pickedEnglish: false
-            };
-            osRestCache[cacheKey] = fallbackResult;
-            return fallbackResult;
-        }
+        // v1.0.21-style list: every English track the API returned goes into
+        // the picker, auto-loading the first one. No verification downloads —
+        // a dead subtitle API must never make the list disappear.
         const result = {
-            subtitle: verified[0].url,
-            subtitles: verified,
+            subtitle: candidates[0].url,
+            subtitles: candidates,
             pickedEnglish: true
         };
         osRestCache[cacheKey] = result;
@@ -1041,44 +923,10 @@ function _osTagIsEnglish(tag) {
     return !t || t === 'eng' || t === 'en' || t === 'english' || t.indexOf('english') !== -1;
 }
 
-async function verifyOsRestTracks(candidates) {
-    const MIN_CUES = 120;
-    const MAX_CHECK = 6;
-    const cands = candidates.slice(0, MAX_CHECK);
-    const counts = await Promise.all(cands.map(function(cand) {
-        return (async function() {
-            try {
-                const resp = await soraFetchTimed(cand.url, {
-                    headers: { 'Referer': 'https://www.opensubtitles.org/', 'Accept': '*/*' }
-                }, 6000);
-                if (!resp) return 0;
-                const text = String((await resp.text()) || '');
-                if (text.indexOf('Download failed') !== -1) return 0;
-                if (text.indexOf('try a different subtitle') !== -1) return 0;
-                if (text.length < 200) return 0;
-                return (text.match(/-->/g) || []).length;
-            } catch (e) {
-                return 0;
-            }
-        })();
-    }));
-    const verified = [];
-    for (let i = 0; i < cands.length; i++) {
-        if (counts[i] >= MIN_CUES) {
-            verified.push({
-                url: cands[i].url,
-                lang: 'eng',
-                label: cands[i].label || 'English'
-            });
-        }
-    }
-    return verified;
-}
-
 // Merge the three keyless providers' results into one picker list. OS REST
 // English entries come first (full OpenSubtitles set for series AND movies),
-// v3 fills in movie English, SCS adds community tracks. URLs are deduplicated
-// so the same file never appears twice. All entries are English-only.
+// v3 and SCS fill in every language the providers offer. URLs are deduplicated
+// so the same file never appears twice.
 function mergeSubtitleResults(stremioResult, communityResult, osRestResult) {
     const mergedSubtitles = [];
     const seenUrls = {};
@@ -1097,8 +945,8 @@ function mergeSubtitleResults(stremioResult, communityResult, osRestResult) {
     absorb(stremioResult, 'v3');
     absorb(communityResult, 'scs');
     if (mergedSubtitles.length === 0) return null;
-    // Auto-load priority: OS REST verified full-dialogue English, then v3, then
-    // whatever the first provider flagged as default.
+    // Auto-load priority: OS REST English, then v3, then SCS, then whatever the
+    // first provider flagged as default.
     const preferredUrl =
         (osRestResult && osRestResult.subtitle) ||
         (stremioResult && stremioResult.subtitle) ||
