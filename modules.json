@@ -51,6 +51,14 @@
       "sampleQuery": "one piece"
     },
     {
+      "id": "allmanga-novels",
+      "name": "AllManga Novels",
+      "iconUrl": "https://allmanga.to/pics/avatar-w.png",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga-novels/allmanga-novels.json",
+      "sampleQuery": "angel next door"
+    },
+    {
       "id": "comix",
       "name": "Comix",
       "iconUrl": "https://comix.to/favicon.ico",
