@@ -17,7 +17,7 @@ const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4'
 
 const FALLBACK_KEYGEN = {
     build_id: '97',
-    epoch: 6891,
+    epoch: 2953,
     lane: 'k7',
     key: '695af2782a31edc2c99a8b21a781d535fb0eab3b8574647f03931d3c3bed5f16',
     static_key: 'Xot36i3lK3:v1'
@@ -30,7 +30,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.7.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.7.1');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
