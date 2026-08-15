@@ -32,14 +32,14 @@ const KEYGEN_URLS = [
     'https://raw.githubusercontent.com/sdaqo/anipy-cli/key-gen/scripts/keygen/keygen.json'
 ];
 
-// Known-good keygen snapshot (build 97, 7-day epochs) — the same fallback the
+// Known-good keygen snapshot (build 114, 7-day epochs) — the same fallback the
 // anime module uses. Remote keygen is only fetched when the API says
-// AA_CRYPTO_STALE/MISSING.
+// AA_CRYPTO_STALE/MISSING/EXPIRED.
 const FALLBACK_KEYGEN = {
-    build_id: '97',
-    epoch: 2953,
+    build_id: '114',
+    epoch: 2954,
     lane: 'k7',
-    key: '695af2782a31edc2c99a8b21a781d535fb0eab3b8574647f03931d3c3bed5f16',
+    key: 'cf5487de30b64387b21614d641cfcf6174d7f3e24f2e9c6433c916c867db8a1d',
     static_key: 'Xot36i3lK3:v1'
 };
 
@@ -51,7 +51,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.0.2 (images need referer — see header note)');
+console.log('[AllMangaNovels] module script loaded v1.0.3 (images need referer — see header note)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -447,7 +447,8 @@ function aaUtf8ToStr(bytes) {
 
 function aaBuildToken(keys, qh, ts) {
     const payload = '{"v":1,"ts":' + ts + ',"epoch":' + keys.epoch + ',"buildId":"' + keys.build_id + '","qh":"' + qh + '","k":"' + keys.lane + '"}';
-    const iv = aaSha256(aaAscii(keys.epoch + ':' + qh + ':' + ts)).slice(0, 12);
+    // build 114 IV derivation (site zI()): sha256(epoch:buildId:qh:ts:lane)[0:12]
+    const iv = aaSha256(aaAscii(keys.epoch + ':' + keys.build_id + ':' + qh + ':' + ts + ':' + keys.lane)).slice(0, 12);
     const sealed = aaGcmSeal(aaHexToBytes(keys.key), iv, aaAscii(payload));
     const blob = new Uint8Array(1 + 12 + sealed.out.length + 16);
     blob[0] = 1;
@@ -503,7 +504,12 @@ async function aaFetchRemoteKeys() {
             });
             if (resp) {
                 const json = await resp.json();
-                if (json && json.build_id && json.key && json.epoch !== undefined && json.lane) {
+                // Guard: the third-party keygen repo lags behind the live site
+                // (e.g. build 81 vs the site's 114). Never replace a newer
+                // bundled fallback with an older remote snapshot.
+                const remoteBuild = Number(json && json.build_id);
+                const fallbackBuild = Number(FALLBACK_KEYGEN.build_id);
+                if (json && json.build_id && json.key && json.epoch !== undefined && json.lane && remoteBuild >= fallbackBuild) {
                     const keys = {
                         build_id: String(json.build_id),
                         epoch: String(json.epoch),
@@ -515,6 +521,7 @@ async function aaFetchRemoteKeys() {
                     aaKeyCache.ts = Date.now();
                     return keys;
                 }
+                console.log('Remote keygen stale (build ' + (json && json.build_id) + ' < ' + fallbackBuild + '); keeping fallback');
             }
         } catch (error) {
             console.log('Keygen fetch error: ' + error);
@@ -661,13 +668,13 @@ async function mangaChapterPagesOnce(keys, mangaId, chapterString, translationTy
         });
         if (!registered) return null;
         const regMsg = (registered.errors && registered.errors[0] && registered.errors[0].message) || '';
-        if (regMsg.indexOf('AA_CRYPTO_STALE') === 0 || regMsg.indexOf('AA_CRYPTO_MISSING') === 0) {
+        if (regMsg.indexOf('AA_CRYPTO_STALE') === 0 || regMsg.indexOf('AA_CRYPTO_MISSING') === 0 || regMsg.indexOf('AA_CRYPTO_EXPIRED') === 0) {
             console.log('[AllMangaNovels] aaReq stale/missing: ' + regMsg.slice(0, 60));
             return null;
         }
         return (registered.data && registered.data.tobeparsed) ? aaDecrypt(keys, registered.data.tobeparsed) : null;
     }
-    if (msg.indexOf('AA_CRYPTO_STALE') === 0 || msg.indexOf('AA_CRYPTO_MISSING') === 0) {
+    if (msg.indexOf('AA_CRYPTO_STALE') === 0 || msg.indexOf('AA_CRYPTO_MISSING') === 0 || msg.indexOf('AA_CRYPTO_EXPIRED') === 0) {
         console.log('[AllMangaNovels] aaReq stale/missing: ' + msg.slice(0, 60));
         return null;
     }

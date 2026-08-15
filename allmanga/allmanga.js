@@ -16,10 +16,10 @@ const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslat
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
 const FALLBACK_KEYGEN = {
-    build_id: '97',
-    epoch: 2953,
+    build_id: '114',
+    epoch: 2954,
     lane: 'k7',
-    key: '695af2782a31edc2c99a8b21a781d535fb0eab3b8574647f03931d3c3bed5f16',
+    key: 'cf5487de30b64387b21614d641cfcf6174d7f3e24f2e9c6433c916c867db8a1d',
     static_key: 'Xot36i3lK3:v1'
 };
 
@@ -30,7 +30,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.7.1');
+if (typeof console !== 'undefined') console.log('allmanga module v1.8.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -212,7 +212,12 @@ async function aaFetchRemoteKeys() {
             });
             if (resp) {
                 const json = await resp.json();
-                if (json && json.build_id && json.key && json.epoch !== undefined && json.lane) {
+                // Guard: the third-party keygen repo lags behind the live site
+                // (e.g. build 81 vs the site's 114). Never replace a newer
+                // bundled fallback with an older remote snapshot.
+                const remoteBuild = Number(json && json.build_id);
+                const fallbackBuild = Number(FALLBACK_KEYGEN.build_id);
+                if (json && json.build_id && json.key && json.epoch !== undefined && json.lane && remoteBuild >= fallbackBuild) {
                     const keys = {
                         build_id: String(json.build_id),
                         epoch: String(json.epoch),
@@ -224,6 +229,7 @@ async function aaFetchRemoteKeys() {
                     aaKeyCache.ts = Date.now();
                     return keys;
                 }
+                console.log('Remote keygen stale (build ' + (json && json.build_id) + ' < ' + fallbackBuild + '); keeping fallback');
             }
         } catch (error) {
             console.log('Keygen fetch error: ' + error);
@@ -234,7 +240,8 @@ async function aaFetchRemoteKeys() {
 
 function aaBuildToken(keys, qh, ts) {
     const payload = '{"v":1,"ts":' + ts + ',"epoch":' + keys.epoch + ',"buildId":"' + keys.build_id + '","qh":"' + qh + '","k":"' + keys.lane + '"}';
-    const iv = aaSha256(aaAscii(keys.epoch + ':' + qh + ':' + ts)).slice(0, 12);
+    // build 114 IV derivation (site zI()): sha256(epoch:buildId:qh:ts:lane)[0:12]
+    const iv = aaSha256(aaAscii(keys.epoch + ':' + keys.build_id + ':' + qh + ':' + ts + ':' + keys.lane)).slice(0, 12);
     const sealed = aaGcmSeal(aaHexToBytes(keys.key), iv, aaAscii(payload));
     const blob = new Uint8Array(1 + 12 + sealed.out.length + 16);
     blob[0] = 1;
@@ -350,7 +357,7 @@ async function aaResolveTranslation(keys, showId, episode, tt) {
 
 function aaIsCryptoStale(json) {
     const msg = (json && json.errors && json.errors[0] && json.errors[0].message) || '';
-    return msg.indexOf('AA_CRYPTO_STALE') === 0 || msg.indexOf('AA_CRYPTO_MISSING') === 0;
+    return msg.indexOf('AA_CRYPTO_STALE') === 0 || msg.indexOf('AA_CRYPTO_MISSING') === 0 || msg.indexOf('AA_CRYPTO_EXPIRED') === 0;
 }
 
 function aaParseEpisodeResponse(json, keys) {

@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Si los relojes de AllAnime fallan, resuelve automáticamente fuentes iframe como mp4upload para mantener el flujo de video.",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",

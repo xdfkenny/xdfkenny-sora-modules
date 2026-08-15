@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de novelas/manga de AllManga (allmanga.to) — el build de manga del ecosistema AllAnime (230k+ series). Búsqueda y detalles vía GraphQL (mangas/manga, sin token), capítulos desde availableChaptersDetail (soporta números fraccionarios 25.5/14.1), contenido: páginas de imagen desde chapterPages con token aaReq + descifrado AES-GCM (mismo flujo que el módulo de anime AllManga, con fallback de keygen). Timer-safe para el JSContext de Sora. LIMITACIÓN CONOCIDA: el lector de novelas de Sora carga el HTML sin base URL (sin Referer) y el CDN de imágenes (aln.youtube-anime.com) exige un Referer de la plataforma → las imágenes de capítulo no renderizan en la app (sí en navegador); búsqueda/detalles/capítulos funcionan.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "language": "English",
   "languageType": [
     "Translated"
