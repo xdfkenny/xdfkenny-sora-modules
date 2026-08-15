@@ -4,7 +4,7 @@ const YFSP_API_EPISODES = 'https://m10.yfsp.tv/v3/video/languagesplaylist';
 const YFSP_API_PLAY = 'https://m10.yfsp.tv/v3/video/play';
 const YFSP_API_SEARCH = 'https://rankv21.yfsp.tv/v3/list/briefsearch';
 const YFSP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
-const YFSP_BUILD = '1.0.0';
+const YFSP_BUILD = '1.0.1';
 
 console.log('[YFSP] script build: v' + YFSP_BUILD + ' (sign=' + (typeof signStreamUrl === 'function' ? 'yes' : 'no') + ')');
 
@@ -171,31 +171,53 @@ async function extractStreamUrl(url) {
         if (!response) return fallback;
         const data = await response.json();
 
-        const info = (data && data.data && Array.isArray(data.data.info) && data.data.info[0]) || {};
-        const flvList = (info && Array.isArray(info.flvPathList)) ? info.flvPathList : [];
-
-        // The non-HLS flvPathList entry is a shared placeholder; the real
-        // playback is always the HLS chunklist, so prefer HLS sources.
-        const hlsSources = flvList.filter((f) => f && f.isHls && f.result);
-        const sources = hlsSources.length > 0 ? hlsSources : flvList.filter((f) => f && f.result);
-
-        const streams = [];
-        const seen = new Set();
-        for (const f of sources) {
-            if (!f || !f.result || seen.has(f.result)) continue;
-            seen.add(f.result);
-            streams.push({
-                title: f.isHls ? 'HLS' : 'MP4',
-                streamUrl: signStreamUrl(f.result),
-                headers: makeStreamHeaders()
-            });
+        // The play endpoint rate-limits aggressively ("访问过量" = excessive
+        // visits). One immediate retry clears burst limits; log the code so
+        // in-app failures are diagnosable instead of silently empty.
+        const bizCode = (data && data.data && data.data.code);
+        if (bizCode === 5) {
+            console.log('[YFSP] play rate-limited (code 5), retrying once');
+            const retry = await soraFetch(signed, { headers: jsonApiHeaders(useKey) });
+            if (retry) {
+                const data2 = await retry.json();
+                if (!(data2 && data2.data && data2.data.code === 5)) {
+                    return JSON.stringify(parsePlayData(data2, useKey));
+                }
+                console.log('[YFSP] play still rate-limited (code 5): ' + ((data2.data && data2.data.msg) || ''));
+            }
+            return fallback;
         }
 
-        return JSON.stringify({ streams: streams, subtitle: '' });
+        return JSON.stringify(parsePlayData(data, useKey));
     } catch (error) {
         console.log('Stream error: ' + error);
         return fallback;
     }
+}
+
+// Turn a play response body into the streams contract (HLS preferred).
+function parsePlayData(data, useKey) {
+    const info = (data && data.data && Array.isArray(data.data.info) && data.data.info[0]) || {};
+    const flvList = (info && Array.isArray(info.flvPathList)) ? info.flvPathList : [];
+
+    // The non-HLS flvPathList entry is a shared placeholder; the real
+    // playback is always the HLS chunklist, so prefer HLS sources.
+    const hlsSources = flvList.filter((f) => f && f.isHls && f.result);
+    const sources = hlsSources.length > 0 ? hlsSources : flvList.filter((f) => f && f.result);
+
+    const streams = [];
+    const seen = new Set();
+    for (const f of sources) {
+        if (!f || !f.result || seen.has(f.result)) continue;
+        seen.add(f.result);
+        streams.push({
+            title: f.isHls ? 'HLS' : 'MP4',
+            streamUrl: signStreamUrl(f.result),
+            headers: makeStreamHeaders()
+        });
+    }
+
+    return { streams: streams, subtitle: '' };
 }
 
 /* HELPERS */
