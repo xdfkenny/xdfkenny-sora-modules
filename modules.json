@@ -52,7 +52,7 @@
     },
     {
       "id": "allmanga-novels",
-      "name": "AllManga Novels",
+      "name": "AllManga Manga",
       "iconUrl": "https://allmanga.to/pics/avatar-w.png",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga-novels/allmanga-novels.json",

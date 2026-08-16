@@ -1,17 +1,13 @@
-// AllManga Novels — manga (image-chapter) module for allmanga.to, the manga
+// AllManga Manga — manga (image-chapter) module for allmanga.to, the manga
 // build of the AllAnime platform. Same GraphQL backend as allmanga.js (anime):
 //   - search + details: plain persisted queries (no token)
 //   - chapter pages:   chapterPages persisted query, gated by the aaReq
 //                      AES-GCM token (same keygen flow as the anime module)
-// All four functions return the novels contract from documentation/NovelModules.md.
-//
-// KNOWN LIMITATION (v1.0.2): chapter images do not render inside Sora's novel
-// reader. The reader loads the HTML with baseURL:nil (no Referer), and the
-// image CDN (aln.youtube-anime.com) 403s any request without a platform
-// Referer (allmanga.to/mkissa.to). Every workaround is a dead end: the JS
-// bridge has no binary support (no data URIs), public relays are blocked
-// upstream, and <base>/referrerpolicy cannot forge a Referer. Search,
-// details and the chapter list work; images load only in a normal browser.
+// All four functions return the kanzen mangas contract: raw objects/arrays
+// (searchResults / extractDetails / extractChapters / extractImages), no
+// JSON.stringify. Chapter pages are returned as plain image URLs — unlike the
+// old novels format (extractText with <img> HTML), a manga reader loads them
+// directly, which also sidesteps the old v1.0.x CDN-referer limitation.
 
 const BASE_URL = 'https://allmanga.to';
 const API_URLS = [
@@ -51,7 +47,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.0.3 (images need referer — see header note)');
+console.log('[AllMangaNovels] module script loaded v1.1.0 (kanzen mangas contract)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -728,7 +724,7 @@ function parseChapterUrl(url) {
 
 /* ---- novels contract ---------------------------------------------------------- */
 
-async function searchResults(keyword) {
+async function searchResults(keyword, page = 0) {
     const key = 'search/' + String(keyword || '').toLowerCase();
     const cached = cacheGet(key);
     if (cached) return cached;
@@ -738,65 +734,49 @@ async function searchResults(keyword) {
         const seen = new Set();
         edges.forEach(function(show) {
             if (!show || !show._id) return;
-            const href = BASE_URL + '/manga/' + show._id;
-            if (seen.has(href)) return;
-            seen.add(href);
+            const id = BASE_URL + '/manga/' + show._id;
+            if (seen.has(id)) return;
+            seen.add(id);
             const title = cleanText(show.englishName || show.name || show.nativeName || 'Unknown');
             if (!title) return;
-            results.push({ title: title, image: normalizeImage(show.thumbnail), href: href });
+            results.push({ id: id, title: title, imageURL: normalizeImage(show.thumbnail) });
         });
-        const out = JSON.stringify(results);
-        cacheSet(key, out, 60000);
+        cacheSet(key, results, 60000);
         console.log('[AllMangaNovels] search "' + keyword + '" -> ' + results.length + ' results');
-        return out;
+        return results;
     } catch (error) {
         console.log('Search error: ' + error);
-        return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
+        return [];
     }
 }
 
 async function extractDetails(url) {
     try {
         const mangaId = extractMangaId(url);
-        if (!mangaId) return JSON.stringify([{ description: 'No manga id', aliases: 'Unknown', airdate: 'Unknown' }]);
+        if (!mangaId) return { description: 'No manga id', tags: [] };
         const manga = await mangaDetail(mangaId);
-        if (!manga) return JSON.stringify([{ description: 'No description available', aliases: 'Unknown', airdate: 'Unknown' }]);
-
-        const aliases = (manga.altNames || []).filter(function(n) { return n && cleanText(n); })
-            .map(function(n) { return cleanText(n); }).join(' | ');
-        const meta = [];
-        if (manga.authors && manga.authors.length) meta.push('Authors: ' + manga.authors.join(', '));
-        if (manga.genres && manga.genres.length) meta.push('Genres: ' + manga.genres.join(', '));
-        if (manga.status) meta.push('Status: ' + manga.status);
-        if (manga.magazine) meta.push('Magazine: ' + manga.magazine);
-        const aliasesFinal = [aliases, meta.join('\n')].filter(function(s) { return s; }).join('\n\n') || 'Unknown';
-
-        const airdate = (manga.season && manga.season.year) ? String(manga.season.year)
-            : (manga.airedStart && manga.airedStart.year) ? String(manga.airedStart.year)
-            : 'N/A';
-
-        return JSON.stringify([{
+        if (!manga) return { description: 'No description available', tags: [] };
+        return {
             description: cleanText(manga.description) || 'No description available',
-            aliases: aliasesFinal,
-            airdate: airdate
-        }]);
+            tags: (manga.genres || []).map(function(g) { return cleanText(g); }).filter(Boolean)
+        };
     } catch (error) {
         console.log('Details error: ' + error);
-        return JSON.stringify([{ description: 'Error loading description', aliases: 'Unknown', airdate: 'Unknown' }]);
+        return { description: 'Error loading description', tags: [] };
     }
 }
 
 async function extractChapters(url) {
     try {
         const mangaId = extractMangaId(url);
-        if (!mangaId) return JSON.stringify([]);
+        if (!mangaId) return { en: [] };
         const cacheKey = 'chapters/' + mangaId;
         const cached = cacheGet(cacheKey);
         if (cached) return cached;
 
         const manga = await mangaDetail(mangaId);
         const list = (manga && manga.availableChaptersDetail && manga.availableChaptersDetail.sub) || [];
-        if (!list.length) return JSON.stringify([]);
+        if (!list.length) return { en: [] };
 
         // The API returns chapters newest-first; present them ascending.
         const unique = [];
@@ -808,36 +788,38 @@ async function extractChapters(url) {
             unique.push(s);
         });
 
-        const chapters = unique.map(function(ch, i) {
-            return {
-                href: BASE_URL + '/manga/' + mangaId + '/chapter-' + encodeURIComponent(ch) + '-sub',
-                title: 'Chapter ' + ch,
-                number: i + 1
-            };
+        const results = unique.map(function(ch) {
+            const num = parseFloat(ch);
+            return [
+                String(num || ch),
+                [{
+                    id: BASE_URL + '/manga/' + mangaId + '/chapter-' + encodeURIComponent(ch) + '-sub',
+                    title: 'Chapter ' + ch,
+                    chapter: num || 0,
+                    scanlation_group: ''
+                }]
+            ];
         });
-        const out = JSON.stringify(chapters);
-        cacheSet(cacheKey, out, 300000);
-        console.log('[AllMangaNovels] chapters for ' + mangaId + ' -> ' + chapters.length);
-        return out;
+        cacheSet(cacheKey, results, 300000);
+        console.log('[AllMangaNovels] chapters for ' + mangaId + ' -> ' + results.length);
+        return { en: results };
     } catch (error) {
         console.log('Chapters error: ' + error);
-        return JSON.stringify([]);
+        return { en: [] };
     }
 }
 
-async function extractText(url) {
+async function extractImages(chapterUrl) {
     try {
-        const parsed = parseChapterUrl(url);
-        if (!parsed || !parsed.mangaId || !parsed.chapterString) {
-            return '<p>Error extracting text</p>';
-        }
-        const cacheKey = 'text/' + parsed.mangaId + '/' + parsed.chapterString + '/' + parsed.translationType;
+        const parsed = parseChapterUrl(chapterUrl);
+        if (!parsed || !parsed.mangaId || !parsed.chapterString) return [];
+        const cacheKey = 'images/' + parsed.mangaId + '/' + parsed.chapterString + '/' + parsed.translationType;
         const cached = cacheGet(cacheKey);
         if (cached) return cached;
 
         const result = await mangaChapterPages(parsed.mangaId, parsed.chapterString, parsed.translationType);
         const pages = (result && result.chapterPages && result.chapterPages.edges) || [];
-        if (!pages.length) return '<p>Error extracting text</p>';
+        if (!pages.length) return [];
 
         // Pick the first server with picture pages; prefer one with a head URL.
         let edge = null;
@@ -847,23 +829,20 @@ async function extractText(url) {
                 if (pages[i].pictureUrlHead) break;
             }
         }
-        if (!edge) return '<p>Error extracting text</p>';
+        if (!edge) return [];
         const head = String(edge.pictureUrlHead || DEFAULT_CHAPTER_HEAD).replace(/\/+$/, '') + '/';
         const imgs = edge.pictureUrls
             .filter(function(p) { return p && p.url; })
             .sort(function(a, b) { return (a.num || 0) - (b.num || 0); })
             .map(function(p) {
-                const src = /^https?:\/\//i.test(p.url) ? p.url : head + String(p.url).replace(/^\/+/, '');
-                return "<img src='" + src + "' style='max-width:100%;height:auto;display:block;margin:0 auto;'/>";
+                return /^https?:\/\//i.test(p.url) ? p.url : head + String(p.url).replace(/^\/+/, '');
             });
-        if (!imgs.length) return '<p>Error extracting text</p>';
-        const out = imgs.join('<br/>');
-        cacheSet(cacheKey, out, 1800000);
-        console.log('[AllMangaNovels] text for ' + parsed.mangaId + ' ch ' + parsed.chapterString + ' -> ' + imgs.length + ' pages');
-        return out;
+        cacheSet(cacheKey, imgs, 1800000);
+        console.log('[AllMangaNovels] images for ' + parsed.mangaId + ' ch ' + parsed.chapterString + ' -> ' + imgs.length + ' pages');
+        return imgs;
     } catch (error) {
-        console.log('Text error: ' + error);
-        return '<p>Error extracting text</p>';
+        console.log('Images error: ' + error);
+        return [];
     }
 }
 

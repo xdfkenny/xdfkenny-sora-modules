@@ -1,4 +1,4 @@
-// comix.to module (comics/manga) for Sora / Luna / Tsumi / Hiyoku
+// comix.to module (comics/manga) for kanzen / Luna / Anymex / Dartotsu (mangas)
 //
 // The comix.to API (api/v1) is protected by the "X-Scramble" anti-scraping SDK:
 // every request needs a deterministic `_` token bound to the exact params, and
@@ -208,7 +208,7 @@ function cleanText(s) {
     return s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function searchResults(keyword) {
+async function searchResults(keyword, page = 0) {
     try {
         const result = await apiGet('/manga', {
             order: { chapter_updated_at: 'desc' },
@@ -216,37 +216,40 @@ async function searchResults(keyword) {
             content_rating: ['safe', 'suggestive'],
             keyword,
         });
-        return JSON.stringify((result.items || []).map(it => ({
+        return (result.items || []).map(it => ({
+            id: 'https://comix.to' + (it.url || `/title/${it.hid}`),
             title: it.title || '',
-            href: 'https://comix.to' + (it.url || `/title/${it.hid}`),
-            image: (it.poster && (it.poster.large || it.poster.medium)) || '',
-        })));
+            imageURL: (it.poster && (it.poster.large || it.poster.medium)) || '',
+        }));
     } catch (e) {
         console.log('comix searchResults error: ' + e.message);
-        return JSON.stringify([{ title: 'Error', href: '', image: '' }]);
+        return [];
     }
 }
 
-async function extractDetails(url) {
+async function extractDetails(idOrUrl) {
     try {
-        const hid = (url.match(/comix\.(?:to|ws)\/title\/([^/?#]+)/) || [])[1]?.split('-')[0];
-        if (!hid) return JSON.stringify([{ description: 'N/A', aliases: 'N/A', airdate: 'N/A' }]);
+        const hid = (idOrUrl.match(/comix\.(?:to|ws)\/title\/([^/?#]+)/) || [])[1]?.split('-')[0];
+        if (!hid) return { description: 'N/A', tags: [] };
         const m = await apiGet('/manga/' + hid, {});
-        return JSON.stringify([{
+        let tags = (m.genres || []).map(g => cleanText(typeof g === 'string' ? g : (g.name || g.title || ''))).filter(Boolean);
+        if (!tags.length && Array.isArray(m.altTitles)) {
+            tags = m.altTitles.slice(0, 8).map(t => cleanText(typeof t === 'string' ? t : (t.name || t.title || ''))).filter(Boolean);
+        }
+        return {
             description: cleanText(m.synopsis || m.synopsisHtml) || 'N/A',
-            aliases: (m.altTitles || []).slice(0, 5).join('\n') || 'N/A',
-            airdate: String(m.year || ''),
-        }]);
+            tags,
+        };
     } catch (e) {
         console.log('comix extractDetails error: ' + e.message);
-        return JSON.stringify([{ description: 'Error extracting details', aliases: 'N/A', airdate: 'N/A' }]);
+        return { description: 'Error extracting details', tags: [] };
     }
 }
 
-async function extractChapters(url) {
+async function extractChapters(idOrUrl) {
     try {
-        const hid = (url.match(/comix\.(?:to|ws)\/title\/([^/?#]+)/) || [])[1]?.split('-')[0];
-        if (!hid) throw new Error('no hid in ' + url);
+        const hid = (idOrUrl.match(/comix\.(?:to|ws)\/title\/([^/?#]+)/) || [])[1]?.split('-')[0];
+        if (!hid) throw new Error('no hid in ' + idOrUrl);
         const chapters = [];
         for (let page = 1; page <= 20; page++) {
             const result = await apiGet(`/manga/${hid}/chapters`, {
@@ -256,34 +259,31 @@ async function extractChapters(url) {
             items.forEach(it => {
                 const lang = (it.language || 'en').toUpperCase();
                 chapters.push({
+                    id: 'https://comix.to' + it.url,
                     title: `Ch.${it.number}${it.name ? ' - ' + it.name : ''} [${lang}]${it.group ? ' @' + it.group.name : ''}`,
-                    href: 'https://comix.to' + it.url,
-                    number: it.number,
+                    chapter: it.number,
+                    scanlation_group: (it.group && it.group.name) || '',
                 });
             });
             if (!result.meta || !result.meta.hasNext) break;
         }
-        chapters.sort((a, b) => a.number - b.number);
-        chapters.forEach((c, i) => { c.number = i + 1; });
-        return JSON.stringify(chapters);
+        chapters.sort((a, b) => a.chapter - b.chapter);
+        return { en: chapters.map(ch => [String(ch.chapter), [ch]]) };
     } catch (e) {
         console.log('comix extractChapters error: ' + e.message);
-        return JSON.stringify([{ title: 'Error extracting chapters', href: url, number: 1 }]);
+        return { en: [] };
     }
 }
 
-async function extractText(url) {
+async function extractImages(chapterId) {
     try {
-        const id = (url.match(/\/title\/[^/]+\/(\d+)-chapter/) || [])[1];
-        if (!id) throw new Error('no chapter id in ' + url);
+        const id = (chapterId.match(/\/title\/[^/]+\/(\d+)-chapter/) || [])[1];
+        if (!id) throw new Error('no chapter id in ' + chapterId);
         const m = await apiGet('/chapters/' + id, {});
         const pages = (m.pages && m.pages.items) || [];
-        if (!pages.length) return '<p>No pages</p>';
-        return pages.map(function(p) {
-            return '<img src="' + p.url + '" style="max-width:100%;height:auto;display:block;margin:0 auto;"/>';
-        }).join('<br/>');
+        return pages.map(p => p.url).filter(Boolean);
     } catch (e) {
-        console.log('comix extractText error: ' + e.message);
-        return '<p>Error extracting pages</p>';
+        console.log('comix extractImages error: ' + e.message);
+        return [];
     }
 }
