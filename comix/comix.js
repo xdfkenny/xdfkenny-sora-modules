@@ -1,5 +1,8 @@
 // comix.to module (comics/manga) for kanzen / Luna / Anymex / Dartotsu (mangas)
 //
+// Some host builds omit the console bridge; keep logging a no-op there.
+if (typeof console === 'undefined' || !console) { var console = { log: function() {}, print: function() {} }; }
+//
 // The comix.to API (api/v1) is protected by the "X-Scramble" anti-scraping SDK:
 // every request needs a deterministic `_` token bound to the exact params, and
 // most responses come back encrypted ({"e": "..."}). This module implements
@@ -287,3 +290,11 @@ async function extractImages(chapterId) {
         return [];
     }
 }
+
+// Compatibility aliases: Luna builds before the 2026-06-28 "Renamed function"
+// commit (88e1a8da) call the old names (searchContent/getContentData/
+// getChapters/getChapterImages); current builds call the names above.
+async function searchContent(input, page) { return searchResults(input, page); }
+async function getContentData(input) { return extractDetails(input); }
+async function getChapters(input) { return extractChapters(input); }
+async function getChapterImages(input) { return extractImages(input); }

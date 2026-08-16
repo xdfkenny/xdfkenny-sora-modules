@@ -9,6 +9,9 @@
 // old novels format (extractText with <img> HTML), a manga reader loads them
 // directly, which also sidesteps the old v1.0.x CDN-referer limitation.
 
+// Some host builds omit the console bridge; keep logging a no-op there.
+if (typeof console === 'undefined' || !console) { var console = { log: function() {}, print: function() {} }; }
+
 const BASE_URL = 'https://allmanga.to';
 const API_URLS = [
     'https://api.allanime.day/api',
@@ -848,4 +851,12 @@ async function extractImages(chapterUrl) {
 
 // Byte-exact query text for the chapterPages persisted hash. DO NOT reformat:
 // the hash (HASH_CHAPTER_PAGES) is sha256 of this exact string.
+
+// Compatibility aliases: Luna builds before the 2026-06-28 "Renamed function"
+// commit (88e1a8da) call the old names (searchContent/getContentData/
+// getChapters/getChapterImages); current builds call the names above.
+async function searchContent(input, page) { return searchResults(input, page); }
+async function getContentData(input) { return extractDetails(input); }
+async function getChapters(input) { return extractChapters(input); }
+async function getChapterImages(input) { return extractImages(input); }
 

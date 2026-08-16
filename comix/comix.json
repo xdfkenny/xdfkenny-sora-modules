@@ -7,7 +7,7 @@
         "url": "https://github.com/xdfkenny"
     },
     "description": "Módulo tipo manga de Comix (comix.to / comix.ws) — cómics y manga en inglés vía su API protegida por el SDK anti-scraping X-Scramble. Implementación 100% JS del token `_` por request y del descifrado de respuestas (cadenas de cajas-S con claves extraídas del chunk seguro), sin proxy ni navegador. Contrato mangas de kanzen: searchResults / extractDetails / extractChapters / extractImages con salida cruda.",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "language": "English",
     "languageType": [
         "Translated"
