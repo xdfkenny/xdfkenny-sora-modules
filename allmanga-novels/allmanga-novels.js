@@ -5,9 +5,14 @@
 //                      AES-GCM token (same keygen flow as the anime module)
 // All four functions return the kanzen mangas contract: raw objects/arrays
 // (searchResults / extractDetails / extractChapters / extractImages), no
-// JSON.stringify. Chapter pages are returned as plain image URLs — unlike the
-// old novels format (extractText with <img> HTML), a manga reader loads them
-// directly, which also sidesteps the old v1.0.x CDN-referer limitation.
+// JSON.stringify. Chapter pages are returned as plain image URLs.
+//
+// KNOWN LIMITATION: the chapter CDN (aln.youtube-anime.com -> ytimgf.youtube-
+// anime.com, and the wp.youtube-anime.com proxy) 403s any request without the
+// platform Referer (https://allmanga.to/ or https://mkissa.to/). The keygen
+// and chapterPages API work (image URLs are generated fine); but kanzen's
+// reader loads images with plain URL requests (no header support), so chapter
+// panels do NOT render in-app. Same wall as the old v1.0.x novels build.
 
 // Some host builds omit the console bridge; keep logging a no-op there.
 if (typeof console === 'undefined' || !console) { var console = { log: function() {}, print: function() {} }; }
