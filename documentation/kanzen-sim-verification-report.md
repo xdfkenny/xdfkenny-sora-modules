@@ -234,4 +234,6 @@ FINAL PR #42 state (each apply-checked against pristine upstream main
 NSLock + explicit prefetcher options + catch logging),
 `Luna-Kanzen-reader-mac-crash-fix.patch` (cover + chapter-list sheet),
 `Luna-Kanzen-reader-image-sizing.patch` (long-strip decode cap).
+Also landed by the same PR: the pre-existing `Sora-ReaderView-baseURL.patch`
+(Sora novel-reader baseURL fix; previously untracked).
 Module JS/manifests unchanged — no version bump needed.

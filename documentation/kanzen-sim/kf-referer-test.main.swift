@@ -3,9 +3,11 @@
 //  REAL referer-gated allmanga CDN, using Kingfisher 8.10.0 (Luna's pin)
 //  compiled from source with the CLT toolchain.
 //
-//  The ModuleImageHeaders enum below is byte-identical to the one in
-//  Luna-Kanzen-reader-image-referer.patch (baseUrl passed as String? here to
-//  avoid pulling in ModuleData).
+//  The ModuleImageHeaders enum below is the FINAL version from
+//  Luna-Kanzen-reader-image-referer.patch (NSLock-guarded statics), with two
+//  deliberate adaptations: baseUrl is passed as String? (avoids pulling in
+//  ModuleData) and kingfisherOptions is omitted (the prefetcher path is
+//  covered by kf-quality-test instead).
 //
 
 import Foundation
@@ -13,8 +15,16 @@ import AppKit
 
 // === EXACT code from the patch (ModuleData.baseUrl -> String? param) ===
 enum ModuleImageHeaders {
-    private(set) static var referer: String?
+    // Written on the main thread (activate), read on Kingfisher downloader
+    // threads (modifier closure) — guard with a lock.
+    private static let lock = NSLock()
+    private static var _referer: String?
     private static var installed = false
+
+    private(set) static var referer: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _referer }
+        set { lock.lock(); _referer = newValue; lock.unlock() }
+    }
 
     private static let modifier = AnyModifier { request in
         var request = request
@@ -25,11 +35,16 @@ enum ModuleImageHeaders {
         return request
     }
 
+    /// Call whenever a module's script is loaded for browsing/reading.
     static func activate(for baseUrl: String?) {
         referer = baseUrl
-        guard !installed else { return }
+        lock.lock()
+        let shouldInstall = !installed
         installed = true
-        KingfisherManager.shared.defaultOptions += [.requestModifier(modifier)]
+        lock.unlock()
+        if shouldInstall {
+            KingfisherManager.shared.defaultOptions += [.requestModifier(modifier)]
+        }
     }
 }
 // =======================================================================
