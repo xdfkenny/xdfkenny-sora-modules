@@ -1,0 +1,96 @@
+diff --git a/Kanzen/Models/pageData.swift b/Kanzen/Models/pageData.swift
+index e002a83..ad8eca8 100644
+--- a/Kanzen/Models/pageData.swift
++++ b/Kanzen/Models/pageData.swift
+@@ -71,6 +71,34 @@ struct ChapterData: Identifiable
+ 
+ 
+ 
++/// Reader image decode sizing. Manhwa/webtoon chapters are often ONE very
++/// tall strip image; past the GPU texture limit (8192px on A9-era devices,
++/// 16384px on A12+) iOS can only render the layer heavily downscaled —
++/// "full screen but low quality". Downsampling at decode time caps the
++/// longest edge at a GPU-safe pixel count while preserving aspect ratio, so
++/// every device renders crisply. Ordinary pages (well under the cap) pass
++/// through unchanged: DownsamplingImageProcessor never upscales.
++///
++/// Every reader image path MUST use the same processor: Kingfisher caches
++/// processed images under `url + "@" + processor.identifier`, so mixed
++/// options would split the cache between paged, webtoon and prefetcher.
++enum ReaderImageSizing {
++    static let maxPixels: CGFloat = 8192
++    static var scale: CGFloat { max(UIScreen.main.scale, 1) }
++    static var processor: DownsamplingImageProcessor {
++        DownsamplingImageProcessor(size: CGSize(width: maxPixels / scale,
++                                                height: maxPixels / scale))
++    }
++    static var options: KingfisherOptionsInfo {
++        [.processor(processor), .scaleFactor(scale), .cacheOriginalImage, .backgroundDecode]
++    }
++    /// The key under which the processed image is cached for `url`
++    /// (mirrors Kingfisher's internal `String.computedKey(with:)`).
++    static func cacheKey(for url: URL) -> String {
++        url.absoluteString + "@" + processor.identifier
++    }
++}
++
+ struct chapterView: View {
+     let page: PageData
+     let index: String
+@@ -93,6 +121,10 @@ struct chapterView: View {
+                 {
+                     
+                     KFImage(url)
++                        .setProcessor(ReaderImageSizing.processor)
++                        .scaleFactor(ReaderImageSizing.scale)
++                        .cacheOriginalImage()
++                        .backgroundDecode()
+                         .placeholder{
+                             CircularLoader(progress: 0)
+                         }
+diff --git a/Kanzen/Models/readerManager.swift b/Kanzen/Models/readerManager.swift
+index 15157a3..f07f9f1 100644
+--- a/Kanzen/Models/readerManager.swift
++++ b/Kanzen/Models/readerManager.swift
+@@ -436,7 +436,12 @@ var nextControllers: [UIViewController]?
+             }
+         }
+         
+-        pagePrefetcher = ImagePrefetcher(urls: pagesURLs)
++        // NB: ImagePrefetcher does NOT consult KingfisherManager.defaultOptions
++        // (KF 8.x builds a private manager from its own options) — the module
++        // Referer modifier and the reader sizing processor must be passed
++        // explicitly, or prefetches 403 on gated CDNs and cache keys diverge.
++        pagePrefetcher = ImagePrefetcher(urls: pagesURLs,
++                                         options: ReaderImageSizing.options + ModuleImageHeaders.kingfisherOptions)
+         pagePrefetcher?.start()
+         
+     }
+diff --git a/Kanzen/Views/Reader/WebToon/webToonViewController.swift b/Kanzen/Views/Reader/WebToon/webToonViewController.swift
+index cba25f8..1320af6 100644
+--- a/Kanzen/Views/Reader/WebToon/webToonViewController.swift
++++ b/Kanzen/Views/Reader/WebToon/webToonViewController.swift
+@@ -561,8 +561,10 @@ class ChapterCollectionViewCell: UICollectionViewCell {
+         self.currentLoadingTask = taskId
+         
+         // 🔧 FIX: Check if image is already cached
++        // NOTE: with a processor set, Kingfisher stores the result under the
++        // processor-qualified key (url + "@" + processor.identifier).
+         let url = URL(string: rootView.page.content)
+-        let isCached = url != nil && ImageCache.default.isCached(forKey: url!.absoluteString)
++        let isCached = url != nil && ImageCache.default.isCached(forKey: ReaderImageSizing.cacheKey(for: url!))
+         
+         if isCached {
+             // 🔧 FIX: Image is cached, show it immediately without loading view
+@@ -580,9 +582,8 @@ class ChapterCollectionViewCell: UICollectionViewCell {
+         // 🔧 FIX: Set the image with options to prevent flicker
+         imageView.kf.setImage(
+             with: url,
+-            options: [
+-                .transition(.none), // Disable fade transition to prevent flicker
+-                .cacheOriginalImage
++            options: ReaderImageSizing.options + [
++                .transition(.none) // Disable fade transition to prevent flicker
+             ]
+         ) { [weak self] result in
+             guard let self = self,
