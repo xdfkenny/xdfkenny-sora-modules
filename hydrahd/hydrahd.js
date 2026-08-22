@@ -1,4 +1,4 @@
-const BASE_URL = 'https://hydrahd.ru';
+const BASE_URL = 'https://hydrahd.ws';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
 const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.39 (timer-safe for app JSContext, no setTimeout)');
+console.log('[HydraHD] module script loaded v1.0.40 (true per-stream quality + audio language labels)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -223,6 +223,74 @@ async function extractEpisodes(url) {
     }
 }
 
+// ---- True-quality + audio-language probe -----------------------------------
+// The site's server badges ("(Original)", "(4K)") are only guesses. The REAL
+// resolution lives in each host's master playlist (#EXT-X-STREAM-INF
+// RESOLUTION=WxH) and scope films pack fewer vertical lines into UHD-class
+// encodes — Interstellar's "2160p" variant is 3832x1600 (players show ~1440p)
+// while a true-UHD title like Sinners is 3840x2160. Audio languages come from
+// #EXT-X-MEDIA TYPE=AUDIO renditions. Measured labels replace the guesses.
+function parseM3u8VideoResolution(text) {
+    if (!text) return null;
+    let bestW = 0;
+    let bestH = 0;
+    const resRe = /RESOLUTION=(\d+)x(\d+)/g;
+    let m;
+    while ((m = resRe.exec(text)) !== null) {
+        const w = parseInt(m[1], 10);
+        const h = parseInt(m[2], 10);
+        if (w * h > bestW * bestH) { bestW = w; bestH = h; }
+    }
+    return bestW > 0 ? { width: bestW, height: bestH } : null;
+}
+
+function qualityClassFromDimensions(w, h) {
+    // Height decides the class because width scales with aspect ratio: a
+    // scope-ratio UHD encode (~3832x1600) must NOT be advertised as 4K.
+    if (!w || !h) return '';
+    if (h >= 2000) return '4K';
+    if (h >= 1400) return '1440p';
+    if (h >= 1000) return '1080p';
+    if (h >= 700) return '720p';
+    if (h >= 400) return String(h) + 'p';
+    return '';
+}
+
+const AUDIO_LANG_2_TO_3 = {
+    en: 'eng', it: 'ita', es: 'spa', pt: 'por', fr: 'fra', de: 'deu',
+    hi: 'hin', ja: 'jpn', ko: 'kor', zh: 'zho', ru: 'rus', ar: 'ara',
+    tr: 'tur', pl: 'pol', nl: 'nld', sv: 'swe', fi: 'fin', da: 'dan',
+    no: 'nor', el: 'ell', hu: 'hun', cs: 'ces', th: 'tha', vi: 'vie',
+    id: 'ind', bn: 'ben', ur: 'urd', uk: 'ukr', he: 'heb', ro: 'ron'
+};
+
+function audioLanguageName(tag) {
+    const t = String(tag || '').trim().toLowerCase();
+    if (!t) return '';
+    const key = Object.prototype.hasOwnProperty.call(AUDIO_LANG_2_TO_3, t) ? AUDIO_LANG_2_TO_3[t] : t.slice(0, 3);
+    return subtitleLanguageName(key);
+}
+
+function parseM3u8AudioLanguages(text) {
+    if (!text) return [];
+    const langs = [];
+    const seen = {};
+    const mediaRe = /#EXT-X-MEDIA:[^\r\n]*/g;
+    let line;
+    while ((line = mediaRe.exec(text)) !== null) {
+        const entry = line[0];
+        if (!/TYPE=(?:AUDIO|audio)/.test(entry)) continue;
+        const rawLang = (entry.match(/LANGUAGE="([^"]*)"/) || [])[1] || '';
+        const name = (entry.match(/NAME="([^"]*)"/) || [])[1] || '';
+        const norm = audioLanguageName(rawLang || name);
+        if (!norm || seen[norm]) continue;
+        seen[norm] = true;
+        langs.push(norm);
+        if (langs.length >= 3) break;
+    }
+    return langs;
+}
+
 async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
@@ -314,6 +382,7 @@ async function extractStreamUrl(url) {
             seenStreamUrls[streamUrl] = true;
             streams.push({
                 title: title, name: title, quality: title,
+                baseTitle: title,
                 streamUrl: streamUrl, url: streamUrl,
                 headers: headers || {}
             });
@@ -434,6 +503,46 @@ async function extractStreamUrl(url) {
         // Everything runs concurrently; a worker failure must NEVER abort the
         // whole result (that was killing streams even when they succeeded).
         await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
+        // Phase: measure TRUE resolution + audio languages from each stream's
+        // own master playlist and rewrite the labels with ground truth, e.g.
+        // "Beta • 4K (3840x2160) • English" or "Hydra2 • 1440p (3832x1600)".
+        // The site badge is a guess; this is what the file actually is.
+        try {
+            if (timeLeft() > 9000 && streams.length > 0) {
+                const probed = {};
+                const targets = [];
+                for (let i = 0; i < streams.length && targets.length < 6; i++) {
+                    const st = streams[i];
+                    if (!st || !st.streamUrl || !/\.m3u8/i.test(st.streamUrl)) continue;
+                    if (probed[st.streamUrl]) continue;
+                    probed[st.streamUrl] = true;
+                    targets.push(st);
+                }
+                await Promise.all(targets.map(async function(st) {
+                    try {
+                        const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 6000);
+                        if (!pr) return;
+                        const plText = await pr.text();
+                        const dims = parseM3u8VideoResolution(plText);
+                        if (!dims) return;
+                        const cls = qualityClassFromDimensions(dims.width, dims.height);
+                        if (!cls) return;
+                        const langs = parseM3u8AudioLanguages(plText);
+                        const baseName = String(st.baseTitle || st.title || '')
+                            .replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '')
+                            .trim() || String(st.title || '');
+                        const bits = [baseName, cls + ' (' + dims.width + 'x' + dims.height + ')'];
+                        if (langs.length > 0) bits.push(langs.join(' / '));
+                        st.title = bits.join(' • ');
+                        st.name = st.title;
+                        st.quality = cls + ' (' + dims.width + 'x' + dims.height + ')';
+                    } catch (e) { /* keep the site badge for this stream */ }
+                }));
+                console.log('[HydraHD] Quality probe done probed=' + targets.length + '/' + streams.length);
+            }
+        } catch (e) {
+            console.error('[HydraHD] Quality probe error:', e && e.message ? e.message : e);
+        }
         if (merged && merged.subtitles && merged.subtitles.length > 0) {
             subtitleList = merged.subtitles;
             // Auto-load only when a provider surfaced an English track (they
