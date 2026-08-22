@@ -3,20 +3,35 @@
 // Some host builds omit the console bridge; keep logging a no-op there.
 if (typeof console === 'undefined' || !console) { var console = { log: function() {}, print: function() {} }; }
 //
-// The comix.to API (api/v1) is protected by the "X-Scramble" anti-scraping SDK:
-// every request needs a deterministic `_` token bound to the exact params, and
-// most responses come back encrypted ({"e": "..."}). This module implements
-// the whole client in pure JS (no proxy, no browser):
+// The comix.to API (api/v1) sits behind Cloudflare managed challenges and its
+// list endpoints answer plain JSON while detail/chapter endpoints may come
+// back encrypted ({"e": "..."}). This module mirrors the AllManga resilience
+// pattern:
+//
+//   - multi-host fallback: comix.to then comix.ws (first host returning valid
+//     JSON wins);
+//   - full browser-grade header set (the challenge is largely IP/TLS
+//     reputation based: real-app network stacks pass, flagged datacenter IPs
+//     get "Just a moment...");
+//   - failure classification in logs so a blocked run reads as
+//     "cloudflare challenge" or "origin down (502)" instead of a cryptic
+//     parse error;
 //
 //   token   = base64url( S3( S2( S1( utf8( path + '?' + qs ) ) ) ) )
 //   decrypt = the inverse chain (S1^-1 -> S2^-1 -> S3^-1)
 //
 // where S1/S2/S3 are the site's chained substitution ciphers (S-box + rotating
-// key stream + chaining) with constants extracted from the secure chunk
-// (secure-tjhzks-kfv73cOh.js). Verified byte-exact against the live API on
-// both comix.to and comix.ws.
+// key stream + chaining). Verified byte-exact against the live API earlier;
+// re-verify constants against the current secure-* chunk whenever the site
+// rotates them (see documentation/audit-2026-08-22.md).
 
 const BASE_URL = 'https://comix.to';
+
+// Hosts tried in order by apiGet() — first valid JSON response wins.
+const API_HOSTS = [
+    'https://comix.to',
+    'https://comix.ws',
+];
 
 const S1 = 'gbicCvAMzfcXEtGAyjvvhmb2yCWzWhjqcxXZ7ZhpzANOzoQLo3nuPZ2vK9dkb9hJExC0Vni/hdQBceI+mw611gkhQFjBuf4bJg1TxYqM+SL4YDqtwjxiGSdeH7so7Fn1HiRo37Z+RNvl44twXWVhomtMjw+8bemfmv9XEXr7mS82MxaCOJZRR0oHd9PLI5O+gyBGT6hcLoduNa7yCObVVCk3bFWsoD+xcqTrBcP6dNJN/NB1Br2QGhSN2snHAqeRNKVFQiyeAFLPSKGwY8aq9EPgsi17qd4ywPMxiH8w6N1qX1tLKtzhOeemHWeJQfFQ5H23q7qSlJUcjgTEl3x2/Q==';
 const D1 = 'rafYl4oSAKQX+GYoic9oW4iGwiYpZzs0';
@@ -174,9 +189,16 @@ function decryptBody(e) {
     return utf8Decode(data);
 }
 
+// Full browser-grade header set — Cloudflare managed challenges weigh these
+// alongside IP reputation; omitting them makes borderline clients fail.
 const API_HEADERS = {
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Upgrade-Insecure-Requests': '1',
+    'Referer': BASE_URL + '/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
 };
 
 async function soraFetch(url, options = { headers: {}, method: 'GET', body: null }) {
@@ -191,19 +213,54 @@ async function soraFetch(url, options = { headers: {}, method: 'GET', body: null
     }
 }
 
+// Classify a failed response body so logs say WHY (challenge vs outage vs junk).
+function classifyFailure(text) {
+    const t = String(text || '');
+    if (/Just a moment/i.test(t) || /_cf_chl|cf-browser-verification|challenges\.cloudflare\.com/.test(t)) {
+        return 'cloudflare challenge (IP/TLS flagged; app network stack usually passes)';
+    }
+    if (/Bad gateway/i.test(t)) return 'origin down (502)';
+    if (/Service unavailable/i.test(t)) return 'origin unavailable (503)';
+    if (/^\s*</.test(t)) return 'html response';
+    return 'non-json response';
+}
+
 async function apiGet(path, params = {}) {
     const q = buildQuery(params);
-    const url = `${BASE_URL}/api/v1${path}?${q}${q ? '&' : ''}_=${generateToken(path, params)}`;
-    const resp = await soraFetch(url, { headers: API_HEADERS });
-    if (!resp) throw new Error('request failed');
-    const text = await resp.text();
-    let data;
-    try { data = JSON.parse(text); } catch (e) { throw new Error('bad response: ' + text.slice(0, 120)); }
-    if (data && typeof data === 'object' && typeof data.e === 'string') {
-        data = JSON.parse(decryptBody(data.e));
+    const suffix = q ? '?' + q + '&_=' : '?_=';
+    let lastError = 'no hosts attempted';
+    for (let i = 0; i < API_HOSTS.length; i++) {
+        const host = API_HOSTS[i];
+        const url = host + '/api/v1' + path + suffix + generateToken(path, params);
+        let resp = null;
+        try {
+            resp = await soraFetch(url, { headers: API_HEADERS });
+        } catch (e) {
+            lastError = host + ' threw: ' + e;
+            console.log('comix apiGet ' + host + ' threw: ' + e);
+            continue;
+        }
+        if (!resp) {
+            lastError = host + ': no response';
+            console.log('comix apiGet ' + host + ': no response');
+            continue;
+        }
+        const text = await resp.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            lastError = host + ': ' + classifyFailure(text);
+            console.log('comix apiGet ' + host + ' failed: ' + lastError + ' | status=' + (resp.status || '?') + ' body=' + String(text).replace(/\s+/g, ' ').slice(0, 80));
+            continue;
+        }
+        if (data && typeof data === 'object' && typeof data.e === 'string') {
+            data = JSON.parse(decryptBody(data.e));
+        }
+        if (data.status !== 'ok') throw new Error('api error: ' + JSON.stringify(data).slice(0, 200));
+        return data.result;
     }
-    if (data.status !== 'ok') throw new Error('api error: ' + JSON.stringify(data).slice(0, 200));
-    return data.result;
+    throw new Error(lastError);
 }
 
 function cleanText(s) {
