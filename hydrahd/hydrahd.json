@@ -13,7 +13,7 @@
   "quality": "Up to 4K",
   "baseUrl": "https://hydrahd.ws/",
   "searchBaseUrl": "https://hydrahd.ws/index.php?menu=search&query=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/hydrahd/hydrahd.js",
   "type": "movies/shows/anime",
   "downloadSupport": true,
   "combo": false,
