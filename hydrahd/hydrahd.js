@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.45 (mirrors parallel again - blocked-host hangs must never sit in the critical path)');
+console.log('[HydraHD] module script loaded v1.0.46 (pipelined probes, page memo, leaner generic tier)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -115,6 +115,22 @@ function timerSafe(ms) {
     return Promise.resolve();
 }
 
+// Page memo: the app calls extractDetails AND extractStreamUrl on the SAME
+// title URL back to back — without this, every open pays the full page round
+// trip twice (~0.7s each on real networks). Plain object memo, no timers.
+const pageMemo = {};
+async function getPageHtml(fullUrl) {
+    if (pageMemo[fullUrl]) return pageMemo[fullUrl];
+    const response = await soraFetch(fullUrl);
+    const html = await response.text();
+    if (html && html.length > 1000) {
+        pageMemo[fullUrl] = html;
+        const keys = Object.keys(pageMemo);
+        if (keys.length > 12) delete pageMemo[keys[0]];   // tiny LRU by insertion
+    }
+    return html;
+}
+
 // Wrap a fetch so a dead server cannot stall the whole stream resolution.
 // Without timers there is no race to lose: the app enforces its own overall
 // timeout, so just pass the plain fetch through.
@@ -182,8 +198,8 @@ function getPageDetails(html) {
 async function extractDetails(url) {
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
-        const response = await soraFetch(fullUrl);
-        const html = await response.text();
+        const html = await getPageHtml(fullUrl);
+
         const { details, ids } = getPageDetails(html);
         const result = [{
             description: details.description || 'N/A',
@@ -203,8 +219,8 @@ async function extractEpisodes(url) {
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const episodes = [];
-        const response = await soraFetch(fullUrl);
-        const html = await response.text();
+        const html = await getPageHtml(fullUrl);
+
         const epRegex = /<a[^>]*data-slug="([^"]*)"[^>]*data-season="(\d+)"[^>]*data-episode="(\d+)"/g;
         let match;
         while ((match = epRegex.exec(html)) !== null) {
@@ -356,8 +372,8 @@ async function extractStreamUrl(url) {
     const timeLeft = function() { return 28000 - (Date.now() - startTime); };
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
-        const response = await soraFetch(fullUrl);
-        const html = await response.text();
+        const html = await getPageHtml(fullUrl);
+
         const { details, ids } = getPageDetails(html);
         const imdbId = ids.imdb;
         const tmdbId = ids.tmdb;
@@ -414,6 +430,65 @@ async function extractStreamUrl(url) {
             return resolveGenericLink(link);
         }
         const seenStreamUrls = {};
+        // ---- True-quality probe, PIPELINED ---------------------------------
+        // Probes fire the moment a stream is pushed instead of waiting for all
+        // workers to settle — each fetch overlaps the remaining workers' tail,
+        // so labeling costs ~zero extra wall time. Variants pushed after their
+        // parent was measured get the class instantly via _measuredCls.
+        const probedPaths = {};
+        const probePromises = [];
+        function baseNameOf(st) {
+            return String(st.baseTitle || st.title || '')
+                .replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '').trim()
+                || String(st.title || '');
+        }
+        function applyMeasured(parent, plText) {
+            const dims = parseM3u8VideoResolution(plText);
+            if (!dims) return false;
+            const cls = qualityClassFromDimensions(dims.width, dims.height);
+            if (!cls) return false;
+            const tracks = parseM3u8AudioTracks(plText);
+            const def = tracks.find(function(t) { return t.isDefault; }) || tracks[0];
+            // No AUDIO renditions listed => single muxed track. Every host this
+            // module resolves serves English-original audio.
+            const defCode = def ? def.code : 'eng';
+            const defName = def ? def.name : 'English';
+            parent.title = languageFlag(defCode) + ' ' + baseNameOf(parent) + ' • ' + defName + ' • ' + cls;
+            parent.name = parent.title;
+            parent.quality = cls;
+            parent._measuredCls = cls;
+            for (const sib of streams) {
+                if (sib.qSiblingOf !== parent || sib.isLangVariant !== true) continue;
+                sib.title = languageFlag(sib.langCode) + ' ' + baseNameOf(sib) + ' • ' + subtitleLanguageName(sib.langCode) + ' • ' + cls;
+                sib.name = sib.title;
+                sib.quality = cls;
+            }
+            return true;
+        }
+        function scheduleProbe(st) {
+            try {
+                if (!st || st.isLangVariant || !st.streamUrl) return;
+                // VixSrc masters end in /playlist/{id} with no extension —
+                // match both shapes or Hydra2 goes unlabeled.
+                if (!/\.m3u8|\/playlist\//i.test(st.streamUrl)) return;
+                const key = String(st.streamUrl).split('?')[0];
+                if (probedPaths[key] || probePromises.length >= 4) return;
+                probedPaths[key] = true;
+                probePromises.push((async function() {
+                    try {
+                        if (timeLeft() < 3000) return;
+                        let plText = st.playlistText || '';
+                        if (!plText) {
+                            const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 4000);
+                            if (!pr) return;
+                            plText = await pr.text();
+                        }
+                        st.masterText = plText;   // reused by the playlist-subs step
+                        applyMeasured(st, plText);
+                    } catch (e) { /* keep the site badge */ }
+                })());
+            } catch (e) {}
+        }
         function pushStream(title, streamUrl, headers) {
             if (!streamUrl || seenStreamUrls[streamUrl]) return null;
             seenStreamUrls[streamUrl] = true;
@@ -424,21 +499,24 @@ async function extractStreamUrl(url) {
                 headers: headers || {}
             };
             streams.push(st);
+            scheduleProbe(st);
             return st;
         }
         // One extra selectable entry per additional AUDIO language a server
-        // offers ("Hydra2 🇮🇹 Italian"). The child shares the parent's video
-        // renditions; its URL preselects that language's audio track. Quality
-        // labels are copied over from the measured parent in the probe phase.
+        // offers ("🇮🇹 Hydra2 • Italian"). The child shares the parent's video
+        // renditions; its URL preselects that language's audio track.
         function pushLanguageVariants(parent, extraLangs) {
             if (!parent || !Array.isArray(extraLangs)) return;
+            const cls = parent._measuredCls;
             for (const al of extraLangs) {
                 if (!al || !al.url || streams.length >= 10) continue;
                 if (seenStreamUrls[al.url]) continue;
                 seenStreamUrls[al.url] = true;
-                const title = parent.baseTitle + ' ' + languageFlag(al.code) + ' ' + subtitleLanguageName(al.code);
+                const title = cls
+                    ? languageFlag(al.code) + ' ' + baseNameOf(parent) + ' • ' + subtitleLanguageName(al.code) + ' • ' + cls
+                    : parent.baseTitle + ' ' + languageFlag(al.code) + ' ' + subtitleLanguageName(al.code);
                 streams.push({
-                    title: title, name: title, quality: title,
+                    title: title, name: title, quality: cls || title,
                     baseTitle: parent.baseTitle,
                     langCode: al.code,
                     qSiblingOf: parent,
@@ -617,6 +695,11 @@ async function extractStreamUrl(url) {
                 for (const entry of serverEntries) {
                     (isKnownHostLink(entry.link) ? known : generic).push(entry);
                 }
+                // Generic embed scans have produced ZERO hits across every
+                // capture while costing a request each — keep at most 3 as
+                // coverage insurance (deterministic, so it also holds in-app
+                // where the streams-count gate below can't fire).
+                if (generic.length > 3) generic.length = 3;
                 await Promise.all(known.map(resolveEntry));
                 // Generic embeds: only worth scanning when the reliable tier
                 // came up short (fork-adopted early-exit).
@@ -638,66 +721,9 @@ async function extractStreamUrl(url) {
         // the very end so a slow subtitle API can never delay playable streams
         // (bench: an 8s community-subs race held the whole payload hostage).
         await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]);
-        // Phase: measure TRUE resolution + audio languages from each stream's
-        // own master playlist and rewrite the labels with ground truth, e.g.
-        // "🇬🇧 Hydra2 • English • 1080p". The site badge is only a guess; this
-        // is what the file actually is. Language variants are skipped here and
-        // inherit their parent's measurement.
-        try {
-            if (timeLeft() > 9000 && streams.length > 0) {
-                const probed = {};
-                const targets = [];
-                for (let i = 0; i < streams.length && targets.length < 4; i++) {
-                    const st = streams[i];
-                    if (!st || st.isLangVariant) continue;
-                    if (!st.streamUrl) continue;
-                    // VixSrc masters end in /playlist/{id} with no extension —
-                    // match both shapes (the old .m3u8-only filter silently
-                    // skipped Hydra2 and left it unlabeled).
-                    if (!/\.m3u8|\/playlist\//i.test(st.streamUrl)) continue;
-                    const pathKey = String(st.streamUrl).split('?')[0];
-                    if (probed[pathKey]) continue;
-                    probed[pathKey] = true;
-                    targets.push(st);
-                }
-                await Promise.all(targets.map(async function(st) {
-                    try {
-                        let plText = st.playlistText || '';
-                        if (!plText) {
-                            const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 4000);
-                            if (!pr) return;
-                            plText = await pr.text();
-                        }
-                        const dims = parseM3u8VideoResolution(plText);
-                        if (!dims) return;
-                        const cls = qualityClassFromDimensions(dims.width, dims.height);
-                        if (!cls) return;
-                        const tracks = parseM3u8AudioTracks(plText);
-                        const defaultTrack = tracks.find(function(t) { return t.isDefault; }) || tracks[0];
-                        // No AUDIO renditions listed => single muxed track. Every
-                        // host this module resolves serves English-original audio.
-                        const defCode = defaultTrack ? defaultTrack.code : 'eng';
-                        const defName = defaultTrack ? defaultTrack.name : 'English';
-                        const baseName = String(st.baseTitle || st.title || '')
-                            .replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '')
-                            .trim() || String(st.title || '');
-                        st.title = languageFlag(defCode) + ' ' + baseName + ' • ' + defName + ' • ' + cls;
-                        st.name = st.title;
-                        st.quality = cls;
-                        for (const sib of streams) {
-                            if (sib.qSiblingOf !== st || sib.isLangVariant !== true) continue;
-                            const sBase = String(sib.baseTitle || '').replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '').trim() || String(sib.baseTitle || '');
-                            sib.title = languageFlag(sib.langCode) + ' ' + sBase + ' • ' + subtitleLanguageName(sib.langCode) + ' • ' + cls;
-                            sib.name = sib.title;
-                            sib.quality = cls;
-                        }
-                    } catch (e) { /* keep the site badge for this stream */ }
-                }));
-                console.log('[HydraHD] Quality probe done probed=' + targets.length + '/' + streams.length);
-            }
-        } catch (e) {
-            console.error('[HydraHD] Quality probe error:', e && e.message ? e.message : e);
-        }
+        // Settle whatever probes are still in flight — most already finished,
+        // overlapped inside the worker window (pipelined from pushStream).
+        await Promise.allSettled(probePromises);
         // Subtitles join last: they had the whole probe window to finish, so
         // this is usually instant. A still-running slow provider can only cost
         // its own remaining timeout — never the playable stream list.
@@ -738,7 +764,9 @@ async function extractStreamUrl(url) {
         try {
             const primaryHls = streams.length > 0 ? streams[0].streamUrl : null;
             if (primaryHls && /\.m3u8|playlist/i.test(primaryHls) && timeLeft() > 7000) {
-                const playlistTracks = await extractPlaylistSubtitleTracks(primaryHls);
+                // The probe already downloaded this master — reuse its text
+                // instead of paying a second round trip on the return path.
+                const playlistTracks = await extractPlaylistSubtitleTracks(primaryHls, streams.length > 0 ? streams[0].masterText : '');
                 if (playlistTracks.length) {
                     subtitleList = (subtitleList || []).concat(playlistTracks);
                     if (!subtitle) {
@@ -944,14 +972,17 @@ async function resolveXpassLink(ctx) {
 // SUBTITLES lines are each an HLS wrapper around a single WebVTT segment.
 // Follow each wrapper to the real .vtt so the app can render it, and return
 // one {url, lang, label} entry per track (all languages the playout offers).
-async function extractPlaylistSubtitleTracks(masterUrl) {
+async function extractPlaylistSubtitleTracks(masterUrl, presetText) {
     const tracks = [];
     try {
-        const r = await soraFetchTimed(masterUrl, {
-            headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/vnd.apple.mpegurl' }
-        }, 10000);
-        if (!r) return tracks;
-        const text = await r.text();
+        let text = presetText || '';
+        if (!text) {
+            const r = await soraFetchTimed(masterUrl, {
+                headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/vnd.apple.mpegurl' }
+            }, 10000);
+            if (!r) return tracks;
+            text = await r.text();
+        }
         // Collect rendition wrappers first, then resolve them CONCURRENTLY in
         // one batch — the old loop fetched one wrapper at a time. Capped at 4:
         // in-app there are no timers, so each wrapper is an unbounded request;
