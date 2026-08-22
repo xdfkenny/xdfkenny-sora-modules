@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.44 (two-tier: gated VidSrc fallback, generic-scan gate, Shirox-safe responses)');
+console.log('[HydraHD] module script loaded v1.0.45 (mirrors parallel again - blocked-host hangs must never sit in the critical path)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -496,28 +496,28 @@ async function extractStreamUrl(url) {
                 console.error(title + ' resolution failed:', e.message);
             }
         }
-        // Worker: VidFast mirror — runs CONCURRENTLY with the fast tier. Its
-        // enc/dec handshake is a few round trips and it is the only mirror
-        // that carries true 4K, so it always participates.
-        const vidfastWorker = (async function() {
+        // Worker: mirrors — VidSrc AND VidFast run CONCURRENTLY. VidSrc MUST
+        // stay parallel: on devices where vidsrc.hair is blocked, its connect
+        // attempts hang until the OS TCP timeout (the app's JSContext has no
+        // timers, so our fetch timeouts are decorative in-app) — the v1.0.44
+        // sequential "fallback tier" serialized that hang in front of the
+        // probe and pushed extractions past 50s. Parallel costs nothing when
+        // healthy and overlaps the hang when not; addMirror's caps keep its
+        // results from flooding the list.
+        const mirrorWorker = (async function() {
             try {
-                await addMirror('VidFast', 'https://vidfast.vc/', function() {
-                    return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
-                });
+                await Promise.all([
+                    addMirror('VidSrc', 'https://vidsrc.hair/', function() {
+                        return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 5000));
+                    }),
+                    addMirror('VidFast', 'https://vidfast.vc/', function() {
+                        return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
+                    })
+                ]);
             } catch (e) {
-                console.error('[HydraHD] VidFast worker error:', e && e.message ? e.message : e);
+                console.error('[HydraHD] Mirror worker error:', e && e.message ? e.message : e);
             }
         })();
-        // FALLBACK TIER: VidSrc stays gated. It POLLS a sources API for up to
-        // its whole budget, so paying that cost up front dragged every
-        // extraction even when better streams already existed. Only pay for it
-        // when everything above came up short.
-        const vidsrcFallback = async function() {
-            if (streams.length >= 2 || timeLeft() < 5000) return;
-            await addMirror('VidSrc', 'https://vidsrc.hair/', function() {
-                return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
-            });
-        };
         // Subtitle providers: launch immediately too (ids only). They no longer
         // gate the stream list — see the await split after the probe phase —
         // and the old fixed 800ms stagger is gone (providers were already
@@ -637,11 +637,7 @@ async function extractStreamUrl(url) {
         // Streams settle first, then labels get probed; subtitles only join at
         // the very end so a slow subtitle API can never delay playable streams
         // (bench: an 8s community-subs race held the whole payload hostage).
-        await Promise.allSettled([serverWorker, keylessWorker, vidfastWorker]);
-        // Pay the VidSrc poll cost only when nothing else produced enough.
-        try { await vidsrcFallback(); } catch (e) {
-            console.error('[HydraHD] VidSrc fallback error:', e && e.message ? e.message : e);
-        }
+        await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]);
         // Phase: measure TRUE resolution + audio languages from each stream's
         // own master playlist and rewrite the labels with ground truth, e.g.
         // "🇬🇧 Hydra2 • English • 1080p". The site badge is only a guess; this
@@ -651,7 +647,7 @@ async function extractStreamUrl(url) {
             if (timeLeft() > 9000 && streams.length > 0) {
                 const probed = {};
                 const targets = [];
-                for (let i = 0; i < streams.length && targets.length < 6; i++) {
+                for (let i = 0; i < streams.length && targets.length < 4; i++) {
                     const st = streams[i];
                     if (!st || st.isLangVariant) continue;
                     if (!st.streamUrl) continue;
@@ -957,13 +953,14 @@ async function extractPlaylistSubtitleTracks(masterUrl) {
         if (!r) return tracks;
         const text = await r.text();
         // Collect rendition wrappers first, then resolve them CONCURRENTLY in
-        // small batches — the old loop fetched one wrapper at a time, so 6
-        // tracks serialized into ~6 round trips inside the return path.
+        // one batch — the old loop fetched one wrapper at a time. Capped at 4:
+        // in-app there are no timers, so each wrapper is an unbounded request;
+        // four covers the languages that matter without stretching the tail.
         const wrappers = [];
         const mediaRe = /#EXT-X-MEDIA:[^\r\n]*/g;
         let line;
         while ((line = mediaRe.exec(text)) !== null) {
-            if (wrappers.length >= 8) break;   // bound the wrapper downloads
+            if (wrappers.length >= 4) break;
             const entry = line[0];
             if (!/TYPE=(?:SUBTITLES|subtitles)/.test(entry)) continue;
             const name = (entry.match(/NAME="([^"]*)"/) || [])[1] || '';
