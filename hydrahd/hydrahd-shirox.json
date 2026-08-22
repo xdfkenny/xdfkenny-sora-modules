@@ -2,11 +2,11 @@
   "sourceName": "HydraHD (Shirox)",
   "iconUrl": "https://hydrahd.ws/fav-192.png",
   "author": {
-    "name": "xdfkenny",
-    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
-    "url": "https://github.com/xdfkenny"
+    "name": "Jay (JayGxnzalez)",
+    "icon": "https://avatars.githubusercontent.com/JayGxnzalez?s=400",
+    "url": "https://github.com/JayGxnzalez"
   },
-  "description": "HydraHD (hydrahd.ws) — build Shirox-compatible: fast tier + pool de subtítulos, espejos como fallback, sin sondeo bloqueante. Basado en el fork de JayGxnzalez con la corrección del dominio (.ru -> .ws) y el mismo catálogo de streams (VixSrc, MoviesAPI, xpass, VidFast). Sin claves API.",
+  "description": "HydraHD (hydrahd.ws) — build Shirox-compatible por Jay (JayGxnzalez): fast tier + pool de subtítulos, espejos como fallback, sin sondeo bloqueante. Vendido por xdfkenny con un único parche: dominio .ru -> .ws (el ajax de .ru devuelve 404 tras la redirección). Sin claves API.",
   "version": "1.0.0",
   "language": "English",
   "streamType": "HLS/MP4",
@@ -20,5 +20,5 @@
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": true,
-  "credits": "Stream strategy based on JayGxnzalez's HydraHD fork (fast tier + allSubtitles pool)"
+  "credits": "Original module and stream strategy by Jay (JayGxnzalez) — https://github.com/JayGxnzalez/hydrahd. Vendored here for Shirox users; only change: BASE_URL .ru -> .ws."
 }
