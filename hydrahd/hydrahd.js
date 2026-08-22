@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.43 (parallel pipeline: dedupe resolvers, subs no longer gate streams)');
+console.log('[HydraHD] module script loaded v1.0.44 (two-tier: gated VidSrc fallback, generic-scan gate, Shirox-safe responses)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -34,8 +34,29 @@ if (typeof Promise.allSettled !== 'function') {
 // (the docs show `const data = await JSON.parse(response)`), others reject on
 // non-2xx — handle every shape so callers can always .text()/.json().
 function toResponseLike(value) {
-    if (value && typeof value.text === 'function' && typeof value.json === 'function') {
-        return value; // already Response-like (Node fetch / fetchv2 bridge)
+    if (value && typeof value.text === 'function') {
+        // Already Response-like (Node fetch / fetchv2 bridge) — but NOT safe to
+        // pass through raw. Shirox's fetchv2 Response returns a plain object
+        // from .json() SYNCHRONOUSLY, so `.json().catch(...)` throws
+        // "catch is not a function" and killed every resolver that used it.
+        // Re-wrap so text()/json() are always real promises in both apps.
+        return {
+            status: typeof value.status === 'number' ? value.status : 200,
+            ok: value.ok !== false,
+            headers: value.headers || { get: function() { return null; } },
+            text: async function() {
+                return String((await Promise.resolve(value.text())) || '');
+            },
+            json: async function() {
+                if (typeof value.json === 'function') {
+                    try {
+                        var parsed = await Promise.resolve(value.json());
+                        if (parsed != null) return parsed;
+                    } catch (e) { /* fall back to parsing the body text */ }
+                }
+                return JSON.parse(String((await Promise.resolve(value.text())) || ''));
+            }
+        };
     }
     let str = '';
     try {
@@ -454,44 +475,49 @@ async function extractStreamUrl(url) {
                 console.error('[HydraHD] Keyless worker error:', e && e.message ? e.message : e);
             }
         })();
-        // Workers: VidSrc/VidFast mirrors — run CONCURRENTLY now; previously
-        // VidFast waited for the whole VidSrc poll even though they share
-        // nothing. Both need only the ids, so this also launches pre-ajax.
-        const mirrorWorker = (async function() {
+        // Shared mirror helper: pushes the resolved stream plus any extra
+        // mirrors the resolver returned (VidSrc hands back up to 3).
+        async function addMirror(title, origin, resolver) {
+            if (streams.length >= 6 || timeLeft() < 5000) return;
             try {
-                async function addMirror(title, origin, resolver) {
-                    if (streams.length >= 6 || timeLeft() < 5000) return;
-                    try {
-                        const resolved = await resolver();
-                        if (resolved && resolved.streamUrl) {
-                            pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
-                            if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                            // Extra mirrors from the same resolver become their
-                            // own selectable entries (VidSrc returns up to 3).
-                            const extra = resolved.extra || [];
-                            for (let i = 0; i < extra.length && streams.length < 6; i++) {
-                                if (extra[i] && extra[i].streamUrl) {
-                                    pushStream(title + ' #' + (i + 2), extra[i].streamUrl,
-                                        { 'Referer': origin, 'Origin': origin });
-                                }
-                            }
+                const resolved = await resolver();
+                if (resolved && resolved.streamUrl) {
+                    pushStream(title, resolved.streamUrl, { 'Referer': origin, 'Origin': origin });
+                    if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                    const extra = resolved.extra || [];
+                    for (let i = 0; i < extra.length && streams.length < 6; i++) {
+                        if (extra[i] && extra[i].streamUrl) {
+                            pushStream(title + ' #' + (i + 2), extra[i].streamUrl,
+                                { 'Referer': origin, 'Origin': origin });
                         }
-                    } catch (e) {
-                        console.error(title + ' resolution failed:', e.message);
                     }
                 }
-                await Promise.all([
-                    addMirror('VidSrc', 'https://vidsrc.hair/', function() {
-                        return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
-                    }),
-                    addMirror('VidFast', 'https://vidfast.vc/', function() {
-                        return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
-                    })
-                ]);
             } catch (e) {
-                console.error('[HydraHD] Mirror worker error:', e && e.message ? e.message : e);
+                console.error(title + ' resolution failed:', e.message);
+            }
+        }
+        // Worker: VidFast mirror — runs CONCURRENTLY with the fast tier. Its
+        // enc/dec handshake is a few round trips and it is the only mirror
+        // that carries true 4K, so it always participates.
+        const vidfastWorker = (async function() {
+            try {
+                await addMirror('VidFast', 'https://vidfast.vc/', function() {
+                    return resolveVidfast(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
+                });
+            } catch (e) {
+                console.error('[HydraHD] VidFast worker error:', e && e.message ? e.message : e);
             }
         })();
+        // FALLBACK TIER: VidSrc stays gated. It POLLS a sources API for up to
+        // its whole budget, so paying that cost up front dragged every
+        // extraction even when better streams already existed. Only pay for it
+        // when everything above came up short.
+        const vidsrcFallback = async function() {
+            if (streams.length >= 2 || timeLeft() < 5000) return;
+            await addMirror('VidSrc', 'https://vidsrc.hair/', function() {
+                return resolveVidSrc(imdbId, isMovie, season, episodeNum, Math.min(timeLeft(), 8000));
+            });
+        };
         // Subtitle providers: launch immediately too (ids only). They no longer
         // gate the stream list — see the await split after the probe phase —
         // and the old fixed 800ms stagger is gone (providers were already
@@ -560,28 +586,48 @@ async function extractStreamUrl(url) {
                 serverEntries.push({ name: getServerTitle(linkMatch[1]), link: linkMatch[1] });
             }
         }
-        // Worker: every named server button AT ONCE (no sequential batches).
-        // The old 6-per-batch loop let one slow embed stall the whole next
-        // batch (measured: ythd.org 3.9s delayed batch 2 by ~4s). Buttons
-        // sharing a host await the same shared promise, so duplicates are free.
+        // Worker: named server buttons. Known-host buttons always resolve
+        // (they hit deduped shared promises); generic embed scans are gated —
+        // across every bench capture they produced ZERO hits while costing
+        // ~10 requests, so once three real streams exist we skip them.
+        function isKnownHostLink(link) {
+            let h = '';
+            try { h = new URL(link).hostname; } catch (e) { h = ''; }
+            return /(^|\.)(moviesapi\.to|vixsrc\.to|play\.xpass\.top)$/i.test(h);
+        }
+        async function resolveEntry(entry) {
+            if (timeLeft() < 4000) return;
+            try {
+                const resolved = await resolveButton(entry.link);
+                if (resolved && resolved.streamUrl) {
+                    const embedOrigin = (function() {
+                        try { return new URL(entry.link).origin; } catch (e) { return ''; }
+                    })();
+                    const pushedSt = pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
+                        embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
+                    pushLanguageVariants(pushedSt, resolved.extraLangs);
+                    if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
+                }
+            } catch (e) { /* keep trying the next server */ }
+        }
         const serverWorker = (async function() {
             try {
-                await Promise.all(serverEntries.map(async function(entry) {
-                    if (timeLeft() < 4000) return;
-                    try {
-                        const resolved = await resolveButton(entry.link);
-                        if (resolved && resolved.streamUrl) {
-                            const embedOrigin = (function() {
-                                try { return new URL(entry.link).origin; } catch (e) { return ''; }
-                            })();
-                            const pushedSt = pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
-                                embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
-                            pushLanguageVariants(pushedSt, resolved.extraLangs);
-                            if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
-                        }
-                    } catch (e) { /* keep trying the next server */ }
-                }));
-                console.log('[HydraHD] Servers resolved servers=' + serverEntries.length + ' streams=' + streams.length);
+                const known = [];
+                const generic = [];
+                for (const entry of serverEntries) {
+                    (isKnownHostLink(entry.link) ? known : generic).push(entry);
+                }
+                await Promise.all(known.map(resolveEntry));
+                // Generic embeds: only worth scanning when the reliable tier
+                // came up short (fork-adopted early-exit).
+                if (generic.length > 0 && streams.length < 3 && timeLeft() > 6000) {
+                    await timerSafe(1200);          // let keyless results land first
+                    if (streams.length < 3) {
+                        await Promise.all(generic.map(resolveEntry));
+                    }
+                }
+                console.log('[HydraHD] Servers resolved servers=' + serverEntries.length
+                    + ' known=' + known.length + ' generic=' + generic.length + ' streams=' + streams.length);
             } catch (e) {
                 console.error('[HydraHD] Server worker error:', e && e.message ? e.message : e);
             }
@@ -591,7 +637,11 @@ async function extractStreamUrl(url) {
         // Streams settle first, then labels get probed; subtitles only join at
         // the very end so a slow subtitle API can never delay playable streams
         // (bench: an 8s community-subs race held the whole payload hostage).
-        await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]);
+        await Promise.allSettled([serverWorker, keylessWorker, vidfastWorker]);
+        // Pay the VidSrc poll cost only when nothing else produced enough.
+        try { await vidsrcFallback(); } catch (e) {
+            console.error('[HydraHD] VidSrc fallback error:', e && e.message ? e.message : e);
+        }
         // Phase: measure TRUE resolution + audio languages from each stream's
         // own master playlist and rewrite the labels with ground truth, e.g.
         // "🇬🇧 Hydra2 • English • 1080p". The site badge is only a guess; this
@@ -618,7 +668,7 @@ async function extractStreamUrl(url) {
                     try {
                         let plText = st.playlistText || '';
                         if (!plText) {
-                            const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 6000);
+                            const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 4000);
                             if (!pr) return;
                             plText = await pr.text();
                         }
