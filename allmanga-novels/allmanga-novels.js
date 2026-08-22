@@ -36,16 +36,42 @@ const KEYGEN_URLS = [
     'https://raw.githubusercontent.com/sdaqo/anipy-cli/key-gen/scripts/keygen/keygen.json'
 ];
 
-// Known-good keygen snapshot (build 114, 7-day epochs) — the same fallback the
-// anime module uses. Remote keygen is only fetched when the API says
-// AA_CRYPTO_STALE/MISSING/EXPIRED.
+// Known-good keygen snapshot (build 136, epoch 2955) — captured live on
+// 2026-08-22 (same snapshot the anime module v1.8.0 uses). When the API says
+// AA_CRYPTO_STALE/MISSING/EXPIRED the module self-bootstraps fresh keys from
+// the platform crypto endpoint (aaBootstrapFor), with the remote keygen repo
+// as last resort.
 const FALLBACK_KEYGEN = {
-    build_id: '114',
-    epoch: 2954,
+    build_id: '136',
+    epoch: 2955,
     lane: 'k7',
-    key: 'cf5487de30b64387b21614d641cfcf6174d7f3e24f2e9c6433c916c867db8a1d',
+    key: 'deeb2732190ceee0d84c7668d79b64ddcd5f27b9f858f2327fe29a7841b7b5da',
     static_key: 'Xot36i3lK3:v1'
 };
+
+// Self-bootstrap inputs, identical to allmanga anime build 136 scheme:
+//   embed[i]   = concat(base64decode(mask blocks))          [32 bytes]
+//   salt[i]    = (buildId.charCodeAt(i % len) || 0)
+//                ^ ((i * AA_SALT_MUL + AA_SALT_ADD) & 255)
+//   linear[i]  = ((i >> 3) * AA_FRAG_MUL + (i % 8) * AA_FRAG_ADD) & 255
+//   mask[i]    = embed[i] ^ salt[i] ^ linear[i]
+//   hmacKey    = HMAC-SHA256(mask, AA_BOOT_PREFIX + buildId)
+//   bootTok    = hex(HMAC-SHA256(hmacKey, `${epoch}~${host}~${lane}~${group}~${buildId}`))
+//   GET {AA_BOOTSTRAP_URL}?buildId=<id>&k=<lane>  (x-build-id / x-aa-boot headers)
+//   key        = first32(base64decode(partB)) XOR mask
+// Epochs are 7-day (floor(now/604800000)); during the first day of an epoch the
+// previous one is still accepted. group is "mkissa" for the public hosts.
+const AA_MASK_BLOCKS = ['zZ9iqAzia78=', '0GqOekVONY4=', 'uyiEMZfgVqA=', 'HBpHBAntve4='];
+const AA_SALT_MUL = 78;
+const AA_SALT_ADD = 200;
+const AA_FRAG_MUL = 234;
+const AA_FRAG_ADD = 70;
+const AA_BOOT_PREFIX = 'qrSOLsg:';
+const AA_WEEK_MS = 604800000;
+const AA_DAY_MS = 86400000;
+const AA_BOOTSTRAP_URL = 'https://api.mkissa.net/client-crypto/v1/bootstrap';
+const AA_BOOT_HOST = 'mkissa.to';
+const AA_BOOT_GROUP = 'mkissa';
 
 // Image hosts (verified live):
 //   - chapter pages: pictureUrlHead (https://aln.youtube-anime.com/) + url
@@ -55,7 +81,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.1.0 (kanzen mangas contract)');
+console.log('[AllMangaNovels] module script loaded v1.1.3 (build 136 keygen + self-bootstrap)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -498,9 +524,108 @@ function aaGetKeys() {
     };
 }
 
-async function aaFetchRemoteKeys() {
+// Pure-JS HMAC-SHA256 over the module's existing aaSha256 (RFC 2104).
+function aaHmacSha256(key, msg) {
+    let k = key;
+    if (k.length > 64) k = aaSha256(k);
+    const ipad = new Uint8Array(64);
+    const opad = new Uint8Array(64);
+    for (let i = 0; i < 64; i++) {
+        const kb = i < k.length ? k[i] : 0;
+        ipad[i] = kb ^ 0x36;
+        opad[i] = kb ^ 0x5c;
+    }
+    const inner = aaSha256(aaConcat(ipad, msg));
+    return aaSha256(aaConcat(opad, inner));
+}
+
+function aaConcat(a, b) {
+    const out = new Uint8Array(a.length + b.length);
+    out.set(a, 0);
+    out.set(b, a.length);
+    return out;
+}
+
+// Deterministic client mask for a given build id (see block comment above).
+function aaBuildMask(buildId) {
+    const embed = new Uint8Array(32);
+    let off = 0;
+    for (let b = 0; b < AA_MASK_BLOCKS.length; b++) {
+        const blk = aaUnb64(AA_MASK_BLOCKS[b]);
+        for (let i = 0; i < blk.length && off + i < 32; i++) embed[off + i] = blk[i];
+        off += blk.length;
+    }
+    const mask = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+        const cc = buildId.charCodeAt(i % buildId.length) || 0;
+        const salt = cc ^ ((i * AA_SALT_MUL + AA_SALT_ADD) & 255);
+        const linear = (((i >> 3) * AA_FRAG_MUL) + ((i % 8) * AA_FRAG_ADD)) & 255;
+        mask[i] = embed[i] ^ salt ^ linear;
+    }
+    return mask;
+}
+
+async function aaBootstrapFor(lane, epoch) {
+    try {
+        const mask = aaBuildMask(String(FALLBACK_KEYGEN.build_id));
+        const hmacKey = aaHmacSha256(mask, aaAscii(AA_BOOT_PREFIX + FALLBACK_KEYGEN.build_id));
+        // message parts (site order): epoch ~ host ~ lane ~ group ~ buildId
+        const msg = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
+        const bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msg)));
+        const url = AA_BOOTSTRAP_URL + '?buildId=' + encodeURIComponent(FALLBACK_KEYGEN.build_id) +
+            '&k=' + encodeURIComponent(lane);
+        const resp = await soraFetch(url, {
+            headers: {
+                'x-build-id': String(FALLBACK_KEYGEN.build_id),
+                'x-aa-boot': bootTok,
+                'Referer': 'https://' + AA_BOOT_HOST + '/',
+                'Origin': 'https://' + AA_BOOT_HOST,
+                'Accept': 'application/json, text/plain, */*',
+                'User-Agent': UA
+            }
+        });
+        if (!resp || !resp.ok) {
+            console.log('bootstrap http ' + (resp ? resp.status : 'no-response') + ' for lane ' + lane);
+            return null;
+        }
+        const j = await resp.json();
+        if (!j || !j.partB) { console.log('bootstrap empty partB'); return null; }
+        const raw = aaUnb64(j.partB);
+        if (!raw || raw.length < 32) { console.log('bootstrap short partB'); return null; }
+        const key = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) key[i] = raw[i] ^ mask[i % mask.length];
+        return {
+            build_id: String(FALLBACK_KEYGEN.build_id),
+            epoch: String(j.epoch !== undefined ? j.epoch : epoch),
+            lane: (j.k && String(j.k)) || lane,
+            key: aaHex(key),
+            static_key: FALLBACK_KEYGEN.static_key
+        };
+    } catch (error) {
+        console.log('bootstrap error: ' + error);
+        return null;
+    }
+}
+
+// Refresh keys when the API rejects our aaReq token: self-bootstrap first
+// (current epoch, then previous), remote keygen repo as last resort.
+async function aaFetchRemoteKeys(lane) {
     const now = Date.now();
     if (aaKeyCache.keys && now - aaKeyCache.ts < 90000) return aaKeyCache.keys;
+
+    const curEpoch = Math.floor(now / AA_WEEK_MS);
+    const prevEpoch = (now - curEpoch * AA_WEEK_MS < AA_DAY_MS && curEpoch > 0) ? curEpoch - 1 : curEpoch;
+    const useLane = lane || FALLBACK_KEYGEN.lane;
+    for (const ep of [curEpoch, prevEpoch]) {
+        const keys = await aaBootstrapFor(useLane, ep);
+        if (keys) {
+            console.log('self-bootstrap ok: epoch ' + keys.epoch + ', lane ' + keys.lane);
+            aaKeyCache.keys = keys;
+            aaKeyCache.ts = Date.now();
+            return keys;
+        }
+    }
+    console.log('self-bootstrap failed; trying remote keygen repo');
     for (let i = 0; i < KEYGEN_URLS.length; i++) {
         try {
             const resp = await soraFetch(KEYGEN_URLS[i], {
