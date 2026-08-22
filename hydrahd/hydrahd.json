@@ -10,7 +10,7 @@
   "version": "1.0.42",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
-  "quality": "Up to 4K (per-title)",
+  "quality": "Up to 4K",
   "baseUrl": "https://hydrahd.ws/",
   "searchBaseUrl": "https://hydrahd.ws/index.php?menu=search&query=%s",
   "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/hydrahd/hydrahd.js",
