@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.46 (pipelined probes, page memo, leaner generic tier)');
+console.log('[HydraHD] module script loaded v1.0.47 (soft clock: ping-race bounds every phase - Shirox-safe without timers)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -119,10 +119,108 @@ function timerSafe(ms) {
 // title URL back to back — without this, every open pays the full page round
 // trip twice (~0.7s each on real networks). Plain object memo, no timers.
 const pageMemo = {};
+
+// ---- Soft clock -------------------------------------------------------------
+// In-app there are no timers, so soraFetchTimed degrades to an unbounded
+// fetch and a bridge that leaves a promise pending FOREVER (Shirox on a
+// blocked/challenged host) freezes the whole extraction. Wall time can still
+// be measured without timers: a 204 connectivity check costs exactly one
+// real round trip. Racing risky phases against N sequential checks bounds
+// them to roughly N x RTT — healthy hosts simply win the race first.
+const CLOCK_URLS = [
+    'https://www.google.com/generate_204',
+    'https://cp.cloudflare.com/generate_204',
+    'https://hydrahd.ws/favicon.ico'
+];
+function clockFetch(url) {
+    try {
+        const r = fetch(url);
+        if (r && typeof r.then === 'function') return r;
+    } catch (e) {}
+    try {
+        const r = fetchv2(url, {}, 'GET', null);
+        if (r && typeof r.then === 'function') return r;
+    } catch (e) {}
+    return Promise.reject(new Error('no bridge'));
+}
+function clockTick(i) {
+    const attempt = function(j) {
+        if (j >= CLOCK_URLS.length) return Promise.resolve(false);
+        return clockFetch(CLOCK_URLS[j]).then(
+            function() { return true; },
+            function() { return attempt(j + 1); }
+        );
+    };
+    return attempt(i % CLOCK_URLS.length);
+}
+// One SHARED ping loop serves every concurrent softRace: each registers a
+// deadline, the loop fires whichever are due after each ping, and stops the
+// moment no phases remain. This keeps the request overhead to a single ping
+// stream instead of one per phase.
+const CLOCK_BUS = { active: false, waiters: [], n: 0 };
+function ensureClockLoop() {
+    if (CLOCK_BUS.active) return;
+    CLOCK_BUS.active = true;
+    const started = Date.now();
+    const loop = function() {
+        const now = Date.now();
+        const pending = [];
+        for (let i = 0; i < CLOCK_BUS.waiters.length; i++) {
+            const w = CLOCK_BUS.waiters[i];
+            if (now >= w.deadline) w.fire(); else pending.push(w);
+        }
+        CLOCK_BUS.waiters = pending;
+        // Hard stop 25s after first use: past this the app's own kill timer
+        // is close anyway — resolve everyone rather than ping forever.
+        if (CLOCK_BUS.waiters.length === 0 || now - started > 25000) {
+            CLOCK_BUS.active = false;
+            for (let j = 0; j < CLOCK_BUS.waiters.length; j++) CLOCK_BUS.waiters[j].fire();
+            CLOCK_BUS.waiters = [];
+            return;
+        }
+        clockTick(CLOCK_BUS.n++).then(loop, loop);
+    };
+    loop();
+}
+function softRace(promise, budgetMs) {
+    let res;
+    let done = false;
+    const w = { deadline: Date.now() + budgetMs };
+    w.fire = function() {
+        if (done) return;
+        done = true;
+        const i = CLOCK_BUS.waiters.indexOf(w);
+        if (i >= 0) CLOCK_BUS.waiters.splice(i, 1);
+        res(null);
+    };
+    const clockPromise = new Promise(function(resolve) { res = resolve; });
+    CLOCK_BUS.waiters.push(w);
+    ensureClockLoop();
+    return Promise.race([
+        Promise.resolve(promise).then(
+            function(v) {
+                done = true;
+                const i = CLOCK_BUS.waiters.indexOf(w);
+                if (i >= 0) CLOCK_BUS.waiters.splice(i, 1);
+                return v || null;
+            },
+            function(e) {
+                done = true;
+                const i = CLOCK_BUS.waiters.indexOf(w);
+                if (i >= 0) CLOCK_BUS.waiters.splice(i, 1);
+                throw e;
+            }
+        ),
+        clockPromise
+    ]);
+}
+
 async function getPageHtml(fullUrl) {
     if (pageMemo[fullUrl]) return pageMemo[fullUrl];
-    const response = await soraFetch(fullUrl);
-    const html = await response.text();
+    const html = await softRace((async function() {
+        const response = await soraFetch(fullUrl);
+        return response.text();
+    })(), 8000);
     if (html && html.length > 1000) {
         pageMemo[fullUrl] = html;
         const keys = Object.keys(pageMemo);
@@ -628,13 +726,16 @@ async function extractStreamUrl(url) {
         // Referer must be the ABSOLUTE page URL — the app hands series episode
         // links as relative hrefs (/watchseries/...), and a relative Referer
         // makes hydrahd return a non-ajax page (0 server buttons in-app).
-        const ajaxResponse = await soraFetch(`${ajaxUrl}?${paramString}`, {
-            headers: {
-                'Referer': fullUrl,
-                'X-Requested-With': 'XMLHttpRequest',
-            }
-        });
-        const ajaxHtml = await ajaxResponse.text();
+        // Soft-clocked: a wedged bridge can no longer stall everything.
+        const ajaxHtml = await softRace((async function() {
+            const ajaxResponse = await soraFetch(`${ajaxUrl}?${paramString}`, {
+                headers: {
+                    'Referer': fullUrl,
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            });
+            return ajaxResponse.text();
+        })(), 8000);
         // Server picker buttons carry the human name ("Hydra1", "Whiskey", ...)
         // next to the embed link; fall back to the domain name when missing.
         const serverEntries = [];
@@ -717,17 +818,17 @@ async function extractStreamUrl(url) {
         })();
         // Everything runs concurrently; a worker failure must NEVER abort the
         // whole result (that was killing streams even when they succeeded).
-        // Streams settle first, then labels get probed; subtitles only join at
-        // the very end so a slow subtitle API can never delay playable streams
-        // (bench: an 8s community-subs race held the whole payload hostage).
-        await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]);
+        // Each settle point is soft-clocked: on bridges that leave requests
+        // pending forever (Shirox + blocked host) the ping clock wins the race
+        // after a few seconds instead of freezing extraction entirely.
+        await softRace(Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]), 9000);
         // Settle whatever probes are still in flight — most already finished,
         // overlapped inside the worker window (pipelined from pushStream).
-        await Promise.allSettled(probePromises);
+        await softRace(Promise.allSettled(probePromises), 5000);
         // Subtitles join last: they had the whole probe window to finish, so
         // this is usually instant. A still-running slow provider can only cost
         // its own remaining timeout — never the playable stream list.
-        if (subsWorker) await Promise.allSettled([subsWorker]);
+        if (subsWorker) await softRace(Promise.allSettled([subsWorker]), 6000);
         // Best streams first: sort by measured quality class so the app's
         // primary/default stream is the best verified one (e.g. VidFast 4K
         // outranks an unprobed embed). Unprobed entries (no measured class)
@@ -766,7 +867,8 @@ async function extractStreamUrl(url) {
             if (primaryHls && /\.m3u8|playlist/i.test(primaryHls) && timeLeft() > 7000) {
                 // The probe already downloaded this master — reuse its text
                 // instead of paying a second round trip on the return path.
-                const playlistTracks = await extractPlaylistSubtitleTracks(primaryHls, streams.length > 0 ? streams[0].masterText : '');
+                const playlistTracks = await softRace(
+                    extractPlaylistSubtitleTracks(primaryHls, streams.length > 0 ? streams[0].masterText : ''), 5000) || [];
                 if (playlistTracks.length) {
                     subtitleList = (subtitleList || []).concat(playlistTracks);
                     if (!subtitle) {
