@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.41 (true quality labels + per-language servers with flag emojis)');
+console.log('[HydraHD] module script loaded v1.0.42 (clean labels: flag + language + quality class)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -591,7 +591,6 @@ async function extractStreamUrl(url) {
                         if (!dims) return;
                         const cls = qualityClassFromDimensions(dims.width, dims.height);
                         if (!cls) return;
-                        const qLabel = cls + ' (' + dims.width + 'x' + dims.height + ')';
                         const tracks = parseM3u8AudioTracks(plText);
                         const defaultTrack = tracks.find(function(t) { return t.isDefault; }) || tracks[0];
                         // No AUDIO renditions listed => single muxed track. Every
@@ -601,15 +600,15 @@ async function extractStreamUrl(url) {
                         const baseName = String(st.baseTitle || st.title || '')
                             .replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '')
                             .trim() || String(st.title || '');
-                        st.title = languageFlag(defCode) + ' ' + baseName + ' • ' + defName + ' • ' + qLabel;
+                        st.title = languageFlag(defCode) + ' ' + baseName + ' • ' + defName + ' • ' + cls;
                         st.name = st.title;
-                        st.quality = qLabel;
+                        st.quality = cls;
                         for (const sib of streams) {
                             if (sib.qSiblingOf !== st || sib.isLangVariant !== true) continue;
                             const sBase = String(sib.baseTitle || '').replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '').trim() || String(sib.baseTitle || '');
-                            sib.title = languageFlag(sib.langCode) + ' ' + sBase + ' • ' + subtitleLanguageName(sib.langCode) + ' • ' + qLabel;
+                            sib.title = languageFlag(sib.langCode) + ' ' + sBase + ' • ' + subtitleLanguageName(sib.langCode) + ' • ' + cls;
                             sib.name = sib.title;
-                            sib.quality = qLabel;
+                            sib.quality = cls;
                         }
                     } catch (e) { /* keep the site badge for this stream */ }
                 }));
