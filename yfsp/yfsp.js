@@ -4,7 +4,7 @@ const YFSP_API_EPISODES = 'https://m10.yfsp.tv/v3/video/languagesplaylist';
 const YFSP_API_PLAY = 'https://m10.yfsp.tv/v3/video/play';
 const YFSP_API_SEARCH = 'https://rankv21.yfsp.tv/v3/list/briefsearch';
 const YFSP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
-const YFSP_BUILD = '1.0.1';
+const YFSP_BUILD = '1.0.3';
 
 console.log('[YFSP] script build: v' + YFSP_BUILD + ' (sign=' + (typeof signStreamUrl === 'function' ? 'yes' : 'no') + ')');
 
@@ -147,6 +147,11 @@ async function extractEpisodes(url) {
  * Resolves a yfsp.tv episode to its playable HLS/MP4 stream(s) via the signed play API.
  * The play API answers with id=<episodeKey>&a=0 for specific episodes and
  * id=<movieKey>&a=1 when only the title key is known.
+ *
+ * The endpoint rate-limits aggressively ("访问过量" = code 5) and occasionally
+ * answers with an HTML error page from an edge, so each key shape is retried a
+ * few times before falling back from the episode key (a=0) to the movie key
+ * (a=1). Every dead end is logged so failures are diagnosable in-app.
  * @param {string} url - The episode href emitted by extractEpisodes.
  * @returns {string} JSON object {streams:[{title, streamUrl, headers}], subtitle}.
  */
@@ -157,42 +162,71 @@ async function extractStreamUrl(url) {
         const epMatch = urlStr.match(/[?&]id=([^&]+)/);
         const episodeKey = epMatch ? decodeURIComponent(epMatch[1]) : '';
         const movieKey = extractMovieKey(urlStr);
-        const useKey = episodeKey || movieKey;
-        if (!useKey) return fallback;
+        if (!episodeKey && !movieKey) return fallback;
 
         const cfg = await getConfig();
         if (!cfg) return fallback;
 
-        const signed = buildSignedUrl(YFSP_API_PLAY, {
-            cinema: 1, id: useKey, a: episodeKey ? 0 : 1,
-            usersign: 1, region: 'GL.', device: 1, isMasterSupport: 1
-        });
-        const response = await soraFetch(signed, { headers: jsonApiHeaders(useKey) });
-        if (!response) return fallback;
-        const data = await response.json();
+        const modes = [];
+        if (episodeKey) modes.push({ label: 'episode', key: episodeKey, a: 0 });
+        modes.push({ label: 'movie', key: movieKey, a: 1 });
 
-        // The play endpoint rate-limits aggressively ("访问过量" = excessive
-        // visits). One immediate retry clears burst limits; log the code so
-        // in-app failures are diagnosable instead of silently empty.
-        const bizCode = (data && data.data && data.data.code);
-        if (bizCode === 5) {
-            console.log('[YFSP] play rate-limited (code 5), retrying once');
-            const retry = await soraFetch(signed, { headers: jsonApiHeaders(useKey) });
-            if (retry) {
-                const data2 = await retry.json();
-                if (!(data2 && data2.data && data2.data.code === 5)) {
-                    return JSON.stringify(parsePlayData(data2, useKey));
+        let lastDiag = 'unknown';
+        for (const mode of modes) {
+            if (!mode.key) continue;
+            const signed = buildSignedUrl(YFSP_API_PLAY, {
+                cinema: 1, id: mode.key, a: mode.a,
+                usersign: 1, region: 'GL.', device: 1, isMasterSupport: 1
+            });
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                const result = await playApiCall(signed, jsonApiHeaders(mode.key));
+                if (!result.ok) {
+                    lastDiag = mode.label + ': ' + result.error;
+                    console.log('[YFSP] play attempt ' + attempt + '/3 (' + mode.label + ') failed: ' + result.error);
+                    continue;
                 }
-                console.log('[YFSP] play still rate-limited (code 5): ' + ((data2.data && data2.data.msg) || ''));
+                const parsed = parsePlayData(result.data, mode.key);
+                if (parsed.streams && parsed.streams.length > 0) {
+                    return JSON.stringify(parsed);
+                }
+                lastDiag = mode.label + ': no usable sources in play response';
+                console.log('[YFSP] play answered without sources (' + mode.label + '), body code: ' +
+                    JSON.stringify(result.data && result.data.data && result.data.data.code));
+                break; // valid response but empty — retrying the same shape rarely helps
             }
-            return fallback;
         }
-
-        return JSON.stringify(parsePlayData(data, useKey));
+        console.log('[YFSP] stream extraction gave up: ' + lastDiag);
+        return fallback;
     } catch (error) {
         console.log('Stream error: ' + error);
         return fallback;
     }
+}
+
+// GET the play endpoint and parse JSON defensively; HTML/edge error pages are
+// reported as transient errors instead of throwing or silently yielding [].
+async function playApiCall(signed, headers) {
+    let resp = null;
+    try {
+        resp = await soraFetch(signed, headers);
+    } catch (e) {
+        return { ok: false, error: 'fetch threw: ' + e };
+    }
+    if (!resp) return { ok: false, error: 'no response' };
+    let text = '';
+    try {
+        text = await resp.text();
+    } catch (e) {
+        return { ok: false, error: 'read failed: ' + e };
+    }
+    let data = null;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        const head = String(text).replace(/\s+/g, ' ').slice(0, 80);
+        return { ok: false, error: 'non-JSON response: ' + head };
+    }
+    return { ok: true, data: data };
 }
 
 // Turn a play response body into the streams contract (HLS preferred).
@@ -200,18 +234,45 @@ function parsePlayData(data, useKey) {
     const info = (data && data.data && Array.isArray(data.data.info) && data.data.info[0]) || {};
     const flvList = (info && Array.isArray(info.flvPathList)) ? info.flvPathList : [];
 
+    // The play response exposes the quality tiers in `clarity`; the active
+    // one carries the stream path (e.g. "576P"). Use its memo as the stream
+    // title so the app's server picker shows the real resolution.
+    const clarityList = (info && Array.isArray(info.clarity)) ? info.clarity : [];
+    const activeClarity = clarityList.filter((c) => c && c.path && c.path.result);
+    const activeMemo = (activeClarity[0] && activeClarity[0].memo) || '';
+
     // The non-HLS flvPathList entry is a shared placeholder; the real
     // playback is always the HLS chunklist, so prefer HLS sources.
-    const hlsSources = flvList.filter((f) => f && f.isHls && f.result);
-    const sources = hlsSources.length > 0 ? hlsSources : flvList.filter((f) => f && f.result);
+    let sources = flvList.filter((f) => f && f.isHls && f.result);
+    if (sources.length === 0) sources = flvList.filter((f) => f && f.result);
+
+    // Some play responses carry the playable chunklist only inside the
+    // quality tiers (clarity[].path.result); use those when flvPathList is empty.
+    if (sources.length === 0 && clarityList.length > 0) {
+        const claritySources = clarityList
+            .filter((c) => c && c.path && c.path.result)
+            .map((c) => ({ isHls: /\.m3u8(\?|#|$)/i.test(c.path.result), result: c.path.result, memo: c.memo }));
+        if (claritySources.length > 0) {
+            console.log('[YFSP] flvPathList empty; using ' + claritySources.length + ' clarity source(s)');
+            return {
+                streams: claritySources.map((f) => ({
+                    title: (f.memo ? f.memo + ' · ' : '') + (f.isHls ? 'HLS' : 'MP4'),
+                    streamUrl: signStreamUrl(f.result),
+                    headers: makeStreamHeaders()
+                })),
+                subtitle: ''
+            };
+        }
+    }
 
     const streams = [];
     const seen = new Set();
     for (const f of sources) {
         if (!f || !f.result || seen.has(f.result)) continue;
         seen.add(f.result);
+        const kind = f.isHls ? 'HLS' : 'MP4';
         streams.push({
-            title: f.isHls ? 'HLS' : 'MP4',
+            title: activeMemo ? activeMemo + ' · ' + kind : kind,
             streamUrl: signStreamUrl(f.result),
             headers: makeStreamHeaders()
         });

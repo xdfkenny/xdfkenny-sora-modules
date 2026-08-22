@@ -1,4 +1,4 @@
-const BASE_URL = 'https://hydrahd.ru';
+const BASE_URL = 'https://hydrahd.ws';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
 const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.39 (timer-safe for app JSContext, no setTimeout)');
+console.log('[HydraHD] module script loaded v1.0.41 (true quality labels + per-language servers with flag emojis)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -223,6 +223,107 @@ async function extractEpisodes(url) {
     }
 }
 
+// ---- True-quality + audio-language probe -----------------------------------
+// The site's server badges ("(Original)", "(4K)") are only guesses. The REAL
+// resolution lives in each host's master playlist (#EXT-X-STREAM-INF
+// RESOLUTION=WxH) and scope films pack fewer vertical lines into UHD-class
+// encodes — Interstellar's "2160p" variant is 3832x1600 (players show ~1440p)
+// while a true-UHD title like Sinners is 3840x2160. Audio languages come from
+// #EXT-X-MEDIA TYPE=AUDIO renditions. Measured labels replace the guesses.
+function parseM3u8VideoResolution(text) {
+    if (!text) return null;
+    let bestW = 0;
+    let bestH = 0;
+    const resRe = /RESOLUTION=(\d+)x(\d+)/g;
+    let m;
+    while ((m = resRe.exec(text)) !== null) {
+        const w = parseInt(m[1], 10);
+        const h = parseInt(m[2], 10);
+        if (w * h > bestW * bestH) { bestW = w; bestH = h; }
+    }
+    return bestW > 0 ? { width: bestW, height: bestH } : null;
+}
+
+function qualityClassFromDimensions(w, h) {
+    // Height decides the class because width scales with aspect ratio: a
+    // scope-ratio UHD encode (~3832x1600) must NOT be advertised as 4K.
+    if (!w || !h) return '';
+    if (h >= 2000) return '4K';
+    if (h >= 1400) return '1440p';
+    if (h >= 1000) return '1080p';
+    if (h >= 700) return '720p';
+    if (h >= 400) return String(h) + 'p';
+    return '';
+}
+
+const AUDIO_LANG_2_TO_3 = {
+    en: 'eng', it: 'ita', es: 'spa', pt: 'por', fr: 'fra', de: 'deu',
+    hi: 'hin', ja: 'jpn', ko: 'kor', zh: 'zho', ru: 'rus', ar: 'ara',
+    tr: 'tur', pl: 'pol', nl: 'nld', sv: 'swe', fi: 'fin', da: 'dan',
+    no: 'nor', el: 'ell', hu: 'hun', cs: 'ces', th: 'tha', vi: 'vie',
+    id: 'ind', bn: 'ben', ur: 'urd', uk: 'ukr', he: 'heb', ro: 'ron'
+};
+
+function normalizeAudioLangCode(tag) {
+    const t = String(tag || '').trim().toLowerCase();
+    if (!t) return '';
+    return Object.prototype.hasOwnProperty.call(AUDIO_LANG_2_TO_3, t) ? AUDIO_LANG_2_TO_3[t] : t.slice(0, 3);
+}
+
+function audioLanguageName(tag) {
+    return subtitleLanguageName(normalizeAudioLangCode(tag));
+}
+
+// Flag emojis so users can tell at a glance which entry plays which audio
+// language (🇬🇧 = English original, 🇮🇹 = Italian dub, ...).
+const LANG_FLAG_EMOJI = {
+    eng: '🇬🇧', ita: '🇮🇹', spa: '🇪🇸', fra: '🇫🇷', fre: '🇫🇷',
+    deu: '🇩🇪', ger: '🇩🇪', por: '🇵🇹', pob: '🇧🇷', jpn: '🇯🇵',
+    kor: '🇰🇷', zho: '🇨🇳', zht: '🇹🇼', rus: '🇷🇺', ara: '🇸🇦',
+    hin: '🇮🇳', tur: '🇹🇷', pol: '🇵🇱', nld: '🇳🇱', dut: '🇳🇱',
+    swe: '🇸🇪', fin: '🇫🇮', dan: '🇩🇰', nor: '🇳🇴', ell: '🇬🇷',
+    gre: '🇬🇷', hun: '🇭🇺', ces: '🇨🇿', cze: '🇨🇿', ron: '🇷🇴',
+    rum: '🇷🇴', ukr: '🇺🇦', tha: '🇹🇭', vie: '🇻🇳', ind: '🇮🇩',
+    msa: '🇲🇾', ben: '🇧🇩', tam: '🇮🇳', tel: '🇮🇳', mal: '🇮🇳',
+    heb: '🇮🇱', bul: '🇧🇬', hrv: '🇭🇷', srp: '🇷🇸'
+};
+
+function languageFlag(code) {
+    const k = normalizeAudioLangCode(code);
+    return LANG_FLAG_EMOJI[k] || '🏳️';
+}
+
+// VixSrc-style hosts take a two-letter ?lang= URL param while HLS LANGUAGE
+// attrs are three-letter — reverse of AUDIO_LANG_2_TO_3.
+const AUDIO_LANG_3_TO_2 = {};
+(function() {
+    for (const k in AUDIO_LANG_2_TO_3) {
+        if (Object.prototype.hasOwnProperty.call(AUDIO_LANG_2_TO_3, k)) {
+            AUDIO_LANG_3_TO_2[AUDIO_LANG_2_TO_3[k]] = k;
+        }
+    }
+})();
+
+// Parse #EXT-X-MEDIA TYPE=AUDIO renditions into {code(3-letter), name, isDefault}.
+function parseM3u8AudioTracks(text) {
+    const tracks = [];
+    if (!text) return tracks;
+    const seen = {};
+    const mediaRe = /#EXT-X-MEDIA:[^\r\n]*/g;
+    let line;
+    while ((line = mediaRe.exec(text)) !== null) {
+        const entry = line[0];
+        if (!/TYPE=(?:AUDIO|audio)/.test(entry)) continue;
+        const code = normalizeAudioLangCode((entry.match(/LANGUAGE="([^"]*)"/) || [])[1]);
+        const name = (entry.match(/NAME="([^"]*)"/) || [])[1] || '';
+        const isDefault = /DEFAULT=(?:YES|yes)/.test(entry);
+        if (!code || seen[code]) continue;
+        seen[code] = true;
+        tracks.push({ code: code, name: audioLanguageName(code) || code.toUpperCase(), isDefault: isDefault });
+    }
+    return tracks;
+}
+
 async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
@@ -310,13 +411,38 @@ async function extractStreamUrl(url) {
         // single worker, not their sum.
         const seenStreamUrls = {};
         function pushStream(title, streamUrl, headers) {
-            if (!streamUrl || seenStreamUrls[streamUrl]) return;
+            if (!streamUrl || seenStreamUrls[streamUrl]) return null;
             seenStreamUrls[streamUrl] = true;
-            streams.push({
+            const st = {
                 title: title, name: title, quality: title,
+                baseTitle: title,
                 streamUrl: streamUrl, url: streamUrl,
                 headers: headers || {}
-            });
+            };
+            streams.push(st);
+            return st;
+        }
+        // One extra selectable entry per additional AUDIO language a server
+        // offers ("Hydra2 🇮🇹 Italian"). The child shares the parent's video
+        // renditions; its URL preselects that language's audio track. Quality
+        // labels are copied over from the measured parent in the probe phase.
+        function pushLanguageVariants(parent, extraLangs) {
+            if (!parent || !Array.isArray(extraLangs)) return;
+            for (const al of extraLangs) {
+                if (!al || !al.url || streams.length >= 10) continue;
+                if (seenStreamUrls[al.url]) continue;
+                seenStreamUrls[al.url] = true;
+                const title = parent.baseTitle + ' ' + languageFlag(al.code) + ' ' + subtitleLanguageName(al.code);
+                streams.push({
+                    title: title, name: title, quality: title,
+                    baseTitle: parent.baseTitle,
+                    langCode: al.code,
+                    qSiblingOf: parent,
+                    isLangVariant: true,
+                    streamUrl: al.url, url: al.url,
+                    headers: parent.headers || {}
+                });
+            }
         }
         // Worker 1: every named server button, in parallel batches.
         const serverWorker = (async function() {
@@ -332,8 +458,9 @@ async function extractStreamUrl(url) {
                                 const embedOrigin = (function() {
                                     try { return new URL(entry.link).origin; } catch (e) { return ''; }
                                 })();
-                                pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
+                                const pushedSt = pushStream(entry.name || getServerTitle(entry.link), resolved.streamUrl,
                                     embedOrigin ? { 'Referer': embedOrigin + '/', 'Origin': embedOrigin } : {});
+                                pushLanguageVariants(pushedSt, resolved.extraLangs);
                                 if (!subtitle && resolved.subtitle) subtitle = resolved.subtitle;
                             }
                         } catch (e) { /* keep trying the next server */ }
@@ -358,7 +485,8 @@ async function extractStreamUrl(url) {
                     try {
                         const resolved = await host.fn(ctxInfo);
                         if (resolved && resolved.streamUrl) {
-                            pushStream(host.name, resolved.streamUrl, { 'Referer': host.origin, 'Origin': host.origin });
+                            const pushedSt = pushStream(host.name, resolved.streamUrl, { 'Referer': host.origin, 'Origin': host.origin });
+                            pushLanguageVariants(pushedSt, resolved.extraLangs);
                         }
                     } catch (e) { /* skip this host */ }
                 }));
@@ -434,6 +562,62 @@ async function extractStreamUrl(url) {
         // Everything runs concurrently; a worker failure must NEVER abort the
         // whole result (that was killing streams even when they succeeded).
         await Promise.allSettled([serverWorker, keylessWorker, mirrorWorker, subsWorker]);
+        // Phase: measure TRUE resolution + audio languages from each stream's
+        // own master playlist and rewrite the labels with ground truth, e.g.
+        // "🇬🇧 Hydra2 • English • 1080p (1920x1080)". The site badge is only a
+        // guess; this is what the file actually is. Language variants created
+        // earlier are skipped here and inherit their parent's measurement.
+        try {
+            if (timeLeft() > 9000 && streams.length > 0) {
+                const probed = {};
+                const targets = [];
+                for (let i = 0; i < streams.length && targets.length < 6; i++) {
+                    const st = streams[i];
+                    if (!st || st.isLangVariant) continue;
+                    if (!st.streamUrl || !/\.m3u8/i.test(st.streamUrl)) continue;
+                    if (probed[st.streamUrl]) continue;
+                    probed[st.streamUrl] = true;
+                    targets.push(st);
+                }
+                await Promise.all(targets.map(async function(st) {
+                    try {
+                        let plText = st.playlistText || '';
+                        if (!plText) {
+                            const pr = await soraFetchTimed(st.streamUrl, { headers: st.headers || {} }, 6000);
+                            if (!pr) return;
+                            plText = await pr.text();
+                        }
+                        const dims = parseM3u8VideoResolution(plText);
+                        if (!dims) return;
+                        const cls = qualityClassFromDimensions(dims.width, dims.height);
+                        if (!cls) return;
+                        const qLabel = cls + ' (' + dims.width + 'x' + dims.height + ')';
+                        const tracks = parseM3u8AudioTracks(plText);
+                        const defaultTrack = tracks.find(function(t) { return t.isDefault; }) || tracks[0];
+                        // No AUDIO renditions listed => single muxed track. Every
+                        // host this module resolves serves English-original audio.
+                        const defCode = defaultTrack ? defaultTrack.code : 'eng';
+                        const defName = defaultTrack ? defaultTrack.name : 'English';
+                        const baseName = String(st.baseTitle || st.title || '')
+                            .replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '')
+                            .trim() || String(st.title || '');
+                        st.title = languageFlag(defCode) + ' ' + baseName + ' • ' + defName + ' • ' + qLabel;
+                        st.name = st.title;
+                        st.quality = qLabel;
+                        for (const sib of streams) {
+                            if (sib.qSiblingOf !== st || sib.isLangVariant !== true) continue;
+                            const sBase = String(sib.baseTitle || '').replace(/\s*\((?:original|4k|hd|cam)\)\s*$/i, '').trim() || String(sib.baseTitle || '');
+                            sib.title = languageFlag(sib.langCode) + ' ' + sBase + ' • ' + subtitleLanguageName(sib.langCode) + ' • ' + qLabel;
+                            sib.name = sib.title;
+                            sib.quality = qLabel;
+                        }
+                    } catch (e) { /* keep the site badge for this stream */ }
+                }));
+                console.log('[HydraHD] Quality probe done probed=' + targets.length + '/' + streams.length);
+            }
+        } catch (e) {
+            console.error('[HydraHD] Quality probe error:', e && e.message ? e.message : e);
+        }
         if (merged && merged.subtitles && merged.subtitles.length > 0) {
             subtitleList = merged.subtitles;
             // Auto-load only when a provider surfaced an English track (they
@@ -615,7 +799,27 @@ async function resolveVixsrcLink(ctx) {
     if (!tok || !exp || !pl) return null;
     const sep = pl[0].includes('?') ? '&' : '?';
     const masterUrl = `${pl[0]}${sep}token=${tok[1]}&expires=${exp[1]}&h=1&lang=en`;
-    return { streamUrl: masterUrl, subtitle: '' };
+    // Fetch the master once to discover every audio language this title
+    // offers. VixSrc's ?lang= param flips which rendition is DEFAULT=YES in
+    // the served manifest (verified live: lang=en -> eng default, lang=it ->
+    // ita default), so each extra language becomes its own playable stream.
+    let playlistText = '';
+    let extraLangs = [];
+    try {
+        const mr = await soraFetchTimed(masterUrl, {
+            headers: { 'Referer': 'https://vixsrc.to/', 'Accept': 'application/vnd.apple.mpegurl' }
+        }, 8000);
+        if (mr) playlistText = await mr.text();
+        const tracks = parseM3u8AudioTracks(playlistText);
+        for (const tr of tracks) {
+            if (!tr.code || tr.code === 'eng') continue;
+            const short = AUDIO_LANG_3_TO_2[tr.code];
+            if (!short) continue;                       // unknown param code — skip
+            extraLangs.push({ code: tr.code, url: masterUrl.replace(/([?&])lang=[^&]*/, '$1lang=' + short) });
+        }
+        if (extraLangs.length) console.log('[HydraHD] Hydra2 extra languages=' + extraLangs.map(function(l) { return l.code; }).join(','));
+    } catch (e) { /* single-language fallback: main stream still works */ }
+    return { streamUrl: masterUrl, subtitle: '', playlistText: playlistText, extraLangs: extraLangs };
 }
 
 // Whiskey: the embed page leaks mdata file ids → GET https://play.xpass.top/

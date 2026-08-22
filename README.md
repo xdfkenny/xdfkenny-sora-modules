@@ -20,8 +20,8 @@ xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪�
 | **HenaoJara** | [`henaojara`](henaojara/henaojara.json) | Feature-rich anime scraper with Spanish Latino localization and multi-server resolution. | [AnimeJara](https://animejara.com/) |
 | **AniDB** | [`anidb`](anidb/anidb.json) | Anime (sub/dub) using the same anidb.app backend that powers [ani-cli](https://github.com/pystardust/ani-cli) — public frontend JSON API + JWPlayer HLS embeds. | [AniDB](https://anidb.app/) |
 | **HydraHD** | [`hydrahd`](hydrahd/hydrahd.json) | Movies & TV in 1080p (English sub/dub) with stream resolution via embed servers + vidfast.vc HLS/MP4 pipeline. | [HydraHD](https://hydrahd.ru/) |
-| **YFSP** | [`yfsp`](yfsp/yfsp.json) | Movies, series, variety & anime in Chinese via the signed iYifan API — search without signature, detail/episodes/streams with rotating vv+pub (MD5) keys scraped from the page. | [YFSP](https://www.yfsp.tv/) |
-| **FlixLatam** | [`flixlatam`](flixlatam/flixlatam.json) | Movies, series & anime in Spanish (LAT/SUB) in 720p — vidurl embeds solved with pure-JS SHA-256 proof-of-work + AES-256-CBC, then HLS streams unpacked from the VidHide (minochinos.com) P.A.C.K.E.R. host. | [FlixLatam](https://flixlatam.com/) |
+| **YFSP** | [`yfsp`](yfsp/yfsp.json) | Movies, series, variety & anime in Chinese via the signed iYifan API — search without signature, detail/episodes/streams with rotating vv+pub (MD5) keys scraped from the page. Free tier is 576P (720P/1080P/4K are VIP-gated). | [YFSP](https://www.yfsp.tv/) |
+| **FlixLatam** | [`flixlatam`](flixlatam/flixlatam.json) | Movies, series & anime in Spanish (LAT/SUB) up to 1080p — vidurl embeds solved with pure-JS SHA-256 proof-of-work + AES-256-CBC, then HLS streams unpacked from the VidHide (minochinos.com) P.A.C.K.E.R. host. | [FlixLatam](https://flixlatam.com/) |
 
 | **Comix** | [`comix`](comix/comix.json) | Comics & manga in English via the X-Scramble-protected API. Pure-JS reimplementation of the anti-scraping client: per-request `_` token (chained S-box ciphers) + response decryption — no proxy, no browser. | [Comix](https://comix.to/) |
 ## Architecture
