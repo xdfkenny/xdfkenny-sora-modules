@@ -1,0 +1,45 @@
+diff --git a/Sora/Views/ReaderView/ReaderView.swift b/Sora/Views/ReaderView/ReaderView.swift
+index 1b8ac68..5ef8de0 100644
+--- a/Sora/Views/ReaderView/ReaderView.swift
++++ b/Sora/Views/ReaderView/ReaderView.swift
+@@ -51,6 +51,7 @@ struct ReaderView: View {
+     @State private var margin: CGFloat = 4
+     @State private var readingProgress: Double = 0.0
+     @State private var lastProgressUpdate: Date = Date()
++    @State private var htmlBaseUrl: URL?
+     @Environment(\.dismiss) private var dismiss
+     
+     @StateObject private var navigator = ChapterNavigator.shared
+@@ -113,6 +114,7 @@ struct ReaderView: View {
+     
+     private func ensureModuleLoaded() {
+         if let module = ModuleManager().modules.first(where: { $0.id == moduleId }) {
++            self.htmlBaseUrl = URL(string: module.baseUrl)
+             do {
+                 let moduleContent = try ModuleManager().getModuleContent(module)
+                 JSController.shared.loadScript(moduleContent)
+@@ -160,6 +162,7 @@ struct ReaderView: View {
+                     
+                     HTMLView(
+                         htmlContent: htmlContent,
++                        baseUrl: htmlBaseUrl,
+                         fontSize: fontSize,
+                         fontFamily: selectedFont,
+                         fontWeight: fontWeight,
+@@ -1132,6 +1135,7 @@ struct ColorPreviewCircle: View {
+ 
+ struct HTMLView: UIViewRepresentable {
+     let htmlContent: String
++    let baseUrl: URL?
+     let fontSize: CGFloat
+     let fontFamily: String
+     let fontWeight: String
+@@ -1446,7 +1450,7 @@ struct HTMLView: UIViewRepresentable {
+             """
+             
+             Logger.shared.log("Loading HTML content into WebView", type: "Debug")
+-            webView.loadHTMLString(htmlTemplate, baseURL: nil)
++            webView.loadHTMLString(htmlTemplate, baseURL: baseUrl)
+             
+             if let href = chapterHref {
+                 let savedPosition = UserDefaults.standard.double(forKey: "scrollPosition_\(href)")
