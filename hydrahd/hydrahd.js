@@ -1,4 +1,4 @@
-const BASE_URL = 'https://hydrahd.ws';
+﻿const BASE_URL = 'https://hydrahd.ws';
 const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
 const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.47 (soft clock: ping-race bounds every phase - Shirox-safe without timers)');
+console.log('[HydraHD] module script loaded v1.0.48 (Beta/Videasy resolver: 4K originals + language dubs)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -651,6 +651,26 @@ async function extractStreamUrl(url) {
                 console.error('[HydraHD] Keyless worker error:', e && e.message ? e.message : e);
             }
         })();
+        // Worker: Videasy "Beta" — originals incl. true 4K + per-language dubs
+        // (Spanish/German/Hindi/Portuguese where the title has them). Ids
+        // only; each source entry carries its own audio-language label.
+        const videasyWorker = (async function() {
+            try {
+                if (!tmdbId || timeLeft() < 6000) return;
+                const sources = await resolveVideasyLink(ctxInfo) || [];
+                let added = 0;
+                for (const s of sources) {
+                    if (!s || !s.streamUrl || streams.length >= 10) break;
+                    const flag = s.langCode ? languageFlag(s.langCode) : '';
+                    const langName = s.langLabel || (s.langCode ? subtitleLanguageName(s.langCode) : '');
+                    const title = flag ? ('Beta ' + flag + ' ' + langName) : ('Beta • ' + langName);
+                    if (pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' })) added++;
+                }
+                console.log('[HydraHD] Videasy sources=' + sources.length + ' pushed=' + added);
+            } catch (e) {
+                console.error('[HydraHD] Videasy worker error:', e && e.message ? e.message : e);
+            }
+        })();
         // Shared mirror helper: pushes the resolved stream plus any extra
         // mirrors the resolver returned (VidSrc hands back up to 3).
         async function addMirror(title, origin, resolver) {
@@ -821,7 +841,7 @@ async function extractStreamUrl(url) {
         // Each settle point is soft-clocked: on bridges that leave requests
         // pending forever (Shirox + blocked host) the ping clock wins the race
         // after a few seconds instead of freezing extraction entirely.
-        await softRace(Promise.allSettled([serverWorker, keylessWorker, mirrorWorker]), 9000);
+        await softRace(Promise.allSettled([serverWorker, keylessWorker, mirrorWorker, videasyWorker]), 12000);
         // Settle whatever probes are still in flight — most already finished,
         // overlapped inside the worker window (pipelined from pushStream).
         await softRace(Promise.allSettled(probePromises), 5000);
@@ -958,6 +978,193 @@ async function resolveGenericLink(link) {
 // stream. Resolvers below are per-host: MoviesAPI (Golf), VixSrc (Hydra2)
 // and xpass (Whiskey). Everything else falls back to the generic regex scan.
 const MOVIESAPI_PLAYER_KEY = '3a67e8866ae1d2bb9e81fe7f73315a56eb3bdf5e3e755c7554c8be6910aa6b13';
+
+// ---- Videasy / "Beta" resolver (multi-language dubs + 4K originals) --------
+// Videasy's player pulls sources from api.speedracelight.com with a custom
+// STREAMCRYPTO envelope: base64url ciphertext XOR-masked by a keystream keyed
+// off (seed, tmdbId), validated against a leading "mvm1" magic. Seed comes
+// from /seed?mediaId= (30s TTL). Language servers live on per-language
+// endpoints: cdn=originals(+4K), lamovie=Spanish, meine=German,
+// hdmovie=Hindi, superflix=Portuguese. Cipher ported 1:1 from the site's
+// chunk math and validated against live captures.
+const VIDEASY_API = 'https://api.speedracelight.com';
+const VIDEASY_ENDPOINTS = ['cdn', 'lamovie', 'meine', 'hdmovie', 'superflix'];
+const VIDEASY_LANG = {
+    original: 'eng', english: 'eng', hindi: 'hin', spanish: 'spa', german: 'deu',
+    portuguese: 'por', french: 'fra', italian: 'ita', japanese: 'jpn', korean: 'kor',
+    chinese: 'zho', russian: 'rus', arabic: 'ara', turkish: 'tur', telugu: 'tel',
+    tamil: 'tam', malayalam: 'mal', punjabi: 'pan', bengali: 'ben', marathi: 'mar'
+};
+const videasySeedCache = {};
+function videasyB64ToBytes(e) {
+    const t = e.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = t.length % 4 === 0 ? t : t + '='.repeat(4 - (t.length % 4));
+    if (typeof atob === 'function') {
+        const bin = atob(padded);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+    const T = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const clean = padded.replace(/[^A-Za-z0-9+/]/g, '');
+    const out = [];
+    for (let i = 0; i < clean.length; i += 4) {
+        const n = (T.indexOf(clean.charAt(i)) << 18) | (T.indexOf(clean.charAt(i + 1)) << 12) |
+                  ((T.indexOf(clean.charAt(i + 2)) & 63) << 6) | (T.indexOf(clean.charAt(i + 3)) & 63);
+        out.push((n >> 16) & 255);
+        if (clean.charAt(i + 2)) out.push((n >> 8) & 255);
+        if (clean.charAt(i + 3)) out.push(n & 255);
+    }
+    return new Uint8Array(out);
+}
+function vcW(e) {
+    e = e >>> 0;
+    e ^= e >>> 16; e = Math.imul(e, 2246822507) >>> 0;
+    e ^= e >>> 13; e = Math.imul(e, 3266489909) >>> 0;
+    e ^= e >>> 16;
+    return e >>> 0;
+}
+function vcRotl(e, t) {
+    e = e >>> 0; t &= 31;
+    if (t === 0) return e >>> 0;
+    return ((e << t) | (e >>> (32 - t))) >>> 0;
+}
+function vcFnv(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+    return vcW(h);
+}
+// n*(n+1) is always even, so the site's parity branch is dead code — only the
+// 61-slot schedule below ever runs. Sparse array on purpose (`in` semantics).
+function vcKeySchedule(seed, mediaId) {
+    const S = Array(61);
+    let a = vcW(vcFnv(seed) ^ vcW(Number(mediaId) >>> 0 ^ 2654435769)) >>> 0;
+    for (let i = 0; i < 8; i++) {
+        const idx = a % 61;
+        a = vcRotl((a + 2654435769) >>> 0, 7 + (7 & i));
+        S[idx] = (a ^ vcW(a)) >>> 0;
+        a = vcW((a + idx) >>> 0);
+    }
+    return { S: S, acc: vcW(2779096485 ^ a) >>> 0 };
+}
+function vcNextBlock(state, blockIdx) {
+    const S = state.S;
+    const prev = state.acc;
+    const n = prev % 61;
+    const has = (n in S) ? 1 : 0;              // sparse-slot presence check
+    const notHas = 0 - has;                    // -1 present, else 0
+    const d = S[n] >>> 0;
+    const sel = ((d ^ Math.imul(2654435769, blockIdx + 1)) >>> 0) >>> 0;
+    const l = (((prev ^ sel) >>> 0) | ((prev & sel & notHas) >>> 0)) >>> 0;
+    const l2 = (vcRotl((l + prev) >>> 0, 31 & n) ^ vcRotl(prev, 31 & Math.imul(n, 7))) >>> 0;
+    state.acc = vcW((l2 + 2654435769) >>> 0);
+    S[n] = state.acc >>> 0;
+    return state.acc >>> 0;
+}
+function videasyDecrypt(b64url, seed, mediaId) {
+    const ct = videasyB64ToBytes(b64url);
+    const ks = new Uint8Array(ct.length);
+    const state = vcKeySchedule(seed, String(mediaId));
+    let o = 0;
+    for (let e = 0; e < ct.length;) {
+        const blk = vcNextBlock(state, o++);
+        ks[e++] = blk & 255;
+        if (e < ct.length) ks[e++] = (blk >>> 8) & 255;
+        if (e < ct.length) ks[e++] = (blk >>> 16) & 255;
+        if (e < ct.length) ks[e++] = (blk >>> 24) & 255;
+    }
+    const out = new Uint8Array(ct.length);
+    for (let i = 0; i < ct.length; i++) out[i] = ct[i] ^ ks[i];
+    // magic "mvm1"
+    if (out[0] !== 109 || out[1] !== 118 || out[2] !== 109 || out[3] !== 49) {
+        throw new Error('videasy decrypt failed: bad seed or tampered payload');
+    }
+    let str = '';
+    const CHUNK = 4096;
+    for (let i = 4; i < out.length; i += CHUNK) {
+        str += String.fromCharCode.apply(null, out.subarray(i, Math.min(i + CHUNK, out.length)));
+    }
+    return decodeURIComponent(escape(str));
+}
+async function videasyGetSeed(mediaId) {
+    const cached = videasySeedCache[mediaId];
+    if (cached && Date.now() - cached.at < 25000) return cached.seed;
+    const r = await soraFetchTimed(VIDEASY_API + '/seed?mediaId=' + encodeURIComponent(mediaId), {
+        headers: { 'Referer': 'https://player.videasy.to/', 'Accept': 'application/json' }
+    }, 6000);
+    if (!r) throw new Error('no seed response');
+    const data = await r.json();
+    if (!data || !data.seed) throw new Error('no seed in response');
+    videasySeedCache[mediaId] = { seed: data.seed, at: Date.now() };
+    return data.seed;
+}
+// quality label doubles as the audio language ("Hindi", "English", ...)
+function videasyLangCode(label) {
+    const l = String(label || '').trim().toLowerCase();
+    if (VIDEASY_LANG[l]) return VIDEASY_LANG[l];
+    return AUDIO_LANG_2_TO_3[l] || '';
+}
+async function resolveVideasyLink(ctx) {
+    if (!ctx || !ctx.tmdbId) return null;
+    const t0 = Date.now();
+    const seed = await videasyGetSeed(ctx.tmdbId);
+    console.log('[HydraHD] videasy seed in ' + (Date.now() - t0) + 'ms');
+    const title = encodeURIComponent(encodeURIComponent(String(ctx.title || '')));
+    const results = [];
+    // The API throttles concurrent bursts into {"error":...} JSON — fetch
+    // endpoints SEQUENTIALLY with one retry each instead of in parallel.
+    for (const ep of VIDEASY_ENDPOINTS) {
+        const eStart = Date.now();
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            let url = VIDEASY_API + '/' + ep + '/sources-with-title?mediaType=' + (ctx.isMovie ? 'movie' : 'tv') +
+                '&seasonId=' + encodeURIComponent(String(ctx.season || 1)) +
+                '&episodeId=' + encodeURIComponent(String(ctx.episode || 1)) +
+                '&tmdbId=' + encodeURIComponent(String(ctx.tmdbId)) +
+                '&imdbId=' + encodeURIComponent(String(ctx.imdbId || '')) +
+                '&enc=2&seed=' + encodeURIComponent(seed);
+            if (title) url += '&title=' + title;
+            if (!ctx.isMovie && ctx.season) {
+                url += '&totalSeasons=' + encodeURIComponent(String(Math.max(ctx.season, 1)));
+                url += '&year=';
+            } else if (ctx.year) {
+                url += '&year=' + encodeURIComponent(String(ctx.year));
+            }
+            const rr = await softRace((async function() {
+                const resp = await soraFetch(url, {
+                    headers: { 'Referer': 'https://player.videasy.to/', 'Accept': '*/*' }
+                });
+                return resp.text();
+            })(), 7000);
+            if (!rr) break;                                   // clock won — give up on this endpoint
+            if (attempt === 0 && rr.charAt(0) === '{') {
+                await timerSafe(350);                         // throttled: back off, retry once
+                continue;
+            }
+            if (rr.charAt(0) === '{') {
+                console.log('[HydraHD] videasy ' + ep + ' error after ' + (Date.now() - eStart) + 'ms (len=' + rr.length + ')');
+                break;
+            }
+            const plain = videasyDecrypt(rr, seed, ctx.tmdbId);
+            const data = JSON.parse(plain);
+            const sources = Array.isArray(data.sources) ? data.sources : [];
+            console.log('[HydraHD] videasy ' + ep + ' OK in ' + (Date.now() - eStart) + 'ms (attempt ' + (attempt + 1) + ') sources=' + sources.length);
+            for (let i = 0; i < sources.length; i++) {
+                const srcUrl = sources[i] && sources[i].url;
+                if (!srcUrl || !/^https?:\/\//.test(srcUrl)) continue;
+                const langCode = videasyLangCode(sources[i].quality);
+                results.push({ langCode: langCode, langLabel: sources[i].quality || '', streamUrl: srcUrl });
+            }
+            break;                                            // endpoint satisfied
+          } catch (e) {
+            console.error('[HydraHD] videasy ' + ep + ' error after ' + (Date.now() - eStart) + 'ms: ' + (e && e.message ? e.message : e));
+            break;
+          }
+        }
+    }
+    return results;
+}
+
 
 // Golf: GET https://moviesapi.to/api/vidora/v1/movie/{tmdb} (or /tv/{tmdb}/{s}/{e})
 // with the x-player-key header → response.sources[0].url is the master.m3u8.
