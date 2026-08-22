@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Si los relojes de AllAnime fallan, resuelve automáticamente fuentes iframe como mp4upload para mantener el flujo de video.",
-  "version": "1.8.0",
+  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Auto-bootstrap de claves aaReq cuando rotan (build 136, epochs semanales), con fallback a keygen remoto y fuentes iframe (mp4upload/ok.ru) para mantener el flujo de video.",
+  "version": "1.9.0",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
