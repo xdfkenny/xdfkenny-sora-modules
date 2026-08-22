@@ -1,0 +1,24 @@
+{
+  "sourceName": "HydraHD (Shirox)",
+  "iconUrl": "https://hydrahd.ws/fav-192.png",
+  "author": {
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "HydraHD (hydrahd.ws) — build Shirox-compatible: fast tier + pool de subtítulos, espejos como fallback, sin sondeo bloqueante. Basado en el fork de JayGxnzalez con la corrección del dominio (.ru -> .ws) y el mismo catálogo de streams (VixSrc, MoviesAPI, xpass, VidFast). Sin claves API.",
+  "version": "1.0.0",
+  "language": "English",
+  "streamType": "HLS/MP4",
+  "quality": "Up to 4K",
+  "baseUrl": "https://hydrahd.ws/",
+  "searchBaseUrl": "https://hydrahd.ws/index.php?menu=search&query=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/hydrahd/hydrahd-shirox.js",
+  "type": "movies/shows/anime",
+  "downloadSupport": true,
+  "combo": false,
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": true,
+  "credits": "Stream strategy based on JayGxnzalez's HydraHD fork (fast tier + allSubtitles pool)"
+}

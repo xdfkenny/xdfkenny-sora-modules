@@ -13,9 +13,17 @@
     {
       "id": "hydrahd",
       "name": "HydraHD",
-      "iconUrl": "https://hydrahd.ru/fav-192.png",
+      "iconUrl": "https://hydrahd.ws/fav-192.png",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "hydrahd-shirox",
+      "name": "HydraHD (Shirox)",
+      "iconUrl": "https://hydrahd.ws/fav-192.png",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd-shirox.json",
       "sampleQuery": "one piece"
     },
     {
