@@ -198,32 +198,61 @@ Since build 114 the site derives the aaReq AES-GCM IV as
 `sha256(epoch:qh:ts)[0:12]`. Both modules' `aaBuildToken()` already use the
 new form — do not revert it when updating keygen values.
 
-### Last captured values (2026-08-15, verified against the live bootstrap)
+### Build 136 scheme changes (captured 2026-08-22)
+
+- **Epochs are now 7-day**: `epoch = floor(now / 604800000)`; during the first
+  day of an epoch the previous one is still accepted
+  (`now - epoch*604800000 < 86400000 → epoch-1`). The aa-boot HMAC uses this
+  same epoch value.
+- **aa-boot message format changed** from colon-joined
+  `buildId:group:host:epoch:lane` to tilde-joined parts in a NEW order:
+  ```
+  `${epoch}~${host}~${lane}~${group}~${buildId}`      e.g. 2955~mkissa.to~k7~mkissa~136
+  ```
+- **HMAC key prefix changed** from `aa-boot:<buildId>` to `qrSOLsg:<buildId>`.
+- **Per-content lanes are enforced by the API**: episode queries must use
+  lane `k7`, chapterPages `k9`, music `k2` (site picks via query text). The
+  aaReq token payload/IV and the bootstrap call must all use the matching lane,
+  otherwise the API answers `AA_CRYPTO_QUERY_MISMATCH`.
+- Mask fragments for build 136: `zZ9iqAzia78=`, `0GqOekVONY4=`,
+  `uyiEMZfgVqA=`, `HBpHBAntve4=`; salt constants
+  `saltMul=78, saltAdd=200, fragMul=234, fragAdd=70`.
+  Full client-side key derivation (no secret round-trip):
+  ```
+  embed[i] = concat(base64decode(fragments))[i]
+  salt[i]  = (buildId.charCodeAt(i % len) || 0) ^ ((i * 78 + 200) & 255)
+  lin[i]   = (((i >> 3) * 234) + ((i % 8) * 70)) & 255
+  mask[i]  = embed[i] ^ salt[i] ^ lin[i]
+  hmacKey  = HMAC-SHA256(mask, "qrSOLsg:" + buildId)
+  bootTok  = hex(HMAC-SHA256(hmacKey, `${epoch}~${host}~${lane}~${group}~${buildId}`))
+  GET api.mkissa.net/client-crypto/v1/bootstrap?buildId=<id>&k=<lane>
+      headers: x-build-id, x-aa-boot=<bootTok>, Referer https://mkissa.to/
+  key      = first32(base64decode(partB)) XOR mask
+  ```
+
+### Last captured values (2026-08-22, verified end-to-end against the live API)
 
 ```json
-{ "build_id": "114", "epoch": 2954, "lane": "k7",
-  "key": "cf5487de30b64387b21614d641cfcf6174d7f3e24f2e9c6433c916c867db8a1d",
+{ "build_id": "136", "epoch": 2955, "lane": "k7",
+  "key": "deeb2732190ceee0d84c7668d79b64ddcd5f27b9f858f2327fe29a7841b7b5da",
   "static_key": "Xot36i3lK3:v1" }
 ```
 
 Verification notes for this capture:
-- mask (from chunk `BQy7Pj0h.js`, 4 blocks `ZNJj4ri3wRM=` / `1EGmfb8pAK8=` /
-  `elvRt0Az+dY=` / `JCroO+1CGRs=`) cross-checks against the keygen.py formula.
-- `key = mask XOR base64decode(partB)` with partB from the live bootstrap
-  (`hYCfSsZiHALc7n17YWelu0KhImEm3b2j6piauNc/GrU=`).
-- The token built from these values is byte-identical to the one produced by
-  the site's own functions (`x_`/`zI`/`HI` evaluated in a Node sandbox).
-- Bootstrap accepts `x-aa-boot` for host `mkissa.to` (message
-  `114:mkissa:mkissa.to:2954:k7`); `allmanga.to` host variant is rejected
-  with `invalid_boot_token`.
-- CAVEAT: at capture time the API rejected even the correct token with
-  `AA_CRYPTO_EXPIRED` (token-validation state ahead of bootstrap state —
-  platform mid-rotation). Re-verify episode/chapter queries after the
-  platform settles; if it still fails, re-capture with the prompt above.
+- partB from live bootstrap: `6hebyz7IjGzsoWm60RDl7Dmtto9VlZPQ9KkV3/3ut5U=`
+  (`switchAt` 1787875200000 = next weekly rotation).
+- Client mask for build 136:
+  `34fcbcf927c4628c34ed1fd2068b8131f4f29136adcd61e28b4b8fa7bc59024f`
+  (reproduced byte-exact by allmanga.js `aaBuildMask()`).
+- A token built from these values registered the episode persisted query via
+  POST and decrypted its `tobeparsed` response (real `sourceUrls` returned).
+- Because epochs rotate WEEKLY, static snapshots expire quickly;
+  `allmanga.js v1.9.0+` therefore self-bootstraps fresh keys on
+  `AA_CRYPTO_STALE` using the pure-JS flow above (see `aaLiveKeys` /
+  `aaBootstrapFor`) and only falls back to the anipy-cli repo afterwards.
 
 Note: the remote keygen URL
 (`raw.githubusercontent.com/sdaqo/anipy-cli/.../keygen.json`) is stale more
 often than not — when the fallback is fresh, the module never fetches it
-(only on `AA_CRYPTO_STALE`), so keeping `FALLBACK_KEYGEN` current is what
-matters. Both modules now also reject a remote keygen whose `build_id` is
-older than the bundled fallback.
+(only on `AA_CRYPTO_STALE`). Both modules reject a remote keygen whose
+`build_id` is older than the bundled fallback.
