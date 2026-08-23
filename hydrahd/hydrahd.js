@@ -383,6 +383,10 @@ function qualityClassFromDimensions(w, h) {
     // Height decides the class because width scales with aspect ratio: a
     // scope-ratio UHD encode (~3832x1600) must NOT be advertised as 4K.
     if (!w || !h) return '';
+    return qualityFromHeight(h);
+}
+
+function qualityFromHeight(h) {
     if (h >= 2000) return '4K';
     if (h >= 1400) return '1440p';
     if (h >= 1000) return '1080p';
@@ -654,6 +658,9 @@ async function extractStreamUrl(url) {
         // Worker: Videasy "Beta" — originals incl. true 4K + per-language dubs
         // (Spanish/German/Hindi/Portuguese where the title has them). Ids
         // only; each source entry carries its own audio-language label.
+        // Beta's CDN encodes resolution in the filename (index-s2160p-…), so
+        // the class comes straight from the URL — the pipelined probe still
+        // refines it (scope films measure down to 1440p) if it reaches it.
         const videasyWorker = (async function() {
             try {
                 if (!tmdbId || timeLeft() < 6000) return;
@@ -662,8 +669,15 @@ async function extractStreamUrl(url) {
                 for (const s of sources) {
                     if (!s || !s.streamUrl || streams.length >= 10) break;
                     const code = s.langCode || 'eng';
-                    const title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
-                    if (pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' })) added++;
+                    const urlCls = (function() {
+                        const m = String(s.streamUrl).match(/-s(\d{3,4})p[-\.]/i);
+                        return m ? qualityFromHeight(parseInt(m[1], 10)) : '';
+                    })();
+                    let title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
+                    if (urlCls) title += ' • ' + urlCls;
+                    const pushedSt = pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' });
+                    if (pushedSt && urlCls && pushedSt.quality === title) pushedSt.quality = urlCls;
+                    if (pushedSt) added++;
                 }
                 console.log('[HydraHD] Videasy sources=' + sources.length + ' pushed=' + added);
             } catch (e) {
