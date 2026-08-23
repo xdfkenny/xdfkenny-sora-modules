@@ -3,6 +3,7 @@ const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
 const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
 const OS_FILE_DOWNLOAD_URL = 'https://dl.opensubtitles.org/en/download/filead';
+const CINEMETA_URL = 'https://v3-cinemeta.strem.io';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
 // Shared community token for the "Stremio Community Subtitles" addon. This is
@@ -14,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.50 (Beta language labels by endpoint; wider probe)');
+console.log('[HydraHD] module script loaded v2.1.0 (dual Sora/Shirox subs + Cinemeta synopsis)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -293,12 +294,81 @@ function getPageDetails(html) {
     return { details, ids };
 }
 
+// ---- Real synopsis via Cinemeta ---------------------------------------------
+// The site's <meta name="description"> is SEO spam ("Watch X online free on
+// HYDRAHD..."), never the title's actual plot. Movie pages embed their IMDb id,
+// but SERIES pages don't — for those, resolve the id through Cinemeta's keyless
+// title-search catalog first, then fetch the full meta. Falls back to the site
+// text when nothing matches; details must never block or fail on this.
+function cleanTitleForMeta(title) {
+    return String(title || '')
+        .replace(/\s*online\s+free.*$/i, '')
+        .replace(/^\s*watch\s+/i, '')
+        .replace(/\s*\(\d{4}\)\s*$/, '')
+        .replace(/[|–-]\s*HYDRAHD.*$/i, '')
+        .trim();
+}
+
+async function cinemetaMetaByImdb(type, imdbId) {
+    const r = await soraFetchTimed(`${CINEMETA_URL}/meta/${type}/${encodeURIComponent(imdbId)}.json`, {}, 6000);
+    if (!r || !r.ok) return null;
+    const data = await r.json();
+    return (data && data.meta) || null;
+}
+
+async function cinemetaMetaByTitle(type, pageTitle) {
+    const clean = cleanTitleForMeta(pageTitle);
+    if (!clean || clean.length < 2) return null;
+    try {
+        const r = await soraFetchTimed(`${CINEMETA_URL}/catalog/${type}/top/search=${encodeURIComponent(clean)}.json`, {}, 8000);
+        if (!r || !r.ok) return null;
+        const data = await r.json();
+        const metas = (data && data.metas) || [];
+        if (!metas.length) return null;
+        const lower = clean.toLowerCase();
+        // Search metas carry no description — grab the best name match's IMDb
+        // id, then pull its full meta for the real overview.
+        const best = metas.find(function(m) { return String(m.name || '').toLowerCase() === lower; })
+            || metas.find(function(m) { return String(m.name || '').toLowerCase().indexOf(lower) === 0; })
+            || metas[0];
+        return best && best.id ? cinemetaMetaByImdb(type, best.id) : null;
+    } catch (e) {
+        console.error('[HydraHD] Cinemeta search error:', e.message);
+        return null;
+    }
+}
+
+async function resolveRealDetails(ids, url, pageTitle) {
+    const type = /watchseries|\/tv[/?]|series/i.test(String(url)) ? 'series' : 'movie';
+    let meta = null;
+    if (ids && ids.imdb) {
+        try { meta = await cinemetaMetaByImdb(type, ids.imdb); } catch (e) { meta = null; }
+    }
+    if (!meta) {
+        try { meta = await cinemetaMetaByTitle(type, pageTitle); } catch (e) { meta = null; }
+    }
+    if (!meta) return null;
+    const desc = typeof meta.description === 'string' ? meta.description.trim() : '';
+    return {
+        description: desc.length > 40 ? desc : null,
+        airdate: typeof meta.releaseInfo === 'string' && meta.releaseInfo ? meta.releaseInfo : null,
+        imdbRating: typeof meta.imdbRating === 'string' && meta.imdbRating ? meta.imdbRating : null
+    };
+}
+
 async function extractDetails(url) {
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const html = await getPageHtml(fullUrl);
 
         const { details, ids } = getPageDetails(html);
+        try {
+            const real = await resolveRealDetails(ids, fullUrl, details.title);
+            if (real) {
+                if (real.description) details.description = real.description;
+                if ((!details.airdate || details.airdate === 'N/A') && real.airdate) details.airdate = real.airdate;
+            }
+        } catch (e) { /* keep site text */ }
         const result = [{
             description: details.description || 'N/A',
             aliases: details.aliases || 'N/A',
