@@ -1,29 +1,29 @@
 {
-    "sourceName": "Comix",
-    "iconURL": "https://comix.to/favicon.ico",
-    "author": {
-        "name": "xdfkenny",
-        "iconURL": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
-        "url": "https://github.com/xdfkenny"
-    },
-    "description": "Módulo tipo manga de Comix (comix.to / comix.ws) — cómics y manga en inglés vía su API protegida por el SDK anti-scraping X-Scramble. Implementación 100% JS del token `_` por request y del descifrado de respuestas (cadenas de cajas-S con claves extraídas del chunk seguro), sin proxy ni navegador. Resiliencia estilo AllManga: fallback multi-host (comix.to → comix.ws), cabeceras completas de navegador y clasificación de fallos Cloudflare/502 en el log. Contrato mangas de kanzen: searchResults / extractDetails / extractChapters / extractImages con salida cruda.",
-    "version": "1.1.3",
-    "language": "English",
-    "languageType": [
-        "Translated"
-    ],
-    "streamType": "mangas",
-    "quality": "Alta",
-    "baseUrl": "https://comix.to/",
-    "searchBaseUrl": "https://comix.to/browse?q=%s",
-    "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/comix/comix.js",
-    "type": "mangas",
-    "downloadSupport": false,
-    "asyncJS": true,
-    "softsub": false,
-    "supportsDartotsu": true,
-    "supportsLuna": true,
-    "supportsAnymex": true,
-    "supportsEclipse": true,
-    "supportsShirox": true
+  "sourceName": "Comix",
+  "iconURL": "https://comix.to/favicon.ico",
+  "author": {
+    "name": "xdfkenny",
+    "iconURL": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "Módulo tipo manga de Comix (comix.to / comix.ws) — cómics y manga en inglés vía su API protegida por el SDK anti-scraping X-Scramble. Implementación 100% JS del token `_` por request y del descifrado de respuestas (cadenas de cajas-S con claves extraídas del chunk seguro), sin proxy ni navegador. Resiliencia estilo AllManga: fallback multi-host (comix.to → comix.ws), cabeceras completas de navegador y clasificación de fallos Cloudflare/502 en el log. Contrato mangas de kanzen: searchResults / extractDetails / extractChapters / extractImages con salida cruda.",
+  "version": "1.1.3",
+  "language": "English",
+  "languageType": [
+    "Translated"
+  ],
+  "streamType": "mangas",
+  "quality": "Alta",
+  "baseUrl": "https://comix.to/",
+  "searchBaseUrl": "https://comix.to/browse?q=%s",
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/comix/comix.js",
+  "type": "mangas",
+  "downloadSupport": false,
+  "asyncJS": true,
+  "softsub": false,
+  "supportsDartotsu": false,
+  "supportsLuna": true,
+  "supportsAnymex": false,
+  "supportsEclipse": true,
+  "supportsShirox": false
 }

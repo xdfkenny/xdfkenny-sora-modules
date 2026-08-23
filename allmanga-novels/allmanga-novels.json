@@ -21,9 +21,9 @@
   "downloadSupport": false,
   "asyncJS": true,
   "softsub": false,
-  "supportsDartotsu": true,
+  "supportsDartotsu": false,
   "supportsLuna": true,
-  "supportsAnymex": true,
+  "supportsAnymex": false,
   "supportsEclipse": true,
-  "supportsShirox": true
+  "supportsShirox": false
 }
