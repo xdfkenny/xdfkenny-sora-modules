@@ -3,6 +3,7 @@ const STREMIO_OPENSUBTITLES_URL = 'https://opensubtitles-v3.strem.io';
 const EMPIRE_COMMUNITY_URL = 'https://stremio-community-subtitles.top';
 const OS_REST_SEARCH_URL = 'https://rest.opensubtitles.org/search';
 const OS_FILE_DOWNLOAD_URL = 'https://dl.opensubtitles.org/en/download/filead';
+const CINEMETA_URL = 'https://v3-cinemeta.strem.io';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
 // Shared community token for the "Stremio Community Subtitles" addon. This is
@@ -14,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.50 (Beta language labels by endpoint; wider probe)');
+console.log('[HydraHD] module script loaded v2.2.1 (incremental Beta landing)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -293,12 +294,81 @@ function getPageDetails(html) {
     return { details, ids };
 }
 
+// ---- Real synopsis via Cinemeta ---------------------------------------------
+// The site's <meta name="description"> is SEO spam ("Watch X online free on
+// HYDRAHD..."), never the title's actual plot. Movie pages embed their IMDb id,
+// but SERIES pages don't — for those, resolve the id through Cinemeta's keyless
+// title-search catalog first, then fetch the full meta. Falls back to the site
+// text when nothing matches; details must never block or fail on this.
+function cleanTitleForMeta(title) {
+    return String(title || '')
+        .replace(/\s*online\s+free.*$/i, '')
+        .replace(/^\s*watch\s+/i, '')
+        .replace(/\s*\(\d{4}\)\s*$/, '')
+        .replace(/[|–-]\s*HYDRAHD.*$/i, '')
+        .trim();
+}
+
+async function cinemetaMetaByImdb(type, imdbId) {
+    const r = await soraFetchTimed(`${CINEMETA_URL}/meta/${type}/${encodeURIComponent(imdbId)}.json`, {}, 6000);
+    if (!r || !r.ok) return null;
+    const data = await r.json();
+    return (data && data.meta) || null;
+}
+
+async function cinemetaMetaByTitle(type, pageTitle) {
+    const clean = cleanTitleForMeta(pageTitle);
+    if (!clean || clean.length < 2) return null;
+    try {
+        const r = await soraFetchTimed(`${CINEMETA_URL}/catalog/${type}/top/search=${encodeURIComponent(clean)}.json`, {}, 8000);
+        if (!r || !r.ok) return null;
+        const data = await r.json();
+        const metas = (data && data.metas) || [];
+        if (!metas.length) return null;
+        const lower = clean.toLowerCase();
+        // Search metas carry no description — grab the best name match's IMDb
+        // id, then pull its full meta for the real overview.
+        const best = metas.find(function(m) { return String(m.name || '').toLowerCase() === lower; })
+            || metas.find(function(m) { return String(m.name || '').toLowerCase().indexOf(lower) === 0; })
+            || metas[0];
+        return best && best.id ? cinemetaMetaByImdb(type, best.id) : null;
+    } catch (e) {
+        console.error('[HydraHD] Cinemeta search error:', e.message);
+        return null;
+    }
+}
+
+async function resolveRealDetails(ids, url, pageTitle) {
+    const type = /watchseries|\/tv[/?]|series/i.test(String(url)) ? 'series' : 'movie';
+    let meta = null;
+    if (ids && ids.imdb) {
+        try { meta = await cinemetaMetaByImdb(type, ids.imdb); } catch (e) { meta = null; }
+    }
+    if (!meta) {
+        try { meta = await cinemetaMetaByTitle(type, pageTitle); } catch (e) { meta = null; }
+    }
+    if (!meta) return null;
+    const desc = typeof meta.description === 'string' ? meta.description.trim() : '';
+    return {
+        description: desc.length > 40 ? desc : null,
+        airdate: typeof meta.releaseInfo === 'string' && meta.releaseInfo ? meta.releaseInfo : null,
+        imdbRating: typeof meta.imdbRating === 'string' && meta.imdbRating ? meta.imdbRating : null
+    };
+}
+
 async function extractDetails(url) {
     try {
         const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
         const html = await getPageHtml(fullUrl);
 
         const { details, ids } = getPageDetails(html);
+        try {
+            const real = await resolveRealDetails(ids, fullUrl, details.title);
+            if (real) {
+                if (real.description) details.description = real.description;
+                if ((!details.airdate || details.airdate === 'N/A') && real.airdate) details.airdate = real.airdate;
+            }
+        } catch (e) { /* keep site text */ }
         const result = [{
             description: details.description || 'N/A',
             aliases: details.aliases || 'N/A',
@@ -466,6 +536,7 @@ function parseM3u8AudioTracks(text) {
 async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
+    let subtitleHeaders = null;
     let subtitleList = [];
     // The app kills stream resolution after a bounded timeout (~40s), so the
     // whole function must stay well under it: server batch + keyless + mirrors
@@ -664,22 +735,24 @@ async function extractStreamUrl(url) {
         const videasyWorker = (async function() {
             try {
                 if (!tmdbId || timeLeft() < 6000) return;
-                const sources = await resolveVideasyLink(ctxInfo) || [];
-                let added = 0;
-                for (const s of sources) {
-                    if (!s || !s.streamUrl || streams.length >= 10) break;
-                    const code = s.langCode || 'eng';
-                    const urlCls = (function() {
-                        const m = String(s.streamUrl).match(/-s(\d{3,4})p[-\.]/i);
-                        return m ? qualityFromHeight(parseInt(m[1], 10)) : '';
-                    })();
-                    let title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
-                    if (urlCls) title += ' • ' + urlCls;
-                    const pushedSt = pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' });
-                    if (pushedSt && urlCls && pushedSt.quality === title) pushedSt.quality = urlCls;
-                    if (pushedSt) added++;
-                }
-                console.log('[HydraHD] Videasy sources=' + sources.length + ' pushed=' + added);
+                let total = 0, added = 0;
+                await resolveVideasyLink(ctxInfo, function(sources) {
+                    for (const s of sources) {
+                        if (!s || !s.streamUrl || streams.length >= 10) return;
+                        const code = s.langCode || 'eng';
+                        const urlCls = (function() {
+                            const m = String(s.streamUrl).match(/-s(\d{3,4})p[-\.]/i);
+                            return m ? qualityFromHeight(parseInt(m[1], 10)) : '';
+                        })();
+                        let title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
+                        if (urlCls) title += ' • ' + urlCls;
+                        const pushedSt = pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' });
+                        if (pushedSt && urlCls && pushedSt.quality === title) pushedSt.quality = urlCls;
+                        if (pushedSt) { added++; }
+                    }
+                    total += sources.length;
+                }) || [];
+                console.log('[HydraHD] Videasy sources=' + total + ' pushed=' + added);
             } catch (e) {
                 console.error('[HydraHD] Videasy worker error:', e && e.message ? e.message : e);
             }
@@ -908,7 +981,10 @@ async function extractStreamUrl(url) {
                         const engTrack = playlistTracks.find(function(t) {
                             return /^en$/i.test(String(t.lang)) || /(^|\s)english/i.test(String(t.label || ''));
                         });
-                        if (engTrack) subtitle = engTrack.url;
+                        if (engTrack) {
+                            subtitle = engTrack.url;
+                            subtitleHeaders = engTrack.headers || null;
+                        }
                     }
                     console.log('[HydraHD] Playlist subs added langs=[' + playlistTracks.map(function(t) { return t.lang; }).join(',') + ']');
                 }
@@ -938,6 +1014,18 @@ async function extractStreamUrl(url) {
     } else {
         finalSubtitles = [];
     }
+    // Shirox-family builds fill their in-player subtitle menu from
+    // `allSubtitles` ([{url,label,kind,headers}]) instead of the Sora pair-array
+    // convention in `subtitles`. Emit both shapes: each app reads the key it
+    // knows and ignores the other, so one script serves both without conflict.
+    const allSubtitles = curatedEntries.map(function(entry) {
+        return {
+            url: entry.url,
+            label: subtitleLanguageName(entry.lang),
+            kind: 'subtitles',
+            headers: entry.headers || {}
+        };
+    });
     if (subtitle) {
         streams.forEach(function(stream) {
             if (stream && !stream.subtitle) stream.subtitle = subtitle;
@@ -949,7 +1037,9 @@ async function extractStreamUrl(url) {
         stream: primaryStream,
         streams,
         subtitle,
-        subtitles: finalSubtitles
+        subtitles: finalSubtitles,
+        subtitlesHeaders: subtitleHeaders || {},
+        allSubtitles: allSubtitles
     });
 }
 
@@ -1132,7 +1222,11 @@ function videasyLangCode(label) {
     if (VIDEASY_LANG[l]) return VIDEASY_LANG[l];
     return AUDIO_LANG_2_TO_3[l] || '';
 }
-async function resolveVideasyLink(ctx) {
+// onBatch (optional): invoked with each endpoint's freshly decoded sources
+// the moment they land. The caller pushes incrementally because one slow
+// endpoint (hdmovie has measured 13s+ when throttled) must not cost the
+// streams already fetched from earlier endpoints.
+async function resolveVideasyLink(ctx, onBatch) {
     if (!ctx || !ctx.tmdbId) return null;
     const t0 = Date.now();
     const seed = await videasyGetSeed(ctx.tmdbId);
@@ -1184,11 +1278,15 @@ async function resolveVideasyLink(ctx) {
             // tiers ("1080p"), lamovie/meine/superflix use host/auto strings.
             // The ENDPOINT defines the audio language for those.
             const epLang = { lamovie: 'spa', meine: 'deu', superflix: 'por', cdn: 'eng' }[ep] || '';
+            const batchStart = results.length;
             for (let i = 0; i < sources.length; i++) {
                 const srcUrl = sources[i] && sources[i].url;
                 if (!srcUrl || !/^https?:\/\//.test(srcUrl)) continue;
                 const langCode = videasyLangCode(sources[i].quality) || epLang;
                 results.push({ langCode: langCode, langLabel: sources[i].quality || '', streamUrl: srcUrl });
+            }
+            if (onBatch && results.length > batchStart) {
+                try { onBatch(results.slice(batchStart)); } catch (e) {}
             }
             break;                                            // endpoint satisfied
           } catch (e) {
@@ -1362,7 +1460,11 @@ async function extractPlaylistSubtitleTracks(masterUrl, presetText) {
                     tracks.push({
                         url: vttMatch[0],
                         lang: (w.langCode || '').toLowerCase() || (w.name || '').toLowerCase().slice(0, 3),
-                        label: w.name || 'Subtitle'
+                        label: w.name || 'Subtitle',
+                        // The .vtt segment host only serves requests carrying the
+                        // playout referer — without it the app gets a 403 and
+                        // silently renders an empty track.
+                        headers: { 'Referer': 'https://vixsrc.to/' }
                     });
                 } catch (e) { /* skip this rendition */ }
             }));
@@ -1713,14 +1815,17 @@ function curatedSubtitleEntries(subtitleList) {
         const lang = String((item.lang || item.language || '')).toLowerCase();
         const existing = byLang[lang];
         const isUtf8 = url.indexOf('senc=') === -1;
-        if (!existing || (isUtf8 && existing.indexOf('senc=') !== -1)) {
-            byLang[lang] = url;
+        if (!existing || (isUtf8 && existing.url.indexOf('senc=') !== -1)) {
+            // Keep the fetch headers (e.g. the VixSrc referer) — losing them
+            // makes the app's subtitle request 403 and the track renders empty.
+            byLang[lang] = { url: url, headers: item.headers || null };
         }
     });
     const entries = Object.keys(byLang).map(function(lang) {
         return {
             lang: lang,
-            url: byLang[lang],
+            url: byLang[lang].url,
+            headers: byLang[lang].headers || undefined,
             rank: Object.prototype.hasOwnProperty.call(SUB_LANG_RANK, lang) ? SUB_LANG_RANK[lang] : 999
         };
     });
