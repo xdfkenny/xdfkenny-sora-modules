@@ -6,19 +6,19 @@
     "icon": "https://avatars.githubusercontent.com/JayGxnzalez?s=400",
     "url": "https://github.com/JayGxnzalez"
   },
-  "description": "HydraHD (hydrahd.ws) — build Shirox-compatible por Jay (JayGxnzalez): fast tier + pool de subtítulos, espejos como fallback, sin sondeo bloqueante. Vendido por xdfkenny con un único parche: dominio .ru -> .ws (el ajax de .ru devuelve 404 tras la redirección). Sin claves API.",
-  "version": "1.0.0",
+  "description": "HydraHD (hydrahd.ws) — módulo unificado de xdfkenny (v2.2.0) con soporte dual de subtítulos: `subtitles` como pares [etiqueta,url] para Sora y `allSubtitles` [{url,label,kind}] para el menú de Shirox. Servidores etiquetados con resolución real, multi-audio por idioma, resolvers keyless (VixSrc, MoviesAPI, xpass) + espejos. Sinopsis real vía Cinemeta. Sin claves API.",
+  "version": "1.2.0",
   "language": "English",
   "streamType": "HLS/MP4",
   "quality": "Up to 4K",
   "baseUrl": "https://hydrahd.ws/",
   "searchBaseUrl": "https://hydrahd.ws/index.php?menu=search&query=%s",
-  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/dev/hydrahd/hydrahd-shirox.js",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.js",
   "type": "movies/shows/anime",
   "downloadSupport": true,
   "combo": false,
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": true,
-  "credits": "Original module and stream strategy by Jay (JayGxnzalez) — https://github.com/JayGxnzalez/hydrahd. Vendored here for Shirox users; only change: BASE_URL .ru -> .ws."
+  "credits": "Original module and stream strategy by Jay (JayGxnzalez) — https://github.com/JayGxnzalez/hydrahd. Now serves the unified xdfkenny module (dual Sora/Shirox subtitle output); Jay's vendored hydrahd-shirox.js kept in-repo as fallback."
 }
