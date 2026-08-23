@@ -15,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v2.2.0 (dual Sora/Shirox subs + Cinemeta synopsis)');
+console.log('[HydraHD] module script loaded v2.2.1 (incremental Beta landing)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -735,22 +735,24 @@ async function extractStreamUrl(url) {
         const videasyWorker = (async function() {
             try {
                 if (!tmdbId || timeLeft() < 6000) return;
-                const sources = await resolveVideasyLink(ctxInfo) || [];
-                let added = 0;
-                for (const s of sources) {
-                    if (!s || !s.streamUrl || streams.length >= 10) break;
-                    const code = s.langCode || 'eng';
-                    const urlCls = (function() {
-                        const m = String(s.streamUrl).match(/-s(\d{3,4})p[-\.]/i);
-                        return m ? qualityFromHeight(parseInt(m[1], 10)) : '';
-                    })();
-                    let title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
-                    if (urlCls) title += ' • ' + urlCls;
-                    const pushedSt = pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' });
-                    if (pushedSt && urlCls && pushedSt.quality === title) pushedSt.quality = urlCls;
-                    if (pushedSt) added++;
-                }
-                console.log('[HydraHD] Videasy sources=' + sources.length + ' pushed=' + added);
+                let total = 0, added = 0;
+                await resolveVideasyLink(ctxInfo, function(sources) {
+                    for (const s of sources) {
+                        if (!s || !s.streamUrl || streams.length >= 10) return;
+                        const code = s.langCode || 'eng';
+                        const urlCls = (function() {
+                            const m = String(s.streamUrl).match(/-s(\d{3,4})p[-\.]/i);
+                            return m ? qualityFromHeight(parseInt(m[1], 10)) : '';
+                        })();
+                        let title = languageFlag(code) + ' Beta • ' + subtitleLanguageName(code);
+                        if (urlCls) title += ' • ' + urlCls;
+                        const pushedSt = pushStream(title, s.streamUrl, { 'Referer': 'https://player.videasy.to/' });
+                        if (pushedSt && urlCls && pushedSt.quality === title) pushedSt.quality = urlCls;
+                        if (pushedSt) { added++; }
+                    }
+                    total += sources.length;
+                }) || [];
+                console.log('[HydraHD] Videasy sources=' + total + ' pushed=' + added);
             } catch (e) {
                 console.error('[HydraHD] Videasy worker error:', e && e.message ? e.message : e);
             }
@@ -1220,7 +1222,11 @@ function videasyLangCode(label) {
     if (VIDEASY_LANG[l]) return VIDEASY_LANG[l];
     return AUDIO_LANG_2_TO_3[l] || '';
 }
-async function resolveVideasyLink(ctx) {
+// onBatch (optional): invoked with each endpoint's freshly decoded sources
+// the moment they land. The caller pushes incrementally because one slow
+// endpoint (hdmovie has measured 13s+ when throttled) must not cost the
+// streams already fetched from earlier endpoints.
+async function resolveVideasyLink(ctx, onBatch) {
     if (!ctx || !ctx.tmdbId) return null;
     const t0 = Date.now();
     const seed = await videasyGetSeed(ctx.tmdbId);
@@ -1272,11 +1278,15 @@ async function resolveVideasyLink(ctx) {
             // tiers ("1080p"), lamovie/meine/superflix use host/auto strings.
             // The ENDPOINT defines the audio language for those.
             const epLang = { lamovie: 'spa', meine: 'deu', superflix: 'por', cdn: 'eng' }[ep] || '';
+            const batchStart = results.length;
             for (let i = 0; i < sources.length; i++) {
                 const srcUrl = sources[i] && sources[i].url;
                 if (!srcUrl || !/^https?:\/\//.test(srcUrl)) continue;
                 const langCode = videasyLangCode(sources[i].quality) || epLang;
                 results.push({ langCode: langCode, langLabel: sources[i].quality || '', streamUrl: srcUrl });
+            }
+            if (onBatch && results.length > batchStart) {
+                try { onBatch(results.slice(batchStart)); } catch (e) {}
             }
             break;                                            // endpoint satisfied
           } catch (e) {
