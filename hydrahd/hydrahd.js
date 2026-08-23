@@ -466,6 +466,7 @@ function parseM3u8AudioTracks(text) {
 async function extractStreamUrl(url) {
     const streams = [];
     let subtitle = '';
+    let subtitleHeaders = null;
     let subtitleList = [];
     // The app kills stream resolution after a bounded timeout (~40s), so the
     // whole function must stay well under it: server batch + keyless + mirrors
@@ -908,7 +909,10 @@ async function extractStreamUrl(url) {
                         const engTrack = playlistTracks.find(function(t) {
                             return /^en$/i.test(String(t.lang)) || /(^|\s)english/i.test(String(t.label || ''));
                         });
-                        if (engTrack) subtitle = engTrack.url;
+                        if (engTrack) {
+                            subtitle = engTrack.url;
+                            subtitleHeaders = engTrack.headers || null;
+                        }
                     }
                     console.log('[HydraHD] Playlist subs added langs=[' + playlistTracks.map(function(t) { return t.lang; }).join(',') + ']');
                 }
@@ -938,6 +942,18 @@ async function extractStreamUrl(url) {
     } else {
         finalSubtitles = [];
     }
+    // Shirox-family builds fill their in-player subtitle menu from
+    // `allSubtitles` ([{url,label,kind,headers}]) instead of the Sora pair-array
+    // convention in `subtitles`. Emit both shapes: each app reads the key it
+    // knows and ignores the other, so one script serves both without conflict.
+    const allSubtitles = curatedEntries.map(function(entry) {
+        return {
+            url: entry.url,
+            label: subtitleLanguageName(entry.lang),
+            kind: 'subtitles',
+            headers: entry.headers || {}
+        };
+    });
     if (subtitle) {
         streams.forEach(function(stream) {
             if (stream && !stream.subtitle) stream.subtitle = subtitle;
@@ -949,7 +965,9 @@ async function extractStreamUrl(url) {
         stream: primaryStream,
         streams,
         subtitle,
-        subtitles: finalSubtitles
+        subtitles: finalSubtitles,
+        subtitlesHeaders: subtitleHeaders || {},
+        allSubtitles: allSubtitles
     });
 }
 
@@ -1362,7 +1380,11 @@ async function extractPlaylistSubtitleTracks(masterUrl, presetText) {
                     tracks.push({
                         url: vttMatch[0],
                         lang: (w.langCode || '').toLowerCase() || (w.name || '').toLowerCase().slice(0, 3),
-                        label: w.name || 'Subtitle'
+                        label: w.name || 'Subtitle',
+                        // The .vtt segment host only serves requests carrying the
+                        // playout referer — without it the app gets a 403 and
+                        // silently renders an empty track.
+                        headers: { 'Referer': 'https://vixsrc.to/' }
                     });
                 } catch (e) { /* skip this rendition */ }
             }));
@@ -1713,14 +1735,17 @@ function curatedSubtitleEntries(subtitleList) {
         const lang = String((item.lang || item.language || '')).toLowerCase();
         const existing = byLang[lang];
         const isUtf8 = url.indexOf('senc=') === -1;
-        if (!existing || (isUtf8 && existing.indexOf('senc=') !== -1)) {
-            byLang[lang] = url;
+        if (!existing || (isUtf8 && existing.url.indexOf('senc=') !== -1)) {
+            // Keep the fetch headers (e.g. the VixSrc referer) — losing them
+            // makes the app's subtitle request 403 and the track renders empty.
+            byLang[lang] = { url: url, headers: item.headers || null };
         }
     });
     const entries = Object.keys(byLang).map(function(lang) {
         return {
             lang: lang,
-            url: byLang[lang],
+            url: byLang[lang].url,
+            headers: byLang[lang].headers || undefined,
             rank: Object.prototype.hasOwnProperty.call(SUB_LANG_RANK, lang) ? SUB_LANG_RANK[lang] : 999
         };
     });
