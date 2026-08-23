@@ -15,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v2.1.0 (dual Sora/Shirox subs + Cinemeta synopsis)');
+console.log('[HydraHD] module script loaded v2.2.0 (dual Sora/Shirox subs + Cinemeta synopsis)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
