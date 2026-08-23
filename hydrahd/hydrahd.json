@@ -20,12 +20,13 @@
   "asyncJS": true,
   "streamAsyncJS": false,
   "softsub": true,
-  "supportsMojuru": true,
-  "supportsDartotsu": true,
+  "supportsMojuru": false,
+  "supportsDartotsu": false,
   "supportsSora": true,
   "supportsShirox": true,
   "supportsLuna": true,
-  "supportsAnymex": true,
-  "supportsTsumi": true,
-  "supportsHiyoku": true
+  "supportsAnymex": false,
+  "supportsTsumi": false,
+  "supportsHiyoku": false,
+  "supportsEclipse": true
 }
