@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de HydraHD (hydrahd.ws) — películas y series en inglés (sub/dub) con calidad real variable por título, hasta 4K. Cada servidor se etiqueta con su resolución VERDADERA medida del manifiesto HLS y su idioma de audio con bandera (🇬🇧 inglés); los servidores multi-audio (Hydra2/VixSrc) generan una entrada adicional por idioma detectado (🇮🇹 italiano, etc.) que reproduce ese audio por defecto. Streams: servidores embebidos + resolvers keyless (VixSrc, MoviesAPI, xpass) + espejos VidSrc (hasta 3) y VidFast con servidores 4K; todo en paralelo con timeouts acotados y workers que nunca abortan el resultado. Subtítulos: lista completa de idiomas al instante (playlist + OpenSubtitles REST + v3 + Community); inglés se autoselecciona. Sin claves API.",
-  "version": "1.0.50",
+  "version": "1.0.51",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "Up to 4K",
