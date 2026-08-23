@@ -81,7 +81,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.1.3 (build 136 keygen + self-bootstrap)');
+console.log('[AllMangaNovels] module script loaded v1.1.4 (build 136 keygen + self-bootstrap, kanzen-env safe)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -144,6 +144,38 @@ async function soraFetchTimed(url, options, timeoutMs) {
         soraFetch(url, options),
         timerSafe(limit).then(function() { return null; })
     ]);
+}
+
+// kanzen's fetch shim resolves json() with an Error VALUE ("No Data") instead
+// of throwing when the body isn't JSON, while Sora/Node builds throw. Normalize
+// both: return the parsed object, or null with a logged body snippet so a
+// challenge/error page shows up in logs.txt as a named failure, not silence.
+async function jsonSafe(resp) {
+    let j = null;
+    try {
+        j = await resp.json();
+    } catch (e) {
+        try { const t = await resp.text(); console.log('[AllMangaNovels] non-json body: ' + String(t).replace(/\s+/g, ' ').slice(0, 120)); } catch (e2) {}
+        return null;
+    }
+    if (j instanceof Error) {
+        try { const t = await resp.text(); console.log('[AllMangaNovels] non-json body (' + j.message + '): ' + String(t).replace(/\s+/g, ' ').slice(0, 120)); } catch (e2) {}
+        return null;
+    }
+    if (j === null || typeof j !== 'object') {
+        console.log('[AllMangaNovels] unexpected response json type: ' + typeof j);
+        return null;
+    }
+    return j;
+}
+
+// HTTP-ok check across environments: Sora/undici responses expose .ok; kanzen's
+// shim exposes ONLY {status, headers, text(), json(), data} — resp.ok is always
+// undefined there, which made any .ok-based guard permanently fail in-app.
+function respIsOk(resp) {
+    if (!resp) return false;
+    if (typeof resp.status === 'number') return resp.status >= 200 && resp.status < 300;
+    return resp.ok === true;
 }
 
 /* ---- pure-JS crypto (SHA-256 + AES-256-GCM) for the app's JavaScriptCore -- */
@@ -584,12 +616,13 @@ async function aaBootstrapFor(lane, epoch) {
                 'User-Agent': UA
             }
         });
-        if (!resp || !resp.ok) {
+        if (!respIsOk(resp)) {
             console.log('bootstrap http ' + (resp ? resp.status : 'no-response') + ' for lane ' + lane);
             return null;
         }
-        const j = await resp.json();
-        if (!j || !j.partB) { console.log('bootstrap empty partB'); return null; }
+        const j = await jsonSafe(resp);
+        if (!j) { console.log('bootstrap unparsable response for lane ' + lane); return null; }
+        if (!j.partB) { console.log('bootstrap empty partB'); return null; }
         const raw = aaUnb64(j.partB);
         if (!raw || raw.length < 32) { console.log('bootstrap short partB'); return null; }
         const key = new Uint8Array(32);
@@ -632,7 +665,8 @@ async function aaFetchRemoteKeys(lane) {
                 headers: { 'User-Agent': UA, 'Accept': 'application/json' }
             });
             if (resp) {
-                const json = await resp.json();
+                const json = await jsonSafe(resp);
+                if (!json) continue;
                 // Guard: the third-party keygen repo lags behind the live site
                 // (e.g. build 81 vs the site's 114). Never replace a newer
                 // bundled fallback with an older remote snapshot.
@@ -714,12 +748,8 @@ async function apiQuery(variables, hash, options) {
         }
         const resp = await soraFetchTimed(url, { headers: apiHeaders(opts.headers) }, opts.timeout || 12000);
         if (!resp) continue;
-        try {
-            const json = await resp.json();
-            if (json && typeof json === 'object') return json;
-        } catch (e) {
-            console.log('apiQuery parse error on ' + API_URLS[i] + ': ' + e);
-        }
+        const json = await jsonSafe(resp);
+        if (json) return json;
     }
     return null;
 }
@@ -748,12 +778,16 @@ async function mangaChapterPages(mangaId, chapterString, translationType) {
     let keys = aaGetKeys();
     let parsed = await mangaChapterPagesOnce(keys, mangaId, chapterString, translationType);
     if (!parsed) {
+        console.log('[AllMangaNovels] chapterPages failed on bundled keys; refreshing keygen');
         const fresh = await aaFetchRemoteKeys();
         if (fresh) {
             keys = fresh;
             parsed = await mangaChapterPagesOnce(keys, mangaId, chapterString, translationType);
+        } else {
+            console.log('[AllMangaNovels] keygen refresh unavailable; chapterPages aborted');
         }
     }
+    if (!parsed) console.log('[AllMangaNovels] chapterPages gave no data for ' + mangaId + ' ch ' + chapterString);
     return parsed;
 }
 
@@ -952,7 +986,10 @@ async function extractImages(chapterUrl) {
 
         const result = await mangaChapterPages(parsed.mangaId, parsed.chapterString, parsed.translationType);
         const pages = (result && result.chapterPages && result.chapterPages.edges) || [];
-        if (!pages.length) return [];
+        if (!pages.length) {
+            console.log('[AllMangaNovels] chapterPages payload carried no server edges');
+            return [];
+        }
 
         // Pick the first server with picture pages; prefer one with a head URL.
         let edge = null;
@@ -962,7 +999,10 @@ async function extractImages(chapterUrl) {
                 if (pages[i].pictureUrlHead) break;
             }
         }
-        if (!edge) return [];
+        if (!edge) {
+            console.log('[AllMangaNovels] server edges carried no pictureUrls');
+            return [];
+        }
         const head = String(edge.pictureUrlHead || DEFAULT_CHAPTER_HEAD).replace(/\/+$/, '') + '/';
         const imgs = edge.pictureUrls
             .filter(function(p) { return p && p.url; })
