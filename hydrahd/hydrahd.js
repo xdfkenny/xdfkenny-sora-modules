@@ -14,7 +14,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v1.0.48 (Beta/Videasy resolver: 4K originals + language dubs)');
+console.log('[HydraHD] module script loaded v1.0.49 (pure-JS base64 for videasy - no atob dependency)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -130,7 +130,7 @@ const pageMemo = {};
 const CLOCK_URLS = [
     'https://www.google.com/generate_204',
     'https://cp.cloudflare.com/generate_204',
-    'https://hydrahd.ws/favicon.ico'
+    'https://hydrahd.ws/robots.txt'
 ];
 function clockFetch(url) {
     try {
@@ -997,23 +997,21 @@ const VIDEASY_LANG = {
 };
 const videasySeedCache = {};
 function videasyB64ToBytes(e) {
-    const t = e.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = t.length % 4 === 0 ? t : t + '='.repeat(4 - (t.length % 4));
-    if (typeof atob === 'function') {
-        const bin = atob(padded);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return bytes;
-    }
+    // Pure-JS decoder — atob is MISSING/broken on some app JSContexts
+    // (Sulfur: returned undefined -> 'bin.length' crash on every payload).
     const T = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    const clean = padded.replace(/[^A-Za-z0-9+/]/g, '');
+    const clean = String(e || '').replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+\/]/g, '');
     const out = [];
     for (let i = 0; i < clean.length; i += 4) {
-        const n = (T.indexOf(clean.charAt(i)) << 18) | (T.indexOf(clean.charAt(i + 1)) << 12) |
-                  ((T.indexOf(clean.charAt(i + 2)) & 63) << 6) | (T.indexOf(clean.charAt(i + 3)) & 63);
+        const a = T.indexOf(clean.charAt(i));
+        const b = T.indexOf(clean.charAt(i + 1));
+        const c = T.indexOf(clean.charAt(i + 2));
+        const d = T.indexOf(clean.charAt(i + 3));
+        if (a < 0 || b < 0) break;
+        const n = (a << 18) | (b << 12) | ((c < 0 ? 0 : c) << 6) | (d < 0 ? 0 : d);
         out.push((n >> 16) & 255);
-        if (clean.charAt(i + 2)) out.push((n >> 8) & 255);
-        if (clean.charAt(i + 3)) out.push(n & 255);
+        if (c >= 0) out.push((n >> 8) & 255);
+        if (d >= 0) out.push(n & 255);
     }
     return new Uint8Array(out);
 }
@@ -1079,12 +1077,29 @@ function videasyDecrypt(b64url, seed, mediaId) {
     if (out[0] !== 109 || out[1] !== 118 || out[2] !== 109 || out[3] !== 49) {
         throw new Error('videasy decrypt failed: bad seed or tampered payload');
     }
-    let str = '';
-    const CHUNK = 4096;
-    for (let i = 4; i < out.length; i += CHUNK) {
-        str += String.fromCharCode.apply(null, out.subarray(i, Math.min(i + CHUNK, out.length)));
+    // UTF-8 decode without TextDecoder/escape (both missing or quirky on
+    // some app JSContexts; escape+decodeURIComponent also throws 'URI
+    // malformed' when plaintext contains a literal %).
+    if (typeof TextDecoder === 'function') {
+        try { return new TextDecoder('utf-8').decode(out.subarray(4)); } catch (e) {}
     }
-    return decodeURIComponent(escape(str));
+    let str = '';
+    let i = 4;
+    while (i < out.length) {
+        const b = out[i];
+        let cp;
+        if (b < 0x80) { cp = b; i += 1; }
+        else if ((b & 0xE0) === 0xC0) { cp = ((b & 0x1F) << 6) | (out[i + 1] & 0x3F); i += 2; }
+        else if ((b & 0xF0) === 0xE0) { cp = ((b & 0x0F) << 12) | ((out[i + 1] & 0x3F) << 6) | (out[i + 2] & 0x3F); i += 3; }
+        else { cp = ((b & 0x07) << 18) | ((out[i + 1] & 0x3F) << 12) | ((out[i + 2] & 0x3F) << 6) | (out[i + 3] & 0x3F); i += 4; }
+        if (cp > 0xFFFF) {
+            cp -= 0x10000;
+            str += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+        } else {
+            str += String.fromCharCode(cp);
+        }
+    }
+    return str;
 }
 async function videasyGetSeed(mediaId) {
     const cached = videasySeedCache[mediaId];
@@ -1146,7 +1161,10 @@ async function resolveVideasyLink(ctx) {
                 break;
             }
             const plain = videasyDecrypt(rr, seed, ctx.tmdbId);
-            const data = JSON.parse(plain);
+            // Payloads can carry trailing bytes after the JSON object —
+            // parse only the {...} span.
+            const js = plain.slice(plain.indexOf('{'), plain.lastIndexOf('}') + 1);
+            const data = JSON.parse(js);
             const sources = Array.isArray(data.sources) ? data.sources : [];
             console.log('[HydraHD] videasy ' + ep + ' OK in ' + (Date.now() - eStart) + 'ms (attempt ' + (attempt + 1) + ') sources=' + sources.length);
             for (let i = 0; i < sources.length; i++) {
