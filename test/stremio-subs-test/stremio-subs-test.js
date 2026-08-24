@@ -1821,18 +1821,29 @@ function subtitleLanguageName(lang) {
 // ---- TEST: largest-bytes-per-language curation ------------------------------
 // For every language in the list, download its candidate tracks and render
 // only the one with the LARGEST body (biggest SRT/VTT = most complete
-// translation), instead of trusting listing order. Bounded: at most
-// SUB_MEASURE_MAX tracks get measured (English candidates first), each under
-// a hard per-fetch timeout; anything unmeasured falls back to the UTF-8-first
-// heuristic, so a slow endpoint can never empty the picker or stall return.
-const SUB_MEASURE_MAX = 30;
+// translation), instead of trusting listing order.
+//
+// Coverage policy (learned the hard way): subs5.strem.io ignores Range
+// requests and sends no Content-Length, so size can ONLY be learned by
+// downloading the body — there is no cheap probe. Sampling a few candidates
+// per language therefore misses the true maximum whenever the API shuffles
+// listing order between calls (verified twice). So: measure the ENTIRE
+// candidate list (English first), bounded by SUB_MEASURE_MAX as a hard
+// safety cap against pathological lists, chunked fetches, per-fetch timeout,
+// and deadline bail-outs. Typical cost: ~90 tracks ≈ 3-6 s wall / ~4 MB.
+// Anything unmeasured falls back to UTF-8-first selection, so a slow
+// endpoint can never empty the picker or stall return.
+const SUB_MEASURE_MAX = 120;
 const SUB_MEASURE_TIMEOUT_MS = 6000;
 
-async function measureSubtitleBytes(url) {
+async function measureSubtitleBytes(url, headers) {
     try {
-        const response = await soraFetchTimed(url, {
-            headers: { 'Accept': '*/*', 'Referer': 'https://app.strem.io/' }
-        }, SUB_MEASURE_TIMEOUT_MS);
+        // Playlist-derived tracks carry their own Referer — without it the
+        // probe 403s and that language can never be measured.
+        const reqHeaders = headers && Object.keys(headers).length
+            ? headers
+            : { 'Accept': '*/*', 'Referer': 'https://app.strem.io/' };
+        const response = await soraFetchTimed(url, { headers: reqHeaders }, SUB_MEASURE_TIMEOUT_MS);
         if (!response) return -1;
         const text = await response.text();
         const body = String(text || '');
@@ -1846,48 +1857,69 @@ async function measureSubtitleBytes(url) {
 
 async function curateLargestPerLanguage(subtitleList, timeLeft) {
     if (!Array.isArray(subtitleList) || subtitleList.length === 0) return [];
-    // Measurement budget: English candidates first, then the rest as listed.
-    const englishFirst = subtitleList.slice().sort(function(a, b) {
-        const ae = _osTagIsEnglish(String(a && a.lang)) ? 0 : 1;
-        const be = _osTagIsEnglish(String(b && b.lang)) ? 0 : 1;
-        return ae - be;
+    // Decorate with the original index BEFORE any sort: pre-ES2019 sorts are
+    // not stable, and both the measuring priority and the unmeasured
+    // fallback must keep deterministic listing order on old JavaScriptCore.
+    const indexed = [];
+    subtitleList.forEach(function(item, idx) {
+        if (!item || !item.url) return;
+        const lang = String((item.lang || item.language || '')).toLowerCase();
+        if (!lang) return;
+        indexed.push({ item: item, url: item.url, lang: lang, idx: idx });
     });
-    const measurable = englishFirst.filter(function(item) { return item && item.url; });
-    const toMeasure = measurable.slice(0, SUB_MEASURE_MAX);
+    // Measure everything, English candidates first: they own auto-load, and
+    // if the deadline ever cuts measuring short, English is already done.
+    indexed.sort(function(a, b) {
+        const ae = _osTagIsEnglish(a.lang) ? 0 : 1;
+        const be = _osTagIsEnglish(b.lang) ? 0 : 1;
+        if (ae !== be) return ae - be;
+        return a.idx - b.idx;
+    });
+    const toMeasure = indexed.slice(0, SUB_MEASURE_MAX);
     const sizes = {};
+    let measuredCount = 0;
     if (!(typeof timeLeft === 'function') || timeLeft() > 9000) {
         // Chunked so one wedged fetch bridge never holds the whole batch.
         const CHUNK = 10;
         for (let i = 0; i < toMeasure.length; i += CHUNK) {
             if (typeof timeLeft === 'function' && timeLeft() < 4000) break;
             const chunk = toMeasure.slice(i, i + CHUNK);
-            const results = await Promise.all(chunk.map(function(item) {
-                return measureSubtitleBytes(item.url);
+            const results = await Promise.all(chunk.map(function(e) {
+                return measureSubtitleBytes(e.url, e.item.headers);
             }));
-            for (let j = 0; j < chunk.length; j++) sizes[chunk[j].url] = results[j];
+            for (let j = 0; j < chunk.length; j++) {
+                sizes[chunk[j].url] = results[j];
+                if (results[j] > 0) measuredCount++;
+            }
         }
     } else {
         console.log('[SubTest] deadline too close for byte measuring — UTF-8-first fallback');
     }
+    // One sequential retry pass over failures: a -1 under 10-wide concurrency
+    // is usually a transient blip, and the true-largest file must not lose to
+    // a smaller sibling just because its one probe request went bad.
+    const failed = toMeasure.filter(function(e) { return !(sizes[e.url] > 0); }).slice(0, 10);
+    for (let fi = 0; fi < failed.length; fi++) {
+        if (typeof timeLeft === 'function' && timeLeft() < 3000) break;
+        sizes[failed[fi].url] = await measureSubtitleBytes(failed[fi].url, failed[fi].item.headers);
+        if (sizes[failed[fi].url] > 0) measuredCount++;
+    }
     // Winner per language: largest measured body. Unmeasured/failed (-1)
-    // entries keep listing order but still prefer plain-text (?senc=-free)
-    // URLs over legacy-encoded ones, mirroring curatedSubtitleEntries.
+    // entries keep original listing order but still prefer plain-text
+    // (?senc=-free) URLs over legacy-encoded ones, mirroring
+    // curatedSubtitleEntries. Iterating `indexed` (original order restored by
+    // idx) keeps every tie-break engine-independent.
     const byLang = {};
-    englishFirst.forEach(function(item) {
-        if (!item) return;
-        const url = item.url || item.file || item.src || item.link;
-        if (!url) return;
-        const lang = String((item.lang || item.language || '')).toLowerCase();
-        if (!lang) return;
-        const existing = byLang[lang];
-        const size = Object.prototype.hasOwnProperty.call(sizes, url) ? sizes[url] : -1;
+    indexed.slice().sort(function(a, b) { return a.idx - b.idx; }).forEach(function(e) {
+        const existing = byLang[e.lang];
+        const size = Object.prototype.hasOwnProperty.call(sizes, e.url) ? sizes[e.url] : -1;
         const existingSize = existing ? existing.size : -2;
-        const isUtf8 = url.indexOf('senc=') === -1;
+        const isUtf8 = e.url.indexOf('senc=') === -1;
         let better = false;
         if (!existing) better = true;
         else if (size > existingSize) better = true;
         else if (size === -1 && existingSize === -1 && isUtf8 && existing.url.indexOf('senc=') !== -1) better = true;
-        if (better) byLang[lang] = { url: url, headers: item.headers || null, size: size };
+        if (better) byLang[e.lang] = { url: e.url, headers: e.item.headers || null, size: size };
     });
     const entries = Object.keys(byLang).map(function(lang) {
         return {

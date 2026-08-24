@@ -14,13 +14,16 @@ resolvers, same real playback — with ONLY the subtitle pipeline changed:
    the Stremio addon path convention `tt{id}:{s}:{e}.json` instead of query
    params, which v3 silently ignores (verified live: 91 correct S01E05 tracks
    vs 3 wrong ones on the legacy shape).
-2. **Largest-bytes-per-language curation (new idea).** For each language the
-   candidate tracks are downloaded and only the largest body is rendered
-   (most complete translation). English measured first; budget capped at
-   30 measurements × 6 s timeout each, chunked 10-wide; unmeasured languages
-   fall back to UTF-8-first selection so the picker never empties or stalls.
-   Node-verified: English winner 68,615 B confirmed as the max of 8 variants;
-   full curation took ~2 s.
+2. **Largest-bytes-per-language curation (the idea).** EVERY candidate track
+   is downloaded and only the largest body per language is rendered (most
+   complete translation). subs5.strem.io ignores Range and sends no
+   Content-Length, so sampling cannot find the true max — full coverage is
+   required and is what ships: chunked 10-wide fetches, 6 s timeout each,
+   one sequential retry pass over failures, hard cap 120 candidates,
+   deadline bail-outs (<9 s skip measuring entirely, <4 s stop mid-way),
+   UTF-8-first fallback for anything unmeasured. Measured cost on GoT S01E05
+   (91 tracks): 3.6-7.3 s wall, ~4 MB. Winner verified = true max of all 8
+   English variants in 3 consecutive runs.
 
 Everything else (Cinemeta synopsis, playlist subs, Beta labels, quality
 probes) is untouched hydrahd code.
