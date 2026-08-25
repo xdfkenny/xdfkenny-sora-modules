@@ -6,6 +6,28 @@ shirox manifest 1.2.1). Reference snapshot only.
 
 ## `stremio-subs-test/` — HydraHD clone with experimental subtitle pipeline
 
+**v0.2.2**: episode trust filter for the curation. Root cause of "right video,
+wrong subtitles" on series (first seen on Family Guy): the subtitle APIs'
+episode mapping is polluted with same-episode-number files from OTHER seasons
+— live-verified on tt0182576:1:1, where BOTH v3 and OS REST list "The Thin
+White Line" S03E01, "Blue Harvest" S06E01, "Road to the Multiverse" S08E01,
+"And Then There Were Fewer" S09E01 and "Lottery Fever" S10E01 alongside the
+true episode (API membership proves nothing — only release names do; content
+check: zero overlap between the S09E01 file and any real S01E01 sub). Those
+43-minute specials are routinely LARGER than the true 21-minute episode's
+subs, so pure largest-bytes selection auto-loaded another episode's subtitles
+outright.
+
+Fix: parse each candidate's SubFileName from the OS REST episode search for an
+s:e code (S01E01 / 1x01 / [3.01] / three-digit "101" forms) and classify:
+verified = code matches the requested season+episode; blocked = provably
+foreign (excluded from every language's pool); unknown = no parsable code.
+Class outranks size — a verified track beats any bigger unknown one; size
+breaks ties within a class. No name data -> all unknown -> legacy behavior.
+Non-English languages benefit only via exclusions (their names are not
+fetched); playlist-derived tracks carry no OS file id and stay unverified by
+definition.
+
 **v0.2.1**: audit fixes — probes keep custom Referer headers (playlist-derived
 tracks no longer 403), engine-independent stable sort, FULL per-language
 coverage replacing the 30-sample cap (subs5.strem.io ignores Range and sends

@@ -15,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[SubTest] HydraHD-clone v0.2.1 loaded — streams identical to v2.2.1; subtitles V3-ONLY (colon-path fix) + full-coverage largest-bytes-per-language curation');
+console.log('[SubTest] HydraHD-clone v0.2.2 loaded — streams identical to v2.2.1; subtitles V3-ONLY (colon-path fix) + full-coverage largest-bytes curation + episode trust filter');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -828,6 +828,13 @@ async function extractStreamUrl(url) {
                     pickedEnglish: stremioResult.pickedEnglish,
                     sources: ['v3']
                 } : null;
+                // Release-name trust classes for this exact episode (parsed
+                // from the OS REST episode search's SubFileName values — API
+                // membership proves nothing, its mapping is polluted like
+                // v3's). Feeds the trust filter in curateLargestPerLanguage.
+                if (merged) {
+                    merged.trustedIds = await safe(fetchTrustedSubtitleIds(imdbId, isMovie, season, episodeNum));
+                }
             } catch (e) {
                 console.error('[HydraHD] Subs worker error: ' + (e && e.message ? e.message : String(e)));
             }
@@ -1005,7 +1012,7 @@ async function extractStreamUrl(url) {
     // English first, instead of taking the first UTF-8 URL. Bounded and
     // fallback-protected — see curateLargestPerLanguage below.
     const curatedEntries = subtitleList.length > 0
-        ? await curateLargestPerLanguage(subtitleList, timeLeft)
+        ? await curateLargestPerLanguage(subtitleList, timeLeft, (merged && merged.trustedIds) || null)
         : [];
     // Auto-load must agree with the curation: if the current default is one
     // of the provider-list URLs, swap it for the measured English winner.
@@ -1729,6 +1736,93 @@ function _osTagIsEnglish(tag) {
     return !t || t === 'eng' || t === 'en' || t === 'english' || t.indexOf('english') !== -1;
 }
 
+// Numeric OpenSubtitles file id from any provider URL shape:
+//   https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/1958351161  (v3)
+//   https://dl.opensubtitles.org/en/download/filead/1957978378                            (REST)
+function subtitleFileId(url) {
+    const m = String(url || '').match(/file(?:ad)?\/(\d+)/);
+    return m ? m[1] : null;
+}
+
+const trustedIdsCache = {};
+// Trust classes built from the OS REST episode search's RELEASE NAMES (that
+// API filters server-side, but its episode mapping is polluted exactly like
+// v3's: live-verified on Family Guy tt0182576:1:1, where BOTH APIs list
+// "The Thin White Line" S03E01, "Blue Harvest" S06E01, "Road to the
+// Multiverse" S08E01, "And Then There Were Fewer" S09E01 and "Lottery Fever"
+// S10E01 alongside the true episode — and those 43-minute specials are
+// routinely LARGER than the true 21-minute episode's subs, so pure
+// largest-bytes curation auto-loaded another episode's subtitles outright).
+//
+// Membership in the API answer therefore proves NOTHING; only the release
+// NAME does. Each row's SubFileName is parsed for an s:e code:
+//   verified  — name encodes the REQUESTED season+episode (S01E01, 1x01,
+//               [3.01]-style, or the three-digit "101" form)
+//   blocked   — name encodes a DIFFERENT s:e (provably foreign; dropped from
+//               the candidate pool for every language)
+//   unknown   — no parsable code ("01 - Lottery Fever.srt"); eligible but
+//               loses to any verified candidate of the same language
+async function fetchTrustedSubtitleIds(imdbId, isMovie, season, episode) {
+    const bare = String(imdbId || '').replace(/^tt/i, '');
+    if (!/^\d+$/.test(bare)) return null;
+    const cacheKey = 'trusted/' + imdbId + '/' + (isMovie ? 'm' : 's') + '/' + String(season || '') + ':' + String(episode || '');
+    if (Object.prototype.hasOwnProperty.call(trustedIdsCache, cacheKey)) {
+        return trustedIdsCache[cacheKey];
+    }
+    try {
+        let url = OS_REST_SEARCH_URL + '/';
+        if (!isMovie) {
+            url += 'episode-' + encodeURIComponent(String(episode || 1)) + '/';
+        }
+        url += 'imdbid-' + bare;
+        if (!isMovie) {
+            url += '/season-' + encodeURIComponent(String(season || 1));
+        }
+        url += '/sublanguageid-eng';
+        const response = await soraFetchTimed(url, {
+            headers: { 'X-User-Agent': 'trailers.to-UA', 'Accept': 'application/json' }
+        }, 8000);
+        if (!response) return null;
+        const data = await response.json().catch(function() { return null; });
+        if (!Array.isArray(data)) return null;
+        const wantS = parseInt(season || '1', 10);
+        const wantE = parseInt(episode || '1', 10);
+        const verified = new Set();
+        const blocked = new Set();
+        for (const row of data) {
+            if (!row || row.IDSubtitleFile == null) continue;
+            const parsed = parseSubtitleNameEpisode(row.SubFileName);
+            const id = String(row.IDSubtitleFile);
+            if (!parsed) continue;
+            if (parsed.s === wantS && parsed.e === wantE) verified.add(id);
+            else blocked.add(id);
+        }
+        const result = (verified.size > 0 || blocked.size > 0) ? { verified: verified, blocked: blocked } : null;
+        trustedIdsCache[cacheKey] = result;
+        return result;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Extract (season, episode) from a release-style subtitle filename.
+// Recognized: S01E01 / S01.E01, 1x01, [3.01], and the bare three-digit "101"
+// season-episode token. Resolution tags like "1080p" cannot match: the
+// three-digit form requires word-ish boundaries around ALL three digits and
+// rejects trailing letters ("080p" fails the closing boundary).
+function parseSubtitleNameEpisode(name) {
+    const n = String(name || '');
+    let m = n.match(/\bS(\d{1,2})[.\-_ ]?E(\d{1,3})\b/i);
+    if (m) return { s: parseInt(m[1], 10), e: parseInt(m[2], 10) };
+    m = n.match(/\b(\d{1,2})x(\d{1,3})\b/i);
+    if (m) return { s: parseInt(m[1], 10), e: parseInt(m[2], 10) };
+    m = n.match(/\[(\d{1,2})\.(\d{1,3})\]/);
+    if (m) return { s: parseInt(m[1], 10), e: parseInt(m[2], 10) };
+    m = n.match(/(?:^|[\s\-_.])(\d)(\d{2})(?:[\s\-_.]|$)/);
+    if (m) return { s: parseInt(m[1], 10), e: parseInt(m[2], 10) };
+    return null;
+}
+
 // Merge the three keyless providers' results into one picker list. OS REST
 // English entries come first (full OpenSubtitles set for series AND movies),
 // v3 and SCS fill in every language the providers offer. URLs are deduplicated
@@ -1855,7 +1949,7 @@ async function measureSubtitleBytes(url, headers) {
     }
 }
 
-async function curateLargestPerLanguage(subtitleList, timeLeft) {
+async function curateLargestPerLanguage(subtitleList, timeLeft, trustedIds) {
     if (!Array.isArray(subtitleList) || subtitleList.length === 0) return [];
     // Decorate with the original index BEFORE any sort: pre-ES2019 sorts are
     // not stable, and both the measuring priority and the unmeasured
@@ -1909,17 +2003,41 @@ async function curateLargestPerLanguage(subtitleList, timeLeft) {
     // (?senc=-free) URLs over legacy-encoded ones, mirroring
     // curatedSubtitleEntries. Iterating `indexed` (original order restored by
     // idx) keeps every tie-break engine-independent.
+    // Trust classes from release-name parsing (see fetchTrustedSubtitleIds):
+    // verified = name encodes the requested s:e; blocked = provably foreign
+    // episode (excluded entirely, every language); unknown = no code in the
+    // name. Class outranks size — the 43-minute "special" leaks are always
+    // bigger than the true episode's subs — and size only breaks ties within
+    // a class. No name data at all -> everything unknown = legacy behavior.
+    function trustClass(entry) {
+        const fid = subtitleFileId(entry.url);
+        if (!fid || !trustedIds) return 0;
+        if (trustedIds.blocked && trustedIds.blocked.has(fid)) return -1;
+        if (trustedIds.verified && trustedIds.verified.has(fid)) return 1;
+        return 0;
+    }
+    const eligible = trustedIds
+        ? indexed.filter(function(e) { return trustClass(e) >= 0; })
+        : indexed;
+    if (trustedIds) {
+        let vCount = 0;
+        eligible.forEach(function(e) { if (trustClass(e) === 1) vCount++; });
+        console.log('[SubTest] episode trust filter: ' + vCount + '/' + eligible.length + ' candidates name-verified (' + (indexed.length - eligible.length) + ' foreign files excluded)');
+    }
     const byLang = {};
-    indexed.slice().sort(function(a, b) { return a.idx - b.idx; }).forEach(function(e) {
+    eligible.slice().sort(function(a, b) { return a.idx - b.idx; }).forEach(function(e) {
         const existing = byLang[e.lang];
         const size = Object.prototype.hasOwnProperty.call(sizes, e.url) ? sizes[e.url] : -1;
         const existingSize = existing ? existing.size : -2;
         const isUtf8 = e.url.indexOf('senc=') === -1;
+        const cls = trustClass(e);
+        const existingCls = existing ? existing.cls : -2;
         let better = false;
         if (!existing) better = true;
+        else if (cls !== existingCls) better = cls > existingCls;
         else if (size > existingSize) better = true;
         else if (size === -1 && existingSize === -1 && isUtf8 && existing.url.indexOf('senc=') !== -1) better = true;
-        if (better) byLang[e.lang] = { url: e.url, headers: e.item.headers || null, size: size };
+        if (better) byLang[e.lang] = { url: e.url, headers: e.item.headers || null, size: size, cls: cls };
     });
     const entries = Object.keys(byLang).map(function(lang) {
         return {
@@ -1936,7 +2054,7 @@ async function curateLargestPerLanguage(subtitleList, timeLeft) {
         return 0;
     });
     console.log('[SubTest] largest-bytes curation: ' + entries.map(function(e) {
-        return e.lang + '=' + (byLang[e.lang].size > 0 ? byLang[e.lang].size + 'B' : 'unmeasured');
+        return e.lang + '=' + (byLang[e.lang].size > 0 ? byLang[e.lang].size + 'B' : 'unmeasured') + (byLang[e.lang].cls === 1 ? '+verified' : '');
     }).join(','));
     return entries;
 }
