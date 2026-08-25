@@ -1527,6 +1527,11 @@ function getVidfastSubtitle(result) {
     return '';
 }
 
+// ---- Subtitles via Stremio OpenSubtitles (keyless) --------------------------
+// Credits: xdfkenny (https://github.com/xdfkenny) — original author of this
+// method: resolving subtitles with no API key or login by querying the
+// keyless Stremio OpenSubtitles addon (opensubtitles-v3.strem.io) directly,
+// using the app.strem.io Referer header the addon expects.
 async function resolveStremioSubtitle(imdbId, type, season, episode) {
     try {
         const params = [];
