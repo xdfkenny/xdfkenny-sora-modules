@@ -6,6 +6,13 @@ shirox manifest 1.2.1). Reference snapshot only.
 
 ## `stremio-subs-test/` — HydraHD clone with experimental subtitle pipeline
 
+**v0.2.1**: audit fixes — probes keep custom Referer headers (playlist-derived
+tracks no longer 403), engine-independent stable sort, FULL per-language
+coverage replacing the 30-sample cap (subs5.strem.io ignores Range and sends
+no Content-Length; API listing order shuffles between calls), hard cap raised
+to 120, and one retry pass so a transient probe failure can't let a smaller
+sibling outrank the true max.
+
 **v0.2.0**: an exact copy of `hydrahd.js` v2.2.1 — same servers, same stream
 resolvers, same real playback — with ONLY the subtitle pipeline changed:
 
