@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "MÓDULO DE PRUEBA — clon exacto de HydraHD v2.2.1 (mismos servidores y streams) con SOLO dos cambios en subtítulos: (1) la fuente es únicamente Stremio v3 con la corrección de ruta imdbId:temporada:episodio para series (los query params eran ignorados por v3); (2) curaduría por bytes: cada idioma descarga TODAS sus candidatas y renderiza solo la más grande (traducción más completa), inglés primero, con cobertura completa (tope de seguridad de 120 mediciones), un reintento ante fallos transitorios, filtro de confianza por nombre de archivo (los APIs devuelven archivos de OTRAS temporadas en la misma búsqueda y el más grande ganaba aunque perteneciera a otro episodio) y respaldo UTF-8 si el deadline se acerca. No es para uso diario.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "Up to 4K",

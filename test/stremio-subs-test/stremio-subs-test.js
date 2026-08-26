@@ -15,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[SubTest] HydraHD-clone v0.2.2 loaded — streams identical to v2.2.1; subtitles V3-ONLY (colon-path fix) + full-coverage largest-bytes curation + episode trust filter');
+console.log('[SubTest] HydraHD-clone v0.2.3 loaded — streams identical to v2.2.1; subtitles V3-ONLY (colon-path fix) + full-coverage largest-bytes curation + episode trust filter (merged scoping fix)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -538,6 +538,12 @@ async function extractStreamUrl(url) {
     let subtitle = '';
     let subtitleHeaders = null;
     let subtitleList = [];
+    // Subtitle-provider merge result (v3 payload + trustedIds). Declared here,
+    // NOT inside the try below: the curation call after the catch reads
+    // merged.trustedIds, so this binding must live at function scope or the
+    // whole stream list dies with "merged is not defined" whenever subtitles
+    // exist (v0.2.3 regression fix).
+    let merged = null;
     // The app kills stream resolution after a bounded timeout (~40s), so the
     // whole function must stay well under it: server batch + keyless + mirrors
     // + subtitles. Phases check this deadline and bail early when exceeded.
@@ -804,7 +810,6 @@ async function extractStreamUrl(url) {
         // gate the stream list — see the await split after the probe phase —
         // and the old fixed 800ms stagger is gone (providers were already
         // concurrent; the stagger just delayed all three together).
-        let merged = null;
         const subsWorker = (async function() {
             try {
                 if (!imdbId) return;

@@ -6,6 +6,15 @@ shirox manifest 1.2.1). Reference snapshot only.
 
 ## `stremio-subs-test/` — HydraHD clone with experimental subtitle pipeline
 
+**v0.2.3**: scoping fix — stream list delivery restored. The v0.2.2 trust
+filter declared `merged` inside `extractStreamUrl`'s main try block but read
+`merged.trustedIds` from the curation call AFTER that block closed, so any
+title WITH subtitles died on `ReferenceError: merged is not defined` and the
+app received nothing (no streams, no subs). Declaration hoisted to function
+scope next to its siblings; verified live end-to-end on movie + series flows
+(Oppenheimer 6 streams/33 langs, GoT S01E01 7 streams, Breaking Bad S01E01
+8 streams).
+
 **v0.2.2**: episode trust filter for the curation. Root cause of "right video,
 wrong subtitles" on series (first seen on Family Guy): the subtitle APIs'
 episode mapping is polluted with same-episode-number files from OTHER seasons
