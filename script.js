@@ -198,20 +198,19 @@ function filterAndRenderLibrary() {
     if (!ref) continue;
     const m = entry.manifest || {};
 
-    /* 1. Category match - 5 distinct: anime | movie | manga | novel | torrent */
+    /* 1. Category match - purely data-driven from modules.json category / manifest type */
     let matchCat = true;
-    const catType = (m.type || entry.id || '').toLowerCase();
-    const idLow = entry.id.toLowerCase();
+    const rawCat = String(entry.category || m.category || m.type || entry.id || '').toLowerCase();
     if (activeCategory === 'anime') {
-      matchCat = catType.includes('anime') || ['yfsp','hydrahd','hydrahd-shirox','anidb','henaojara','flixlatam','allmanga'].includes(idLow);
+      matchCat = rawCat.includes('anime');
     } else if (activeCategory === 'movie') {
-      matchCat = catType.includes('movie') || catType.includes('show') || catType.includes('film') || ['yfsp','hydrahd','hydrahd-shirox','henaojara','flixlatam'].includes(idLow);
+      matchCat = rawCat.includes('movie') || rawCat.includes('show') || rawCat.includes('film');
     } else if (activeCategory === 'manga') {
-      matchCat = catType === 'mangas' || catType.includes('manga') || idLow.includes('manga') || idLow === 'comix';
+      matchCat = rawCat === 'mangas' || rawCat.includes('manga');
     } else if (activeCategory === 'novel') {
-      matchCat = catType === 'novels' || catType.includes('novel') || idLow.includes('novel');
+      matchCat = rawCat === 'novels' || rawCat.includes('novel');
     } else if (activeCategory === 'torrent') {
-      matchCat = idLow === 'torrentio' || catType.includes('torrent') || catType.includes('debrid');
+      matchCat = rawCat.includes('torrent') || rawCat.includes('debrid');
     }
 
     /* 2. App match */
@@ -310,14 +309,14 @@ function fillManifest(entry, m) {
   const flag = el('span', 'cufiy-flag', flagFor(m.language));
   cufiyMeta.appendChild(flag);
   cufiyMeta.appendChild(el('span', 'cufiy-lang', m.language || '—'));
-  // type icon - 5 distinct
+  // type icon - 5 distinct, data-driven from modules.json category / manifest type
   let typeIcon = 'movie';
-  const mType = String(m.type || '').toLowerCase();
-  if (mType === 'mangas' || mType.includes('manga') || idLow.includes('manga') || idLow === 'comix') typeIcon = 'auto_stories';
-  else if (mType === 'novels' || mType.includes('novel') || idLow.includes('novel')) typeIcon = 'menu_book';
-  else if (idLow === 'torrentio' || mType.includes('torrent') || mType.includes('debrid')) typeIcon = 'download';
-  else if (mType.includes('movie') || mType.includes('show') || mType.includes('film')) typeIcon = 'theaters';
-  else if (mType.includes('anime')) typeIcon = 'live_tv';
+  const rawCat = String(entry.category || m.category || m.type || '').toLowerCase();
+  if (rawCat === 'mangas' || rawCat.includes('manga')) typeIcon = 'auto_stories';
+  else if (rawCat === 'novels' || rawCat.includes('novel')) typeIcon = 'menu_book';
+  else if (rawCat.includes('torrent') || rawCat.includes('debrid')) typeIcon = 'download';
+  else if (rawCat.includes('movie') || rawCat.includes('show') || rawCat.includes('film')) typeIcon = 'theaters';
+  else if (rawCat.includes('anime')) typeIcon = 'live_tv';
   const typeEl = el('span', 'material-symbols-outlined icon-sm cufiy-type', typeIcon);
   cufiyMeta.appendChild(typeEl);
   if (m.downloadSupport) {

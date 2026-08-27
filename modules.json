@@ -6,6 +6,7 @@
       "id": "yfsp",
       "name": "YFSP",
       "iconUrl": "https://www.yfsp.tv/android-icon-192x192.png",
+      "category": "movies/shows/anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.json",
       "sampleQuery": "one piece"
@@ -14,6 +15,7 @@
       "id": "hydrahd",
       "name": "HydraHD",
       "iconUrl": "https://hydrahd.ws/fav-192.png",
+      "category": "movies/shows/anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd.json",
       "sampleQuery": "one piece"
@@ -22,6 +24,7 @@
       "id": "hydrahd-shirox",
       "name": "HydraHD (Shirox)",
       "iconUrl": "https://hydrahd.ws/fav-192.png",
+      "category": "movies/shows/anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/hydrahd/hydrahd-shirox.json",
       "sampleQuery": "one piece"
@@ -30,6 +33,7 @@
       "id": "anidb",
       "name": "AniDB",
       "iconUrl": "https://anidb.app/images/fav-192.png",
+      "category": "anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anidb/anidb.json",
       "sampleQuery": "one piece"
@@ -38,6 +42,7 @@
       "id": "henaojara",
       "name": "AnimeJara",
       "iconUrl": "https://animejara.com/wp-content/uploads/2025/12/cropped-LOGO_ANIJARA7.png",
+      "category": "anime/movies",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/henaojara/henaojara.json",
       "sampleQuery": "one piece"
@@ -46,6 +51,7 @@
       "id": "flixlatam",
       "name": "FlixLatam",
       "iconUrl": "https://flixlatam.com/themes/dooplay/assets/img/favicon.png",
+      "category": "movies/shows/anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/flixlatam/flixlatam.json",
       "sampleQuery": "one piece"
@@ -54,6 +60,7 @@
       "id": "allmanga",
       "name": "AllManga",
       "iconUrl": "https://allmanga.to/pics/avatar-w.png",
+      "category": "anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga/allmanga.json",
       "sampleQuery": "one piece"
@@ -62,6 +69,7 @@
       "id": "allmanga-novels",
       "name": "AllManga Manga",
       "iconUrl": "https://allmanga.to/pics/avatar-w.png",
+      "category": "mangas",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga-novels/allmanga-novels.json",
       "sampleQuery": "angel next door"
@@ -70,6 +78,7 @@
       "id": "comix",
       "name": "Comix",
       "iconUrl": "https://comix.to/favicon.ico",
+      "category": "mangas",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/comix/comix.json",
       "sampleQuery": "one piece"
@@ -78,6 +87,7 @@
       "id": "torrentio",
       "name": "Torrentio",
       "iconUrl": "https://torrentio.strem.fun/images/logo_v1.png",
+      "category": "torrent",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/torrentio/torrentio.json",
       "sampleQuery": "one piece"
