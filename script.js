@@ -339,7 +339,7 @@ function fillManifest(entry, m) {
   btnAddSora.className = 'cufiy-add';
   btnAddSora.innerHTML = 'Add to Sora';
   btnAddSora.title = 'Add module to Sora app';
-  btnAddSora.href = 'sora://default_page?url=' + encodeURIComponent(targetUrl);
+  btnAddSora.href = 'sora://module?url=' + encodeURIComponent(targetUrl);
   const btnCopy = document.createElement('button');
   btnCopy.className = 'cufiy-copy';
   btnCopy.type = 'button';
