@@ -30,7 +30,7 @@
       </button>
       <div class="nav-links" id="navLinks">
         <a class="nav-link" href="#modules">Library</a>
-        <a class="nav-link" href="#creator">Manifest Creator</a>
+        <a class="nav-link" href="#creator">Request Module</a>
         <a class="nav-link" href="#faq">FAQ</a>
         <a class="nav-link nav-link-ext" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
@@ -106,86 +106,72 @@
       <div class="grid" id="grid"></div>
     </section>
 
-    <!-- ===== Manifest Creator ===== -->
+    <!-- ===== Request Module ===== -->
     <section class="section section-creator" id="creator">
       <div class="section-head">
-        <h2><span class="material-symbols-outlined icon-heading">edit_note</span> Manifest Creator</h2>
-        <p class="section-intro">Build a valid Sora module manifest <code>.json</code> file visually — fill the fields and copy your manifest.</p>
+        <h2><span class="material-symbols-outlined icon-heading">mail</span> Request a Module</h2>
+        <p class="section-intro">Can't find what you need? Request a new module — please include your Discord username so we can contact you about the status of your request.</p>
       </div>
       <div class="creator-grid">
         <div class="creator-form">
           <div class="creator-field">
-            <label class="creator-label" for="crName">Module Name <span class="req">*</span></label>
-            <input class="creator-input" id="crName" type="text" placeholder="e.g. My Anime Module" />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="crId">Module ID <span class="req">*</span></label>
-            <input class="creator-input" id="crId" type="text" placeholder="e.g. my-anime-module" />
+            <label class="creator-label" for="rqName">Module / Website Name <span class="req">*</span></label>
+            <input class="creator-input" id="rqName" type="text" placeholder="e.g. AnimeFire, MangaFire..." required />
           </div>
           <div class="creator-row">
             <div class="creator-field">
-              <label class="creator-label" for="crVersion">Version</label>
-              <input class="creator-input" id="crVersion" type="text" placeholder="1.0.0" />
-            </div>
-            <div class="creator-field">
-              <label class="creator-label" for="crLang">Language</label>
-              <select class="creator-input" id="crLang">
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="pt">Portuguese</option>
-                <option value="ja">Japanese</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="it">Italian</option>
-                <option value="ko">Korean</option>
-                <option value="zh">Chinese</option>
-                <option value="ar">Arabic</option>
-                <option value="multi">Multi</option>
+              <label class="creator-label" for="rqLang">Language <span class="req">*</span></label>
+              <select class="creator-input" id="rqLang" required>
+                <option value="">Select language</option>
+                <option value="English">English</option>
+                <option value="Spanish">Spanish</option>
+                <option value="Portuguese">Portuguese</option>
+                <option value="Japanese">Japanese</option>
+                <option value="French">French</option>
+                <option value="German">German</option>
+                <option value="Italian">Italian</option>
+                <option value="Korean">Korean</option>
+                <option value="Chinese">Chinese</option>
+                <option value="Arabic">Arabic</option>
+                <option value="Multi">Multi</option>
               </select>
             </div>
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="crScript">Script URL <span class="req">*</span></label>
-            <input class="creator-input" id="crScript" type="url" placeholder="https://example.com/module.js" />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="crDescription">Description</label>
-            <input class="creator-input" id="crDescription" type="text" placeholder="Short description of the module" />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="crAuthor">Author</label>
-            <input class="creator-input" id="crAuthor" type="text" placeholder="your username" />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="crLogo">Logo URL <span class="opt">(optional)</span></label>
-            <input class="creator-input" id="crLogo" type="url" placeholder="https://example.com/logo.png" />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label">Supported Features</label>
-            <div class="creator-checks">
-              <label class="creator-check"><input type="checkbox" id="crFeatSearch" checked /> Search</label>
-              <label class="creator-check"><input type="checkbox" id="crFeatEpisodes" checked /> Episodes</label>
-              <label class="creator-check"><input type="checkbox" id="crFeatStreams" checked /> Streams</label>
-              <label class="creator-check"><input type="checkbox" id="crFeatDownload" /> Downloads</label>
+            <div class="creator-field">
+              <label class="creator-label" for="rqDiscord">Discord Username <span class="req">*</span></label>
+              <input class="creator-input" id="rqDiscord" type="text" placeholder="e.g. xdfkenny#1234" required />
             </div>
           </div>
+          <div class="creator-field">
+            <label class="creator-label" for="rqUrl">Source URL <span class="req">*</span></label>
+            <input class="creator-input" id="rqUrl" type="url" placeholder="https://example.com" required />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="rqReason">Reason / Details <span class="req">*</span></label>
+            <textarea class="creator-input" id="rqReason" rows="4" placeholder="Why do you want this module? Any details about the site..." required></textarea>
+          </div>
+          <p class="creator-hint"><span class="material-symbols-outlined icon-sm">info</span> Please specify your Discord username correctly so we can contact you about the status of your module request.</p>
           <div class="creator-actions">
-            <button class="btn btn-primary" id="crGenerate" type="button">
-              <span class="material-symbols-outlined icon-sm">auto_fix_high</span> Generate Manifest
+            <button class="btn btn-primary" id="rqSubmit" type="button">
+              <span class="material-symbols-outlined icon-sm">send</span> Send Request
             </button>
-            <button class="btn btn-soft" id="crReset" type="button">
+            <button class="btn btn-soft" id="rqReset" type="button">
               <span class="material-symbols-outlined icon-sm">refresh</span> Reset
             </button>
           </div>
+          <p class="creator-status" id="rqStatus" aria-live="polite"></p>
         </div>
         <div class="creator-preview">
           <div class="creator-preview-header">
-            <span class="card-label">Preview</span>
-            <button class="btn btn-soft btn-tiny" id="crCopy" type="button">
-              <span class="material-symbols-outlined icon-sm">content_copy</span> Copy JSON
-            </button>
+            <span class="card-label">What happens next?</span>
           </div>
-          <pre class="creator-output" id="crOutput"><code id="crCode">// Fill the form and click Generate Manifest</code></pre>
+          <div class="creator-output" style="white-space: normal; line-height: 1.7;">
+            <p style="margin:0 0 12px;color:rgba(255,255,255,0.9);font-size:0.9rem">Your request will be sent directly to our Discord. We review requests daily and will contact you on Discord about the status.</p>
+            <ul style="margin:0;padding-left:18px;color:rgba(255,255,255,0.7);font-size:0.85rem">
+              <li>Include a valid, accessible URL</li>
+              <li>Mention language and content type (anime/manga/movie/torrent)</li>
+              <li>Double-check your Discord username</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>

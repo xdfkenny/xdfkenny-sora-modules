@@ -410,7 +410,7 @@ async function boot() {
   watchHeroCount();
   makeSnow();
 
-  initManifestCreator();
+  initRequestForm();
   initFAQ();
 
   await Promise.all(entries.map(loadManifest));
@@ -419,85 +419,97 @@ async function boot() {
 boot();
 
 /* ============================================================
-   Manifest Creator
+   Request Module - Discord webhook
    ============================================================ */
 
-function initManifestCreator() {
-  const genBtn = document.getElementById('crGenerate');
-  const resetBtn = document.getElementById('crReset');
-  const copyBtn = document.getElementById('crCopy');
-  const codeEl = document.getElementById('crCode');
-  if (!genBtn || !codeEl) return;
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1536128336164556840/2uJi102cuoLzLMfXrPemHkNazXix7TlW0bIjGy9AgPiKx0k_iZzd9FHDZj5TZCvJQsyJ';
+
+function initRequestForm() {
+  const submitBtn = document.getElementById('rqSubmit');
+  const resetBtn = document.getElementById('rqReset');
+  const statusEl = document.getElementById('rqStatus');
+  if (!submitBtn) return;
 
   function getVal(id) {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
   }
 
-  function generateManifest() {
-    const name = getVal('crName');
-    const id = getVal('crId');
-    const version = getVal('crVersion') || '1.0.0';
-    const lang = getVal('crLang') || 'en';
-    const scriptUrl = getVal('crScript');
-    const description = getVal('crDescription');
-    const author = getVal('crAuthor');
-    const logoUrl = getVal('crLogo');
-
-    if (!name || !id || !scriptUrl) {
-      codeEl.textContent = '// ⚠️ Module Name, Module ID, and Script URL are required.';
-      return;
-    }
-
-    const features = [];
-    if (document.getElementById('crFeatSearch')?.checked) features.push('search');
-    if (document.getElementById('crFeatEpisodes')?.checked) features.push('episodes');
-    if (document.getElementById('crFeatStreams')?.checked) features.push('streams');
-    if (document.getElementById('crFeatDownload')?.checked) features.push('downloads');
-
-    const manifest = {
-      sourceName: name,
-      id,
-      version,
-      language: lang,
-      scriptUrl,
-      type: 'show',
-      streamType: 'mp4',
-      quality: '1080p',
-      baseUrl: '',
-      searchBaseUrl: ''
-    };
-
-    if (description) manifest.description = description;
-    if (author) manifest.author = author;
-    if (logoUrl) manifest.iconUrl = logoUrl;
-    if (features.length) manifest.features = features;
-
-    codeEl.textContent = JSON.stringify(manifest, null, 2);
+  function setStatus(msg, ok) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = 'creator-status ' + (ok ? 'ok' : 'err');
   }
 
-  genBtn.addEventListener('click', generateManifest);
-
-  resetBtn.addEventListener('click', () => {
-    ['crName','crId','crVersion','crScript','crDescription','crAuthor','crLogo'].forEach(id => {
+  resetBtn?.addEventListener('click', () => {
+    ['rqName','rqLang','rqUrl','rqReason','rqDiscord'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    document.getElementById('crLang').value = 'en';
-    document.getElementById('crFeatSearch').checked = true;
-    document.getElementById('crFeatEpisodes').checked = true;
-    document.getElementById('crFeatStreams').checked = true;
-    document.getElementById('crFeatDownload').checked = false;
-    codeEl.textContent = '// Fill the form and click Generate Manifest';
+    setStatus('', true);
   });
 
-  if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      const txt = codeEl.textContent;
-      if (!txt || txt.startsWith('//')) return;
-      copyText(txt).then(() => flashCopied(copyBtn, 'Copied!'));
-    });
-  }
+  submitBtn.addEventListener('click', async () => {
+    const name = getVal('rqName');
+    const lang = getVal('rqLang');
+    const url = getVal('rqUrl');
+    const reason = getVal('rqReason');
+    const discord = getVal('rqDiscord');
+
+    if (!name || !lang || !url || !reason || !discord) {
+      setStatus('Please fill all required fields (name, language, URL, reason, Discord username).', false);
+      return;
+    }
+
+    // basic URL validation
+    try { new URL(url); } catch (e) {
+      setStatus('Please enter a valid URL (https://...).', false);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm">hourglass_top</span> Sending...';
+    setStatus('', true);
+
+    const payload = {
+      username: 'request module',
+      embeds: [{
+        title: 'New Module Request',
+        color: 0x7EC8E3,
+        fields: [
+          { name: 'Module / Website', value: name.slice(0, 256), inline: false },
+          { name: 'Language', value: lang.slice(0, 100), inline: true },
+          { name: 'Discord', value: discord.slice(0, 100), inline: true },
+          { name: 'URL', value: url.slice(0, 500), inline: false },
+          { name: 'Reason', value: reason.slice(0, 1000), inline: false }
+        ],
+        footer: { text: 'xdfkenny modules — request form' },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    try {
+      const resp = await fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const text = await resp.text().catch(()=> '');
+        throw new Error(text || 'HTTP ' + resp.status);
+      }
+      setStatus('Request sent! We will contact you on Discord about the status.', true);
+      ['rqName','rqUrl','rqReason'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    } catch (e) {
+      setStatus('Failed to send: ' + (e.message || e) + ' — please try again or contact xdfkenny@gmail.com', false);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm">send</span> Send Request';
+    }
+  });
 }
 
 /* ============================================================

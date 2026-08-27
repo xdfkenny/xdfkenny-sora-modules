@@ -1495,6 +1495,26 @@ a.btn-card-action.btn-card-sora:hover,
   margin-top: 0.25rem;
 }
 
+.creator-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.creator-status {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.creator-status.ok { color: var(--status-ok); }
+.creator-status.err { color: var(--status-fail); }
+
 .creator-preview {
   background: hsl(225, 35%, 12%);
   border: 1px solid rgba(126, 200, 227, 0.15);
