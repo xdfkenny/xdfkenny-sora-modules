@@ -48,6 +48,62 @@
   --noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0A0F1E;
+    --bg-warm: #141E32;
+    --fg: #E6EDF3;
+    --fg-muted: #8A9AB3;
+    --accent: #7EC8E3;
+    --accent-light: #1E344B;
+    --accent-dark: #8ED0F0;
+    --accent-glow: rgba(126, 200, 227, 0.12);
+    --crystal: #5A7FA0;
+    --frost: #1E2D45;
+    --rose-ice: #2A3545;
+    --rose-soft: #9AA8C8;
+    --mint: #6BA8A0;
+    --border: #2A3A52;
+    --border-strong: #3A5575;
+
+    --status-ok: #7EC8E3;
+    --status-warn: #9AA8E8;
+    --status-fail: #E8A5A5;
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+    --shadow-glow: 0 0 20px rgba(126, 200, 227, 0.12), 0 0 40px rgba(126, 200, 227, 0.06);
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+    --ring: 0 0 0 3px rgba(126, 200, 227, 0.25);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html { color-scheme: dark; }
+  body {
+    background:
+      radial-gradient(900px 460px at 50% -80px, rgba(30, 52, 75, 0.45), transparent 60%),
+      linear-gradient(180deg, #0A0F1E 0%, #0F1A2E 100%);
+  }
+  body::after { opacity: 0.02; }
+  .nav { background: rgba(10, 15, 30, 0.88); border-bottom-color: #2A3A52; }
+  .nav-link:hover { background: #1E2D45; }
+  .hero {
+    background:
+      radial-gradient(circle at 50% 35%, rgba(30, 52, 75, 0.5), transparent 58%),
+      linear-gradient(180deg, #0A0F1E 0%, #0A0F1E 70%, #0A0F1E 100%);
+  }
+  .card, .faq-item, .creator-form, .footer, .pill, .filter-pill, .search-input, .creator-input, .creator-check { border-color: #2A3A52; }
+  .card { background: #141E32; }
+  .creator-form { background: #141E32; }
+  .faq-item { background: #141E32; }
+  .creator-preview { background: #0F1729; border-color: rgba(126,200,227,0.12); }
+  .cufiy-copy { background: #1E2D45; border-left-color: rgba(255,255,255,0.06); }
+  .footer { background: linear-gradient(180deg, #0A0F1E 0%, #141E32 100%); }
+  .footer-bottom { background: #0F1729; }
+}
+
 * { box-sizing: border-box; }
 
 html {
