@@ -786,30 +786,38 @@ main {
   border: 1px solid rgba(74, 158, 207, 0.25);
 }
 
-/* Quick Card Actions */
+/* Quick Card Actions - full width */
+.links {
+  width: 100%;
+  margin-top: auto;
+}
+
 .card-quick-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
 }
 
 .btn-card-action {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px 16px;
   border-radius: var(--r-md);
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease-bounce);
+  white-space: nowrap;
 }
 
 .btn-card-action:hover {
@@ -1231,11 +1239,15 @@ a.btn-card-action.btn-card-sora:hover,
   }
 
   .card-quick-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .btn-card-action {
-    flex: 1 1 45%;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 11px 12px;
+    font-size: 12.5px;
   }
 
   .filter-pills-row {
@@ -1254,7 +1266,10 @@ a.btn-card-action.btn-card-sora:hover,
 
 @media (max-width: 400px) {
   .btn-card-action {
-    flex: 1 1 100%;
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 12px;
+    padding: 10px 10px;
   }
 }
 
