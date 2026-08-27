@@ -18,5 +18,5 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Target directory on the web server (usually htdocs for free hosts)
-          server-dir: htdocs/
+          # Target directory for add-on domain xdfkecraft.qzz.io
+          server-dir: xdfkecraft.qzz.io/htdocs/
