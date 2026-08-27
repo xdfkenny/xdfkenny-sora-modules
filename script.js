@@ -150,14 +150,14 @@ function renderCard(entry) {
   img.src = entry.iconUrl;
   iconWrap.appendChild(img);
 
-  const headInfo = el('div');
+  const headInfo = el('div', 'cufiy-head-info');
   const titleRow = el('div', 'card-title-row');
   titleRow.appendChild(el('div', 'card-title', entry.name));
   const ver = el('span', 'ver', '–');
   ver.dataset.role = 'ver';
   titleRow.appendChild(ver);
   headInfo.appendChild(titleRow);
-  headInfo.appendChild(el('div', 'card-branch', 'branch: ' + entry.branch));
+  // branch hidden per request - all xdfkenny/main anyway (cufiy no owner)
 
   head.append(iconWrap, headInfo);
 
@@ -279,6 +279,19 @@ function setupLibraryControls() {
   }
 }
 
+function flagFor(lang) {
+  const l = String(lang || '').toLowerCase();
+  if (l.includes('english')) return '🇬🇧';
+  if (l.includes('chinese') || l.includes('中文') || l.includes('zh')) return '🇨🇳';
+  if (l.includes('spanish') || l.includes('español') || l.includes('latam')) return '🇪🇸';
+  if (l.includes('japanese') || l.includes('japan') || l.includes('ja')) return '🇯🇵';
+  if (l.includes('korean') || l.includes('ko')) return '🇰🇷';
+  if (l.includes('french') || l.includes('fr')) return '🇫🇷';
+  if (l.includes('portuguese') || l.includes('pt')) return '🇵🇹';
+  if (l.includes('multi')) return '🌐';
+  return '🌐';
+}
+
 function fillManifest(entry, m) {
   const ref = cards.get(entry.id);
   if (!ref) return;
@@ -286,64 +299,48 @@ function fillManifest(entry, m) {
 
   ref.meta.textContent = '';
 
-  /* Tags & Category row */
-  const tagsRow = el('div', 'card-tags-row');
-  let catClass = 'cat-anime';
-  let catLabel = 'Anime/Video';
+  /* Cufiy-style meta: flag + language + type icon (+ download) - no owner */
   const idLow = entry.id.toLowerCase();
-  if (idLow.includes('manga') || idLow.includes('novel') || idLow === 'comix') {
-    catClass = 'cat-manga'; catLabel = 'Manga/Novel';
-  } else if (idLow === 'torrentio') {
-    catClass = 'cat-torrent'; catLabel = 'Torrent/Debrid';
+  const cufiyMeta = el('div', 'cufiy-meta');
+  const flag = el('span', 'cufiy-flag', flagFor(m.language));
+  cufiyMeta.appendChild(flag);
+  cufiyMeta.appendChild(el('span', 'cufiy-lang', m.language || '—'));
+  // type icon
+  let typeIcon = 'movie';
+  const mType = String(m.type || '').toLowerCase();
+  if (idLow.includes('manga') || idLow.includes('novel') || mType.includes('manga') || mType.includes('novel') || idLow === 'comix') typeIcon = 'auto_stories';
+  else if (idLow === 'torrentio' || mType.includes('torrent') || mType.includes('debrid')) typeIcon = 'download';
+  else if (mType.includes('anime') || mType.includes('show') || mType.includes('movie')) typeIcon = 'movie';
+  const typeEl = el('span', 'material-symbols-outlined icon-sm cufiy-type', typeIcon);
+  cufiyMeta.appendChild(typeEl);
+  if (m.downloadSupport) {
+    cufiyMeta.appendChild(el('span', 'material-symbols-outlined icon-sm cufiy-dl', 'cloud_download'));
   }
-  tagsRow.appendChild(el('span', 'badge-cat ' + catClass, catLabel));
-
-  if (m.supportsSora !== false) tagsRow.appendChild(el('span', 'badge-compat', 'Sora ✓'));
-  if (m.supportsLuna !== false) tagsRow.appendChild(el('span', 'badge-compat', 'Luna ✓'));
-  if (m.supportsShirox === true) tagsRow.appendChild(el('span', 'badge-compat', 'Shirox ✓'));
-
-  ref.meta.appendChild(tagsRow);
-
-  const chips = [
-    ['type', m.type || '—'],
-    ['language', m.language || '—'],
-    ['stream', m.streamType || '—'],
-    ['quality', m.quality || '—']
-  ];
-  for (const [k, v] of chips) {
-    const c = el('span', 'chip');
-    c.appendChild(el('b', '', k));
-    c.appendChild(document.createTextNode(' ' + v));
-    ref.meta.appendChild(c);
-  }
+  ref.meta.appendChild(cufiyMeta);
 
   ref.desc.textContent = '';
   ref.desc.style.display = 'none';
 
   ref.links.textContent = '';
 
-  /* Quick Actions Row — Add to Sora + Copy JSON only */
-  const quickActions = el('div', 'card-quick-actions');
-
+  /* Cufiy-style split button: Add to Sora (80%) + copy link icon (20%) - no owner */
   const targetUrl = resolveManifestUrl(entry.manifestUrl);
-
-  const btnCopyJson = document.createElement('button');
-  btnCopyJson.className = 'btn-card-action';
-  btnCopyJson.type = 'button';
-  btnCopyJson.innerHTML = '<span class="material-symbols-outlined icon-sm">content_copy</span> Copy JSON';
-  btnCopyJson.title = 'Copy manifest JSON link for Sora/Luna';
-  btnCopyJson.onclick = () => {
-    copyText(targetUrl).then(() => flashCopied(btnCopyJson, 'Copied!'));
-  };
-
+  const actions = el('div', 'cufiy-actions');
   const btnAddSora = document.createElement('a');
-  btnAddSora.className = 'btn-card-action btn-card-sora';
-  btnAddSora.innerHTML = '<span class="material-symbols-outlined icon-sm">add_link</span> Add to Sora';
+  btnAddSora.className = 'cufiy-add';
+  btnAddSora.innerHTML = 'Add to Sora';
   btnAddSora.title = 'Add module to Sora app';
   btnAddSora.href = 'sora://default_page?url=' + encodeURIComponent(targetUrl);
-
-  quickActions.append(btnCopyJson, btnAddSora);
-  ref.links.appendChild(quickActions);
+  const btnCopy = document.createElement('button');
+  btnCopy.className = 'cufiy-copy';
+  btnCopy.type = 'button';
+  btnCopy.innerHTML = '<span class="material-symbols-outlined icon-sm">link</span>';
+  btnCopy.title = 'Copy JSON link';
+  btnCopy.onclick = () => {
+    copyText(targetUrl).then(() => flashCopied(btnCopy, 'Copied!'));
+  };
+  actions.append(btnAddSora, btnCopy);
+  ref.links.appendChild(actions);
 
   filterAndRenderLibrary();
 }

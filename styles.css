@@ -855,6 +855,88 @@ a.btn-card-action.btn-card-sora:hover,
   box-shadow: 0 4px 14px rgba(50, 120, 220, 0.45);
 }
 
+/* ===== Cufiy-style card meta & split button (no owner) ===== */
+.cufiy-head-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cufiy-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 2px;
+  font-size: 14px;
+  color: var(--fg-muted);
+}
+
+.cufiy-flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.cufiy-lang {
+  font-weight: 600;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.cufiy-type,
+.cufiy-dl {
+  color: var(--accent-dark);
+  opacity: 0.85;
+  font-size: 16px !important;
+}
+
+.cufiy-actions {
+  display: flex;
+  width: 100%;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-top: 12px;
+  box-shadow: var(--shadow-sm);
+  height: 46px;
+}
+
+.cufiy-add {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, hsl(245, 85%, 62%) 0%, hsl(250, 80%, 58%) 100%);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.cufiy-add:hover {
+  filter: brightness(0.96);
+  color: #fff;
+}
+
+.cufiy-copy {
+  width: 58px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--frost);
+  border: none;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cufiy-copy:hover {
+  background: var(--border);
+  color: var(--accent-dark);
+}
+
 
 .library-summary {
   margin-bottom: 16px;
@@ -910,16 +992,16 @@ a.btn-card-action.btn-card-sora:hover,
 .card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: 14px;
+  padding: 18px 20px;
   border-bottom: 1px solid var(--border);
 }
 
 .card-icon {
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   flex: none;
-  border-radius: var(--r-lg);
+  border-radius: 14px;
   background: var(--frost);
   border: 1px solid var(--border);
   display: grid;
