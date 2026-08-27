@@ -406,7 +406,7 @@ async function boot() {
   if (cTotal) cTotal.textContent = entries.length;
   filterAndRenderLibrary();
 
-  heroCount.textContent = entries.length;
+  if (heroCount) heroCount.textContent = entries.length;
   watchHeroCount();
   makeSnow();
 
