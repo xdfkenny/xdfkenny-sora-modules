@@ -2,7 +2,27 @@ const CINEMETA_SEARCH_SERIES = 'https://v3-cinemeta.strem.io/catalog/series/top/
 const CINEMETA_SEARCH_MOVIES = 'https://v3-cinemeta.strem.io/catalog/movie/top/search=';
 const CINEMETA_META_SERIES = 'https://v3-cinemeta.strem.io/meta/series/';
 const CINEMETA_META_MOVIES = 'https://v3-cinemeta.strem.io/meta/movie/';
-const TORRENTIO_STREAM_URL = 'https://torrentio.strem.fun/stream/';
+
+/**
+ * Torrentio Configuration / Debrid Provider String:
+ * To resolve magnet links to direct HTTPS video streams (supported by AVPlayer / MPVKit),
+ * set your Torrentio Debrid configuration string below.
+ *
+ * Examples:
+ *   const TORRENTIO_CONFIG = 'realdebrid=YOUR_REALDEBRID_API_KEY';
+ *   const TORRENTIO_CONFIG = 'torbox=YOUR_TORBOX_API_KEY';
+ *   const TORRENTIO_CONFIG = 'premiumize=YOUR_PREMIUMIZE_API_KEY';
+ *   const TORRENTIO_CONFIG = 'alldebrid=YOUR_ALLDEBRID_API_KEY';
+ */
+const TORRENTIO_CONFIG = '';
+
+function getTorrentioBase() {
+    const config = (TORRENTIO_CONFIG || '').trim();
+    if (config) {
+        return `https://torrentio.strem.fun/${config}/stream/`;
+    }
+    return 'https://torrentio.strem.fun/stream/';
+}
 
 /* MAIN FUNCTIONS */
 
@@ -95,10 +115,11 @@ async function extractEpisodes(url) {
         const meta = data && data.meta;
         if (!meta) return JSON.stringify([]);
 
+        const torrentioBase = getTorrentioBase();
         const isMovie = meta.type === 'movie';
         if (isMovie) {
             // Movie stream URL
-            const streamUrl = `${TORRENTIO_STREAM_URL}movie/${meta.id}.json`;
+            const streamUrl = `${torrentioBase}movie/${meta.id}.json`;
             return JSON.stringify([{
                 href: streamUrl,
                 number: 1
@@ -109,7 +130,7 @@ async function extractEpisodes(url) {
         const rawVideos = Array.isArray(meta.videos) ? meta.videos : [];
         if (rawVideos.length === 0) {
             // Fallback for series without video breakdown
-            const streamUrl = `${TORRENTIO_STREAM_URL}series/${meta.id}:1:1.json`;
+            const streamUrl = `${torrentioBase}series/${meta.id}:1:1.json`;
             return JSON.stringify([{ href: streamUrl, number: 1 }]);
         }
 
@@ -129,7 +150,7 @@ async function extractEpisodes(url) {
         const episodes = filteredVideos.map((v, index) => {
             const epNum = index + 1;
             const videoId = v.id || `${meta.id}:${v.season || 1}:${v.episode || epNum}`;
-            const streamUrl = `${TORRENTIO_STREAM_URL}series/${videoId}.json`;
+            const streamUrl = `${torrentioBase}series/${videoId}.json`;
             return {
                 href: streamUrl,
                 number: epNum
@@ -145,7 +166,7 @@ async function extractEpisodes(url) {
 
 /**
  * Extracts streams for a given episode or movie Torrentio stream URL.
- * @param {string} url - Torrentio stream endpoint (e.g. https://torrentio.strem.fun/stream/series/tt0944947:1:1.json).
+ * @param {string} url - Torrentio stream endpoint.
  * @returns {Promise<string>} JSON string {streams:[{title, streamUrl, headers}], subtitle: ""}
  */
 async function extractStreamUrl(url) {
@@ -165,9 +186,12 @@ async function extractStreamUrl(url) {
 
         const streams = rawStreams.map(s => {
             let streamUrl = '';
+            let isMagnet = false;
+
             if (s.url) {
                 streamUrl = s.url;
             } else if (s.infoHash) {
+                isMagnet = true;
                 streamUrl = `magnet:?xt=urn:btih:${s.infoHash}`;
                 if (s.behaviorHints && s.behaviorHints.filename) {
                     streamUrl += `&dn=${encodeURIComponent(s.behaviorHints.filename)}`;
@@ -185,7 +209,8 @@ async function extractStreamUrl(url) {
             // Formulate clean title
             const nameHeader = (s.name || 'Torrentio').replace(/\n/g, ' • ');
             const titleDetails = (s.title || '').replace(/\n/g, ' | ');
-            const displayTitle = `${nameHeader} — ${titleDetails}`.trim();
+            const tag = isMagnet ? '[MAGNET] ' : '[DIRECT STREAM] ';
+            const displayTitle = `${tag}${nameHeader} — ${titleDetails}`.trim();
 
             return {
                 title: displayTitle,
