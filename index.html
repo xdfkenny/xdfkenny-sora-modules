@@ -60,16 +60,45 @@
 
   <main id="main">
 
-    <!-- ===== Modules dashboard ===== -->
+    <!-- ===== Module Library & Health Dashboard ===== -->
     <section class="section" id="modules">
       <div class="section-head">
-        <h2>Module Status</h2>
-        <p class="section-intro">Manifest, script and provider checks for every module — fetched live from the raw repo.</p>
+        <h2>Module Library</h2>
+        <p class="section-intro">Explore, test, and integrate modular anime, manga, and stream resolution providers for Sora, Luna, and Shirox.</p>
+      </div>
+
+      <!-- Library Search & Category Filter Bar -->
+      <div class="library-controls">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="libSearch" class="search-input" placeholder="Search modules by name, provider, language, or tags..." aria-label="Search modules" />
+          <button type="button" id="libSearchClear" class="search-clear" aria-label="Clear search" hidden>×</button>
+        </div>
+
+        <div class="filter-pills-row">
+          <div class="filter-group" id="categoryFilters">
+            <button type="button" class="filter-pill active" data-category="all">All Modules</button>
+            <button type="button" class="filter-pill" data-category="anime">Anime & Movies</button>
+            <button type="button" class="filter-pill" data-category="manga">Manga & Novels</button>
+            <button type="button" class="filter-pill" data-category="torrent">Torrents & Debrid</button>
+          </div>
+
+          <div class="filter-group filter-group-apps" id="appFilters">
+            <span class="filter-label">App:</span>
+            <button type="button" class="filter-pill filter-pill-app active" data-app="all">All</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="sora">Sora</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="luna">Luna</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="shirox">Shirox</button>
+          </div>
+        </div>
       </div>
 
       <div class="summary-bar">
         <div class="counters" aria-live="polite">
-          <span class="pill">Total <b id="cTotal">0</b></span>
+          <span class="pill">Showing <b id="cShowing">0</b> / <b id="cTotal">0</b></span>
           <span class="pill status-ok"><span class="status-dot" aria-hidden="true"></span> OK <b id="cOk">0</b></span>
           <span class="pill status-warn"><span class="status-dot" aria-hidden="true"></span> Warning <b id="cWarn">0</b></span>
           <span class="pill status-fail"><span class="status-dot" aria-hidden="true"></span> Failed <b id="cFail">0</b></span>
@@ -77,7 +106,7 @@
         <div class="summary-actions">
           <label class="checkbox-label">
             <input type="checkbox" id="autoChk" />
-            Auto every 60s
+            Auto test 60s
           </label>
           <button class="btn btn-soft" id="runAll" type="button">Test all</button>
         </div>

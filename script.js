@@ -515,12 +515,129 @@ function renderCard(entry) {
   cards.set(entry.id, { card, entry, checks, meta, desc, links, ver, statusLabel, score, toggle, mediaResult, mediaBtn, mediaInput, mediaHint });
 }
 
+/* ---------- library search & filters ---------- */
+
+const libSearch = document.getElementById('libSearch');
+const libSearchClear = document.getElementById('libSearchClear');
+const cShowing = document.getElementById('cShowing');
+
+let activeCategory = 'all';
+let activeApp = 'all';
+let searchQuery = '';
+
+function filterAndRenderLibrary() {
+  let visibleCount = 0;
+  for (const entry of entries) {
+    const ref = cards.get(entry.id);
+    if (!ref) continue;
+    const m = entry.manifest || {};
+
+    /* 1. Category match */
+    let matchCat = true;
+    const catType = (m.type || entry.id || '').toLowerCase();
+    if (activeCategory === 'anime') {
+      matchCat = catType.includes('anime') || catType.includes('show') || catType.includes('movie') || entry.id === 'yfsp' || entry.id === 'hydrahd' || entry.id === 'anidb' || entry.id === 'henaojara' || entry.id === 'flixlatam';
+    } else if (activeCategory === 'manga') {
+      matchCat = catType.includes('manga') || catType.includes('novel') || entry.id.includes('manga') || entry.id === 'comix';
+    } else if (activeCategory === 'torrent') {
+      matchCat = entry.id === 'torrentio' || catType.includes('torrent') || catType.includes('debrid');
+    }
+
+    /* 2. App match */
+    let matchApp = true;
+    if (activeApp === 'sora') {
+      matchApp = m.supportsSora !== false;
+    } else if (activeApp === 'luna') {
+      matchApp = m.supportsLuna !== false;
+    } else if (activeApp === 'shirox') {
+      matchApp = m.supportsShirox === true;
+    }
+
+    /* 3. Search query match */
+    let matchSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const text = [
+        entry.name, entry.id, m.sourceName, m.description, m.language, m.type, m.quality, m.streamType
+      ].filter(Boolean).join(' ').toLowerCase();
+      matchSearch = text.includes(q);
+    }
+
+    const show = matchCat && matchApp && matchSearch;
+    ref.card.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
+  }
+  if (cShowing) cShowing.textContent = visibleCount;
+}
+
+function setupLibraryControls() {
+  if (libSearch) {
+    libSearch.addEventListener('input', () => {
+      searchQuery = String(libSearch.value || '').trim();
+      if (libSearchClear) libSearchClear.hidden = !searchQuery;
+      filterAndRenderLibrary();
+    });
+  }
+
+  if (libSearchClear) {
+    libSearchClear.addEventListener('click', () => {
+      if (libSearch) libSearch.value = '';
+      searchQuery = '';
+      libSearchClear.hidden = true;
+      filterAndRenderLibrary();
+    });
+  }
+
+  const categoryContainer = document.getElementById('categoryFilters');
+  if (categoryContainer) {
+    categoryContainer.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.filter-pill');
+      if (!btn) return;
+      categoryContainer.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCategory = btn.dataset.category || 'all';
+      filterAndRenderLibrary();
+    });
+  }
+
+  const appContainer = document.getElementById('appFilters');
+  if (appContainer) {
+    appContainer.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.filter-pill-app');
+      if (!btn) return;
+      appContainer.querySelectorAll('.filter-pill-app').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeApp = btn.dataset.app || 'all';
+      filterAndRenderLibrary();
+    });
+  }
+}
+
 function fillManifest(entry, m) {
   const ref = cards.get(entry.id);
   if (!ref) return;
   ref.ver.textContent = m.version || '?';
 
   ref.meta.textContent = '';
+
+  /* Tags & Category row */
+  const tagsRow = el('div', 'card-tags-row');
+  let catClass = 'cat-anime';
+  let catLabel = 'Anime/Video';
+  const idLow = entry.id.toLowerCase();
+  if (idLow.includes('manga') || idLow.includes('novel') || idLow === 'comix') {
+    catClass = 'cat-manga'; catLabel = 'Manga/Novel';
+  } else if (idLow === 'torrentio') {
+    catClass = 'cat-torrent'; catLabel = 'Torrent/Debrid';
+  }
+  tagsRow.appendChild(el('span', 'badge-cat ' + catClass, catLabel));
+
+  if (m.supportsSora !== false) tagsRow.appendChild(el('span', 'badge-compat', 'Sora ✓'));
+  if (m.supportsLuna !== false) tagsRow.appendChild(el('span', 'badge-compat', 'Luna ✓'));
+  if (m.supportsShirox === true) tagsRow.appendChild(el('span', 'badge-compat', 'Shirox ✓'));
+
+  ref.meta.appendChild(tagsRow);
+
   const chips = [
     ['type', m.type || '—'],
     ['language', m.language || '—'],
@@ -547,6 +664,35 @@ function fillManifest(entry, m) {
   if (m.baseUrl) addLink(host(m.baseUrl), m.baseUrl);
   if (m.searchBaseUrl) addLink('search', m.searchBaseUrl);
   if (m.scriptUrl) addLink('script.js', m.scriptUrl);
+
+  /* Quick Actions Row */
+  const quickActions = el('div', 'card-quick-actions');
+
+  const btnCopyJson = el('button', 'btn-card-action', 'Copy JSON');
+  btnCopyJson.title = 'Copy manifest link for Sora/Luna';
+  btnCopyJson.onclick = () => {
+    const targetUrl = resolveManifestUrl(entry.manifestUrl, linkSourceMode);
+    copyText(targetUrl).then(() => flashCopied(btnCopyJson, 'Copied!'));
+  };
+
+  const btnCopyJs = el('button', 'btn-card-action', 'Copy JS');
+  btnCopyJs.title = 'Copy script URL';
+  btnCopyJs.onclick = () => {
+    if (m.scriptUrl) copyText(m.scriptUrl).then(() => flashCopied(btnCopyJs, 'Copied!'));
+  };
+
+  const btnTest = el('button', 'btn-card-action btn-play', '▶ Test');
+  btnTest.title = 'Test module in Playground';
+  btnTest.onclick = () => {
+    if (pgModule) pgModule.value = entry.id;
+    if (pgKeyword) pgKeyword.value = entry.sampleQuery || '';
+    document.getElementById('playground')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  quickActions.append(btnCopyJson, btnCopyJs, btnTest);
+  ref.links.appendChild(quickActions);
+
+  filterAndRenderLibrary();
 }
 
 function clearChecks(ref) {
@@ -906,6 +1052,7 @@ async function boot() {
 
   grid.textContent = '';
   for (const entry of entries) renderCard(entry);
+  setupLibraryControls();
   updateSummary();
   fillPlaygroundSelect();
 
