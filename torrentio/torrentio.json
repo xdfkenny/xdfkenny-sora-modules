@@ -1,0 +1,30 @@
+{
+  "sourceName": "Torrentio",
+  "iconUrl": "https://torrentio.strem.fun/images/logo_v1.png",
+  "author": {
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "Torrentio Stremio Addon module for Sora and Luna — search movies and series via Cinemeta and play high quality torrent magnets and video streams.",
+  "version": "1.0.0",
+  "language": "Multi (SUB/DUB)",
+  "streamType": "HLS",
+  "quality": "4K/1080p",
+  "baseUrl": "https://torrentio.strem.fun/",
+  "searchBaseUrl": "https://v3-cinemeta.strem.io/catalog/series/top/search=%s.json",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/torrentio/torrentio.js",
+  "type": "anime",
+  "downloadSupport": true,
+  "combo": false,
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": true,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true
+}

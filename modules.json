@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-08-23",
+  "lastUpdated": "2026-08-27",
   "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
   "modules": [
     {
@@ -72,6 +72,14 @@
       "iconUrl": "https://comix.to/favicon.ico",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/comix/comix.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "torrentio",
+      "name": "Torrentio",
+      "iconUrl": "https://torrentio.strem.fun/images/logo_v1.png",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/torrentio/torrentio.json",
       "sampleQuery": "one piece"
     }
   ]
