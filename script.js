@@ -198,15 +198,20 @@ function filterAndRenderLibrary() {
     if (!ref) continue;
     const m = entry.manifest || {};
 
-    /* 1. Category match */
+    /* 1. Category match - 5 distinct: anime | movie | manga | novel | torrent */
     let matchCat = true;
     const catType = (m.type || entry.id || '').toLowerCase();
+    const idLow = entry.id.toLowerCase();
     if (activeCategory === 'anime') {
-      matchCat = catType.includes('anime') || catType.includes('show') || catType.includes('movie') || entry.id === 'yfsp' || entry.id === 'hydrahd' || entry.id === 'anidb' || entry.id === 'henaojara' || entry.id === 'flixlatam';
+      matchCat = catType.includes('anime') || ['yfsp','hydrahd','hydrahd-shirox','anidb','henaojara','flixlatam','allmanga'].includes(idLow);
+    } else if (activeCategory === 'movie') {
+      matchCat = catType.includes('movie') || catType.includes('show') || catType.includes('film') || ['yfsp','hydrahd','hydrahd-shirox','henaojara','flixlatam'].includes(idLow);
     } else if (activeCategory === 'manga') {
-      matchCat = catType.includes('manga') || catType.includes('novel') || entry.id.includes('manga') || entry.id === 'comix';
+      matchCat = catType === 'mangas' || catType.includes('manga') || idLow.includes('manga') || idLow === 'comix';
+    } else if (activeCategory === 'novel') {
+      matchCat = catType === 'novels' || catType.includes('novel') || idLow.includes('novel');
     } else if (activeCategory === 'torrent') {
-      matchCat = entry.id === 'torrentio' || catType.includes('torrent') || catType.includes('debrid');
+      matchCat = idLow === 'torrentio' || catType.includes('torrent') || catType.includes('debrid');
     }
 
     /* 2. App match */
@@ -305,12 +310,14 @@ function fillManifest(entry, m) {
   const flag = el('span', 'cufiy-flag', flagFor(m.language));
   cufiyMeta.appendChild(flag);
   cufiyMeta.appendChild(el('span', 'cufiy-lang', m.language || '—'));
-  // type icon
+  // type icon - 5 distinct
   let typeIcon = 'movie';
   const mType = String(m.type || '').toLowerCase();
-  if (idLow.includes('manga') || idLow.includes('novel') || mType.includes('manga') || mType.includes('novel') || idLow === 'comix') typeIcon = 'auto_stories';
+  if (mType === 'mangas' || mType.includes('manga') || idLow.includes('manga') || idLow === 'comix') typeIcon = 'auto_stories';
+  else if (mType === 'novels' || mType.includes('novel') || idLow.includes('novel')) typeIcon = 'menu_book';
   else if (idLow === 'torrentio' || mType.includes('torrent') || mType.includes('debrid')) typeIcon = 'download';
-  else if (mType.includes('anime') || mType.includes('show') || mType.includes('movie')) typeIcon = 'movie';
+  else if (mType.includes('movie') || mType.includes('show') || mType.includes('film')) typeIcon = 'theaters';
+  else if (mType.includes('anime')) typeIcon = 'live_tv';
   const typeEl = el('span', 'material-symbols-outlined icon-sm cufiy-type', typeIcon);
   cufiyMeta.appendChild(typeEl);
   if (m.downloadSupport) {
