@@ -319,17 +319,6 @@ function fillManifest(entry, m) {
   ref.desc.textContent = m.description || 'No description in manifest.';
 
   ref.links.textContent = '';
-  const addLink = (label, url) => {
-    const a = el('a', 'link', label);
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    ref.links.appendChild(a);
-  };
-  const sUrl = m.scriptUrl || m.scriptURL || '';
-  if (m.baseUrl) addLink(host(m.baseUrl), m.baseUrl);
-  if (m.searchBaseUrl) addLink('search', m.searchBaseUrl);
-  if (sUrl) addLink('script.js', sUrl);
 
   /* Quick Actions Row — Add to Sora + Copy JSON only */
   const quickActions = el('div', 'card-quick-actions');
