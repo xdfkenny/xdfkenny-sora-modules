@@ -1,0 +1,12 @@
+# Enable CORS for all origins
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+</IfModule>
+
+# Ensure correct MIME types for JSON and JavaScript files
+<IfModule mod_mime.c>
+    AddType application/json .json
+    AddType application/javascript .js
+</IfModule>
