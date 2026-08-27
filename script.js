@@ -169,6 +169,7 @@ function renderCard(entry) {
 
   const desc = el('p', 'desc', '');
   desc.dataset.role = 'desc';
+  desc.style.display = 'none';
   body.appendChild(desc);
 
   const links = el('div', 'links');
@@ -316,7 +317,8 @@ function fillManifest(entry, m) {
     ref.meta.appendChild(c);
   }
 
-  ref.desc.textContent = m.description || 'No description in manifest.';
+  ref.desc.textContent = '';
+  ref.desc.style.display = 'none';
 
   ref.links.textContent = '';
 

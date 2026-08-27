@@ -5,7 +5,7 @@
     {
       "id": "yfsp",
       "name": "YFSP",
-      "iconUrl": "https://www.yfsp.tv/favicon.ico",
+      "iconUrl": "https://www.yfsp.tv/assets/images/player_logo.png",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.json",
       "sampleQuery": "one piece"
