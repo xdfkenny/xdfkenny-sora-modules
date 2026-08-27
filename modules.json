@@ -5,7 +5,7 @@
     {
       "id": "yfsp",
       "name": "YFSP",
-      "iconUrl": "https://www.yfsp.tv/android-icon-192x192.png",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/icon.png",
       "category": "movies/shows/anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yfsp/yfsp.json",
