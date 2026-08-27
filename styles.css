@@ -1147,6 +1147,18 @@ main {
   padding: 4px 12px;
 }
 
+.source-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.source-toggle .btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(126, 200, 227, 0.4);
+}
+
 .code-block {
   background: var(--bg-warm);
   border: 1px solid var(--border);

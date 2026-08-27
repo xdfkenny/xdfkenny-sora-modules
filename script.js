@@ -148,11 +148,26 @@ function shortManifest(url) {
   }
 }
 
+let linkSourceMode = 'host';
+
+function resolveManifestUrl(url, mode) {
+  if (mode === 'github') return url;
+  try {
+    let rel = url;
+    const match = url.match(/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)$/);
+    if (match) rel = match[1];
+    const base = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+    return new URL(rel, base).href;
+  } catch (e) {
+    return url;
+  }
+}
+
 function moduleLinksJSON(modules) {
   return JSON.stringify({
     name: 'xdfkenny-modules',
-    source: REPO_URL,
-    modules: modules.map((e) => ({ name: e.name, url: e.manifestUrl }))
+    source: linkSourceMode === 'host' ? window.location.origin : REPO_URL,
+    modules: modules.map((e) => ({ name: e.name, url: resolveManifestUrl(e.manifestUrl, linkSourceMode) }))
   }, null, 2);
 }
 
@@ -175,16 +190,17 @@ function renderModuleLinks(modules) {
     const card = el('div', 'module-link-card');
     card.dataset.id = entry.id;
 
+    const targetUrl = resolveManifestUrl(entry.manifestUrl, linkSourceMode);
     const icon = el('span', 'module-link-icon', entry.name.charAt(0));
     const name = el('span', 'module-link-name', entry.name);
-    const url = el('span', 'module-link-url', shortManifest(entry.manifestUrl));
-    const hint = el('span', 'module-link-hint', 'Copy JSON link');
+    const url = el('span', 'module-link-url', shortManifest(targetUrl));
+    const hint = el('span', 'module-link-hint', linkSourceMode === 'host' ? 'Host link' : 'GitHub link');
 
     const btn = el('button', 'btn btn-secondary btn-tiny module-copy', 'Copy link');
     btn.type = 'button';
-    btn.title = 'Copy ' + entry.manifestUrl;
+    btn.title = 'Copy ' + targetUrl;
     btn.addEventListener('click', () => {
-      copyText(entry.manifestUrl)
+      copyText(targetUrl)
         .then(() => flashCopied(btn, 'Copied!'))
         .catch(() => flashCopied(btn, 'Copy failed'));
     });
@@ -234,6 +250,24 @@ function highlightJSON(obj) {
 }
 
 function renderConfig() {
+  const btnHost = document.getElementById('btnSourceHost');
+  const btnGithub = document.getElementById('btnSourceGithub');
+
+  if (btnHost && btnGithub) {
+    btnHost.addEventListener('click', () => {
+      linkSourceMode = 'host';
+      btnHost.classList.add('active');
+      btnGithub.classList.remove('active');
+      renderModuleLinks(entries);
+    });
+    btnGithub.addEventListener('click', () => {
+      linkSourceMode = 'github';
+      btnGithub.classList.add('active');
+      btnHost.classList.remove('active');
+      renderModuleLinks(entries);
+    });
+  }
+
   renderModuleLinks(entries);
 
   copyJsonBtn.addEventListener('click', () => {
