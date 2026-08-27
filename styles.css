@@ -54,6 +54,27 @@ html {
   scroll-behavior: smooth;
 }
 
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.material-symbols-outlined.icon-sm {
+  font-size: 16px;
+}
+
 body {
   margin: 0;
   padding: 0;

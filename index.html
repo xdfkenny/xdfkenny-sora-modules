@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link rel="preconnect" href="https://raw.githubusercontent.com" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -70,28 +71,25 @@
       <!-- Library Search & Category Filter Bar -->
       <div class="library-controls">
         <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+          <span class="material-symbols-outlined search-icon">search</span>
           <input type="text" id="libSearch" class="search-input" placeholder="Search modules by name, provider, language, or tags..." aria-label="Search modules" />
-          <button type="button" id="libSearchClear" class="search-clear" aria-label="Clear search" hidden>×</button>
+          <button type="button" id="libSearchClear" class="search-clear" aria-label="Clear search" hidden><span class="material-symbols-outlined icon-sm">close</span></button>
         </div>
 
         <div class="filter-pills-row">
           <div class="filter-group" id="categoryFilters">
-            <button type="button" class="filter-pill active" data-category="all">All Modules</button>
-            <button type="button" class="filter-pill" data-category="anime">Anime & Movies</button>
-            <button type="button" class="filter-pill" data-category="manga">Manga & Novels</button>
-            <button type="button" class="filter-pill" data-category="torrent">Torrents & Debrid</button>
+            <button type="button" class="filter-pill active" data-category="all"><span class="material-symbols-outlined icon-sm">grid_view</span> All Modules</button>
+            <button type="button" class="filter-pill" data-category="anime"><span class="material-symbols-outlined icon-sm">movie</span> Anime & Movies</button>
+            <button type="button" class="filter-pill" data-category="manga"><span class="material-symbols-outlined icon-sm">auto_stories</span> Manga & Novels</button>
+            <button type="button" class="filter-pill" data-category="torrent"><span class="material-symbols-outlined icon-sm">download</span> Torrents & Debrid</button>
           </div>
 
           <div class="filter-group filter-group-apps" id="appFilters">
             <span class="filter-label">App:</span>
             <button type="button" class="filter-pill filter-pill-app active" data-app="all">All</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="sora">Sora</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="luna">Luna</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="shirox">Shirox</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="sora"><span class="material-symbols-outlined icon-sm">play_circle</span> Sora</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="luna"><span class="material-symbols-outlined icon-sm">dark_mode</span> Luna</button>
+            <button type="button" class="filter-pill filter-pill-app" data-app="shirox"><span class="material-symbols-outlined icon-sm">bolt</span> Shirox</button>
           </div>
         </div>
       </div>
@@ -145,12 +143,12 @@
 
           <div class="config-actions">
             <button class="btn btn-secondary" id="copyJson" type="button">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="material-symbols-outlined icon-sm">content_copy</span>
               <span class="copy-label" id="copyLabel">Copy all module links</span>
             </button>
             <div class="doc-pills">
-              <a class="btn btn-ghost-pill" href="https://sora.jm26.net/web-ui/" target="_blank" rel="noopener noreferrer">Sora Docs</a>
-              <a class="btn btn-ghost-pill" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">Repository Docs</a>
+              <a class="btn btn-ghost-pill" href="https://sora.jm26.net/web-ui/" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined icon-sm">description</span> Sora Docs</a>
+              <a class="btn btn-ghost-pill" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined icon-sm">code</span> Repository Docs</a>
             </div>
           </div>
         </div>
@@ -174,10 +172,13 @@
           <textarea id="pgParams" class="pg-input pg-textarea" placeholder="Enter JSON parameters or query strings..."></textarea>
           <div class="play-actions">
             <button class="btn btn-primary btn-sm" id="pgRun" type="button">
-              <svg class="icon icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+              <span class="material-symbols-outlined icon-sm">play_arrow</span>
               Run
             </button>
-            <button class="btn btn-clear btn-sm" id="pgClear" type="button">Clear</button>
+            <button class="btn btn-clear btn-sm" id="pgClear" type="button">
+              <span class="material-symbols-outlined icon-sm">restart_alt</span>
+              Clear
+            </button>
           </div>
         </div>
 

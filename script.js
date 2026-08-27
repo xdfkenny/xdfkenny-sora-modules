@@ -668,20 +668,29 @@ function fillManifest(entry, m) {
   /* Quick Actions Row */
   const quickActions = el('div', 'card-quick-actions');
 
-  const btnCopyJson = el('button', 'btn-card-action', 'Copy JSON');
+  const btnCopyJson = document.createElement('button');
+  btnCopyJson.className = 'btn-card-action';
+  btnCopyJson.type = 'button';
+  btnCopyJson.innerHTML = '<span class="material-symbols-outlined icon-sm">content_copy</span> Copy JSON';
   btnCopyJson.title = 'Copy manifest link for Sora/Luna';
   btnCopyJson.onclick = () => {
     const targetUrl = resolveManifestUrl(entry.manifestUrl, linkSourceMode);
     copyText(targetUrl).then(() => flashCopied(btnCopyJson, 'Copied!'));
   };
 
-  const btnCopyJs = el('button', 'btn-card-action', 'Copy JS');
+  const btnCopyJs = document.createElement('button');
+  btnCopyJs.className = 'btn-card-action';
+  btnCopyJs.type = 'button';
+  btnCopyJs.innerHTML = '<span class="material-symbols-outlined icon-sm">code</span> Copy JS';
   btnCopyJs.title = 'Copy script URL';
   btnCopyJs.onclick = () => {
     if (m.scriptUrl) copyText(m.scriptUrl).then(() => flashCopied(btnCopyJs, 'Copied!'));
   };
 
-  const btnTest = el('button', 'btn-card-action btn-play', '▶ Test');
+  const btnTest = document.createElement('button');
+  btnTest.className = 'btn-card-action btn-play';
+  btnTest.type = 'button';
+  btnTest.innerHTML = '<span class="material-symbols-outlined icon-sm">play_arrow</span> Test';
   btnTest.title = 'Test module in Playground';
   btnTest.onclick = () => {
     if (pgModule) pgModule.value = entry.id;
