@@ -1,9 +1,10 @@
 {
   "sourceName": "AllManga Manga",
+  "iconUrl": "https://allmanga.to/pics/avatar-w.png",
   "iconURL": "https://allmanga.to/pics/avatar-w.png",
   "author": {
     "name": "xdfkenny",
-    "iconURL": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
   "description": "M\u00f3dulo tipo manga de AllManga (allmanga.to) \u2014 el build de manga del ecosistema AllAnime (230k+ series). B\u00fasqueda y detalles v\u00eda GraphQL (mangas/manga, sin token), cap\u00edtulos desde availableChaptersDetail (soporta n\u00fameros fraccionarios 25.5/14.1), p\u00e1ginas de imagen desde chapterPages con token aaReq + descifrado AES-GCM (mismo flujo que el m\u00f3dulo de anime AllManga, con fallback de keygen). Contrato mangas de kanzen: searchResults / extractDetails / extractChapters / extractImages con salida cruda; las p\u00e1ginas se entregan como URLs de imagen directas.",
@@ -16,6 +17,7 @@
   "quality": "N/A",
   "baseUrl": "https://allmanga.to/",
   "searchBaseUrl": "https://allmanga.to/search-manga?keyword=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga-novels/allmanga-novels.js",
   "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/allmanga-novels/allmanga-novels.js",
   "type": "mangas",
   "downloadSupport": false,

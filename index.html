@@ -29,8 +29,10 @@
         <span class="nav-toggle-bar"></span>
       </button>
       <div class="nav-links" id="navLinks">
+        <a class="nav-link" href="#featured">Featured</a>
         <a class="nav-link" href="#modules">Library</a>
         <a class="nav-link" href="#creator">Manifest Creator</a>
+        <a class="nav-link" href="#playground">Playground</a>
         <a class="nav-link" href="#faq">FAQ</a>
         <a class="nav-link nav-link-ext" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
@@ -64,11 +66,40 @@
 
   <main id="main">
 
-    <!-- ===== Module Library ===== -->
+    <!-- ===== Announcements Banner ===== -->
+    <div class="announce-bar" id="announceBar" role="region" aria-label="Announcements">
+      <div class="announce-inner">
+        <button class="announce-arrow" id="announcePrev" aria-label="Previous announcement">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <div class="announce-track" id="announceTrack">
+          <!-- Populated by script.js -->
+        </div>
+        <button class="announce-arrow" id="announceNext" aria-label="Next announcement">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+        <button class="announce-close" id="announceClose" aria-label="Dismiss announcements">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== Featured Modules ===== -->
+    <section class="section section-featured" id="featured">
+      <div class="section-head">
+        <h2><span class="material-symbols-outlined icon-heading">star</span> Featured Modules</h2>
+        <p class="section-intro">Handpicked quality modules — community favourites and hidden gems.</p>
+      </div>
+      <div class="featured-grid" id="featuredGrid">
+        <!-- Populated by script.js -->
+      </div>
+    </section>
+
+    <!-- ===== Module Library & Health Dashboard ===== -->
     <section class="section" id="modules">
       <div class="section-head">
         <h2>Module Library</h2>
-        <p class="section-intro">Explore and install modular anime, manga, and stream resolution providers for Sora, Luna, and Shirox.</p>
+        <p class="section-intro">Explore, test, and integrate modular anime, manga, and stream resolution providers for Sora, Luna, and Shirox.</p>
       </div>
 
       <!-- Library Search & Category Filter Bar -->
@@ -97,11 +128,109 @@
         </div>
       </div>
 
-      <div class="library-summary" aria-live="polite">
-        <span class="pill">Showing <b id="cShowing">0</b> / <b id="cTotal">0</b> modules</span>
+      <div class="summary-bar">
+        <div class="counters" aria-live="polite">
+          <span class="pill">Showing <b id="cShowing">0</b> / <b id="cTotal">0</b></span>
+          <span class="pill status-ok"><span class="status-dot" aria-hidden="true"></span> OK <b id="cOk">0</b></span>
+          <span class="pill status-warn"><span class="status-dot" aria-hidden="true"></span> Warning <b id="cWarn">0</b></span>
+          <span class="pill status-fail"><span class="status-dot" aria-hidden="true"></span> Failed <b id="cFail">0</b></span>
+        </div>
+        <div class="summary-actions">
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoChk" />
+            Auto test 60s
+          </label>
+          <button class="btn btn-soft" id="runAll" type="button">Test all</button>
+        </div>
+      </div>
+      <div class="last-run" id="lastRun" aria-live="polite"></div>
+
+      <div class="banner" id="serverBanner" hidden>
+        <strong>Local server not detected.</strong>
+        Content tests (search, episodes, streams) run reliably with the Node server:
+        <code id="serverCmd">node server.js</code>
+        <button class="btn btn-soft btn-tiny" id="copyCmd" type="button">Copy command</button>
       </div>
 
       <div class="grid" id="grid"></div>
+    </section>
+
+  <!-- ===== Sora / Luna config ===== -->
+    <section class="section section-soft" id="config">
+      <div class="section-head">
+        <h2>Connect Your Stream</h2>
+        <p class="section-intro">Copy a module's JSON link into your Sora or Luna configuration, or add directly to the Sora app.</p>
+      </div>
+
+      <article class="crystal-card">
+        <div class="crystal-card-inner">
+          <div class="crystal-card-top">
+            <p class="card-label">Module links</p>
+            <div class="source-toggle" id="sourceToggle">
+              <button type="button" class="btn btn-soft btn-tiny active" id="btnSourceHost">Web Host Links</button>
+              <button type="button" class="btn btn-soft btn-tiny" id="btnSourceGithub">GitHub Links</button>
+            </div>
+          </div>
+          <p class="config-help">Tap a module to copy its JSON link, or use <strong>Add to Sora</strong> for one-click install on iOS/macOS.</p>
+
+          <div class="module-links" id="moduleLinks"></div>
+
+          <div class="config-actions">
+            <button class="btn btn-sora" id="btnAddAllSora" type="button">
+              <span class="material-symbols-outlined icon-sm">add_link</span>
+              Add All to Sora
+            </button>
+            <button class="btn btn-secondary" id="copyJson" type="button">
+              <span class="material-symbols-outlined icon-sm">content_copy</span>
+              <span class="copy-label" id="copyLabel">Copy all module links</span>
+            </button>
+            <div class="doc-pills">
+              <a class="btn btn-ghost-pill" href="https://sora.jm26.net/web-ui/" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined icon-sm">description</span> Sora Docs</a>
+              <a class="btn btn-ghost-pill" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined icon-sm">code</span> Repository Docs</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ===== Test playground ===== -->
+    <section class="section section-playground" id="playground">
+      <div class="section-head">
+        <h2>Test Playground</h2>
+        <p class="section-intro">A quiet space to test module behavior and API responses.</p>
+      </div>
+
+      <div class="playground-grid">
+        <div class="play-card">
+          <p class="card-label">Module</p>
+          <select id="pgModule" class="pg-input"></select>
+          <p class="card-label">Keyword</p>
+          <input id="pgKeyword" class="pg-input" type="text" placeholder="e.g. one piece" />
+          <p class="card-label">Test Parameters</p>
+          <textarea id="pgParams" class="pg-input pg-textarea" placeholder="Enter JSON parameters or query strings..."></textarea>
+          <div class="play-actions">
+            <button class="btn btn-primary btn-sm" id="pgRun" type="button">
+              <span class="material-symbols-outlined icon-sm">play_arrow</span>
+              Run
+            </button>
+            <button class="btn btn-clear btn-sm" id="pgClear" type="button">
+              <span class="material-symbols-outlined icon-sm">restart_alt</span>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div class="play-card play-card-output">
+          <p class="card-label">Response</p>
+          <div class="pg-output" id="pgOutput">
+            <p class="pg-empty">Awaiting input… ❄️</p>
+          </div>
+          <div class="pg-status" id="pgStatus" aria-live="polite">
+            <span class="dot" id="pgStatusDot" aria-hidden="true"></span>
+            <span class="pg-status-text" id="pgStatusText">Idle</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ===== Manifest Creator ===== -->
@@ -219,7 +348,7 @@
             <span class="material-symbols-outlined faq-chevron">expand_more</span>
           </button>
           <div class="faq-a">
-            <p>The source site may be temporarily down or the module may need updating. Check the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repo</a> for the latest version and open an issue if it persists.</p>
+            <p>Run the <strong>Test Playground</strong> on this page to check if the module's API is responding. If it fails, the source site may be down or the module may need updating. Check the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repo</a> for the latest version.</p>
           </div>
         </div>
         <div class="faq-item">
@@ -238,6 +367,15 @@
           </button>
           <div class="faq-a">
             <p>Use the <a href="#creator">Manifest Creator</a> above to generate your <code>module.json</code> manifest. Then read the <a href="https://soradocs.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer">Sora Module Documentation</a> and open a pull request on the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>What is the difference between the Web Host and GitHub links?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p><strong>Web Host links</strong> (<code>xdfkecraft.qzz.io</code>) are served from the free hosting server — they load slightly faster in some regions. <strong>GitHub links</strong> (<code>raw.githubusercontent.com</code>) are always the most up-to-date and bypass host caching. Use GitHub links for the freshest version.</p>
           </div>
         </div>
       </div>
