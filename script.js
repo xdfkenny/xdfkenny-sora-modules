@@ -275,6 +275,17 @@ function renderConfig() {
       .then(() => flashCopied(copyJsonBtn, 'Copied!'))
       .catch(() => flashCopied(copyJsonBtn, 'Copy failed'));
   });
+
+  const btnAddAllSora = document.getElementById('btnAddAllSora');
+  if (btnAddAllSora) {
+    btnAddAllSora.addEventListener('click', () => {
+      const manifestUrl = resolveManifestUrl(
+        RAW_REPO + '/main/modules.json', linkSourceMode
+      );
+      const soraUrl = 'sora://default_page?url=' + encodeURIComponent(manifestUrl);
+      window.location.href = soraUrl;
+    });
+  }
 }
 
 function copyText(text) {
@@ -294,18 +305,8 @@ function copyText(text) {
   });
 }
 
-copyJsonBtn.addEventListener('click', async () => {
-  const text = configJson.textContent;
-  try {
-    await copyText(text);
-  } catch (e) { /* noop */ }
-  copyLabel.textContent = 'Copied!';
-  copyJsonBtn.classList.add('copied');
-  setTimeout(() => {
-    copyLabel.textContent = 'Copy JSON';
-    copyJsonBtn.classList.remove('copied');
-  }, 2000);
-});
+
+
 
 /* ---------- playground ---------- */
 
@@ -698,7 +699,17 @@ function fillManifest(entry, m) {
     document.getElementById('playground')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  quickActions.append(btnCopyJson, btnCopyJs, btnTest);
+  const btnAddSora = document.createElement('a');
+  btnAddSora.className = 'btn-card-action btn-card-sora';
+  btnAddSora.innerHTML = '<span class="material-symbols-outlined icon-sm">add_link</span> Add to Sora';
+  btnAddSora.title = 'Add module to Sora app';
+  btnAddSora.href = '#'; // set after manifest resolves
+  btnAddSora.addEventListener('click', (ev) => {
+    const targetUrl = resolveManifestUrl(entry.manifestUrl, linkSourceMode);
+    btnAddSora.href = 'sora://default_page?url=' + encodeURIComponent(targetUrl);
+  });
+
+  quickActions.append(btnCopyJson, btnCopyJs, btnTest, btnAddSora);
   ref.links.appendChild(quickActions);
 
   filterAndRenderLibrary();
@@ -1071,6 +1082,10 @@ async function boot() {
 
   await renderConfig();
   await runAll();
+  initAnnouncements();
+  renderFeatured(entries);
+  initManifestCreator();
+  initFAQ();
 
   copyCmdBtn.addEventListener('click', () => {
     copyText('node server.js').catch(() => {});
@@ -1086,3 +1101,224 @@ async function boot() {
 }
 
 boot();
+
+/* ============================================================
+   Announcements
+   ============================================================ */
+
+const ANNOUNCEMENTS = [
+  { text: '🎉 Torrentio Debrid module added — torrent magnet stream resolution via Real-Debrid, AllDebrid and Premiumize.' },
+  { text: '⭐ Featured Modules section launched — handpicked quality picks highlighted on the library.' },
+  { text: '🔗 One-click <b>Add to Sora</b> buttons are now available on every module card!' },
+  { text: '🛠 Manifest Creator tool added — build your own Sora module manifest without writing JSON by hand.' },
+  { text: '📖 FAQ section added — answers to common questions about installing and using Sora modules.' }
+];
+
+function initAnnouncements() {
+  const bar = document.getElementById('announceBar');
+  const track = document.getElementById('announceTrack');
+  const prevBtn = document.getElementById('announcePrev');
+  const nextBtn = document.getElementById('announceNext');
+  const closeBtn = document.getElementById('announceClose');
+  if (!bar || !track) return;
+
+  let current = 0;
+  const slides = [];
+
+  ANNOUNCEMENTS.forEach((a, i) => {
+    const slide = el('div', 'announce-slide' + (i === 0 ? ' active' : ''));
+    slide.innerHTML = a.text;
+    track.appendChild(slide);
+    slides.push(slide);
+  });
+
+  function goTo(idx) {
+    slides[current].classList.remove('active');
+    current = (idx + slides.length) % slides.length;
+    slides[current].classList.add('active');
+  }
+
+  prevBtn.addEventListener('click', () => goTo(current - 1));
+  nextBtn.addEventListener('click', () => goTo(current + 1));
+  closeBtn.addEventListener('click', () => bar.setAttribute('hidden', ''));
+
+  // Auto-rotate every 6s
+  setInterval(() => goTo(current + 1), 6000);
+}
+
+/* ============================================================
+   Featured modules
+   ============================================================ */
+
+const FEATURED_IDS = ['torrentio', 'yfsp', 'hydrahd', 'allmanga'];
+
+const FEAT_META = {
+  torrentio: { icon: '🧲', desc: 'Resolve torrent magnets via Debrid services — Real-Debrid, AllDebrid & more.' },
+  yfsp: { icon: '🎌', desc: 'High-quality anime streaming with subtitle & dub support from YFSP.' },
+  hydrahd: { icon: '🎬', desc: 'Movies & series in multiple qualities via HydraHD provider.' },
+  allmanga: { icon: '📖', desc: 'Read manga and novels from AllManga with chapter-level support.' }
+};
+
+function renderFeatured(allEntries) {
+  const grid = document.getElementById('featuredGrid');
+  if (!grid) return;
+  grid.textContent = '';
+
+  const featured = FEATURED_IDS
+    .map(id => allEntries.find(e => e.id === id))
+    .filter(Boolean);
+
+  if (!featured.length) {
+    grid.innerHTML = '<p style="color:var(--fg-muted);font-size:0.85rem">Featured modules will appear after the library loads.</p>';
+    return;
+  }
+
+  for (const entry of featured) {
+    const meta = FEAT_META[entry.id] || { icon: '📦', desc: entry.name };
+    const card = el('div', 'feat-card');
+
+    const star = el('span', 'material-symbols-outlined feat-star', 'star');
+    card.appendChild(star);
+
+    const iconEl = el('div', 'feat-icon', meta.icon);
+    card.appendChild(iconEl);
+
+    const name = el('p', 'feat-name', entry.name);
+    card.appendChild(name);
+
+    const desc = el('p', 'feat-desc', meta.desc);
+    card.appendChild(desc);
+
+    const actions = el('div', 'feat-actions');
+
+    const addBtn = document.createElement('a');
+    addBtn.className = 'btn-sora';
+    addBtn.innerHTML = '<span class="material-symbols-outlined icon-sm">add_link</span> Add to Sora';
+    addBtn.href = 'sora://default_page?url=' + encodeURIComponent(resolveManifestUrl(entry.manifestUrl, linkSourceMode));
+    actions.appendChild(addBtn);
+
+    const detailBtn = document.createElement('a');
+    detailBtn.className = 'btn btn-soft btn-tiny';
+    detailBtn.textContent = 'Details';
+    detailBtn.href = '#' + entry.id;
+    detailBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const cardEl = document.querySelector('[data-id="' + entry.id + '"]');
+      if (cardEl) cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    actions.appendChild(detailBtn);
+
+    card.appendChild(actions);
+    grid.appendChild(card);
+  }
+}
+
+/* ============================================================
+   Manifest Creator
+   ============================================================ */
+
+function initManifestCreator() {
+  const genBtn = document.getElementById('crGenerate');
+  const resetBtn = document.getElementById('crReset');
+  const copyBtn = document.getElementById('crCopy');
+  const codeEl = document.getElementById('crCode');
+  if (!genBtn || !codeEl) return;
+
+  function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
+  function generateManifest() {
+    const name = getVal('crName');
+    const id = getVal('crId');
+    const version = getVal('crVersion') || '1.0.0';
+    const lang = getVal('crLang') || 'en';
+    const scriptUrl = getVal('crScript');
+    const description = getVal('crDescription');
+    const author = getVal('crAuthor');
+    const logoUrl = getVal('crLogo');
+
+    if (!name || !id || !scriptUrl) {
+      codeEl.textContent = '// ⚠️ Module Name, Module ID, and Script URL are required.';
+      return;
+    }
+
+    const features = [];
+    if (document.getElementById('crFeatSearch')?.checked) features.push('search');
+    if (document.getElementById('crFeatEpisodes')?.checked) features.push('episodes');
+    if (document.getElementById('crFeatStreams')?.checked) features.push('streams');
+    if (document.getElementById('crFeatDownload')?.checked) features.push('downloads');
+
+    const manifest = {
+      sourceName: name,
+      id,
+      version,
+      language: lang,
+      scriptUrl,
+      type: 'show',
+      streamType: 'mp4',
+      quality: '1080p',
+      baseUrl: '',
+      searchBaseUrl: ''
+    };
+
+    if (description) manifest.description = description;
+    if (author) manifest.author = author;
+    if (logoUrl) manifest.iconUrl = logoUrl;
+    if (features.length) manifest.features = features;
+
+    codeEl.textContent = JSON.stringify(manifest, null, 2);
+  }
+
+  genBtn.addEventListener('click', generateManifest);
+
+  resetBtn.addEventListener('click', () => {
+    ['crName','crId','crVersion','crScript','crDescription','crAuthor','crLogo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('crLang').value = 'en';
+    document.getElementById('crFeatSearch').checked = true;
+    document.getElementById('crFeatEpisodes').checked = true;
+    document.getElementById('crFeatStreams').checked = true;
+    document.getElementById('crFeatDownload').checked = false;
+    codeEl.textContent = '// Fill the form and click Generate Manifest';
+  });
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const txt = codeEl.textContent;
+      if (!txt || txt.startsWith('//')) return;
+      copyText(txt).then(() => flashCopied(copyBtn, 'Copied!'));
+    });
+  }
+}
+
+/* ============================================================
+   FAQ accordion
+   ============================================================ */
+
+function initFAQ() {
+  const faqItems = document.querySelectorAll('.faq-item');
+  for (const item of faqItems) {
+    const btn = item.querySelector('.faq-q');
+    const answer = item.querySelector('.faq-a');
+    if (!btn || !answer) continue;
+
+    btn.addEventListener('click', () => {
+      const isOpen = btn.getAttribute('aria-expanded') === 'true';
+
+      // Close all others
+      faqItems.forEach(other => {
+        if (other !== item) {
+          other.querySelector('.faq-q')?.setAttribute('aria-expanded', 'false');
+          other.querySelector('.faq-a')?.classList.remove('open');
+        }
+      });
+
+      btn.setAttribute('aria-expanded', String(!isOpen));
+      answer.classList.toggle('open', !isOpen);
+    });
+  }
+}

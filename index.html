@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>xdfkenny modules — Soft Cryo Status</title>
-  <meta name="description" content="Modular AI agent components for anime streaming and automation — status, configuration and testing for Sora / Luna." />
+  <title>xdfkenny modules — Sora Module Library</title>
+  <meta name="description" content="Browse and install xdfkenny's Sora module library — anime, manga, torrent and debrid modules for Sora, Luna, and Shirox. One-click Add to Sora." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23E1F5FE'/%3E%3Cpath d='M16 5l9.5 5.5v11L16 27l-9.5-5.5v-11z' fill='%237EC8E3'/%3E%3Cpath d='M16 9.5L22 13v6l-6 3.5-6-3.5v-6z' fill='%23FFFFFF' opacity='.9'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,9 +29,11 @@
         <span class="nav-toggle-bar"></span>
       </button>
       <div class="nav-links" id="navLinks">
-        <a class="nav-link" href="#modules">Modules</a>
-        <a class="nav-link" href="#config">Config</a>
+        <a class="nav-link" href="#featured">Featured</a>
+        <a class="nav-link" href="#modules">Library</a>
+        <a class="nav-link" href="#creator">Manifest Creator</a>
         <a class="nav-link" href="#playground">Playground</a>
+        <a class="nav-link" href="#faq">FAQ</a>
         <a class="nav-link nav-link-ext" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
@@ -46,10 +48,13 @@
     <div class="hero-inner">
       <p class="eyebrow">Soft Cryo Modules</p>
       <h1 class="hero-title">xdfkenny <span>modules</span></h1>
-      <p class="hero-sub">Modular AI agent components for anime streaming and automation.</p>
-      <p class="hero-desc">A collection of vibe-coded JavaScript modules designed for Sora and Luna integration — clean, reusable, and frost-tempered.</p>
+      <p class="hero-sub">Modular AI agent components for anime streaming, torrent resolution, and manga reading.</p>
+      <p class="hero-desc">A collection of vibe-coded JavaScript modules designed for Sora, Luna, and Shirox integration — clean, reusable, and frost-tempered.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="#modules">Browse Modules <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn btn-primary" id="btnHeroAddSora" href="sora://default_page?url=https%3A%2F%2Fxdfkenny.dpdns.org%2Fxdfkenny-sora-modules%2Fmodules.json">
+          <span class="material-symbols-outlined icon-sm">add_link</span> Add All to Sora
+        </a>
+        <a class="btn btn-secondary" href="#modules">Browse Library <span class="arrow" aria-hidden="true">→</span></a>
         <a class="btn btn-ghost" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">View on GitHub</a>
       </div>
       <div class="status-pill" aria-label="Repository status">
@@ -60,6 +65,35 @@
   </header>
 
   <main id="main">
+
+    <!-- ===== Announcements Banner ===== -->
+    <div class="announce-bar" id="announceBar" role="region" aria-label="Announcements">
+      <div class="announce-inner">
+        <button class="announce-arrow" id="announcePrev" aria-label="Previous announcement">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <div class="announce-track" id="announceTrack">
+          <!-- Populated by script.js -->
+        </div>
+        <button class="announce-arrow" id="announceNext" aria-label="Next announcement">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+        <button class="announce-close" id="announceClose" aria-label="Dismiss announcements">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== Featured Modules ===== -->
+    <section class="section section-featured" id="featured">
+      <div class="section-head">
+        <h2><span class="material-symbols-outlined icon-heading">star</span> Featured Modules</h2>
+        <p class="section-intro">Handpicked quality modules — community favourites and hidden gems.</p>
+      </div>
+      <div class="featured-grid" id="featuredGrid">
+        <!-- Populated by script.js -->
+      </div>
+    </section>
 
     <!-- ===== Module Library & Health Dashboard ===== -->
     <section class="section" id="modules">
@@ -125,7 +159,7 @@
     <section class="section section-soft" id="config">
       <div class="section-head">
         <h2>Connect Your Stream</h2>
-        <p class="section-intro">Copy a module's JSON link into your Sora or Luna configuration.</p>
+        <p class="section-intro">Copy a module's JSON link into your Sora or Luna configuration, or add directly to the Sora app.</p>
       </div>
 
       <article class="crystal-card">
@@ -137,11 +171,15 @@
               <button type="button" class="btn btn-soft btn-tiny" id="btnSourceGithub">GitHub Links</button>
             </div>
           </div>
-          <p class="config-help">Tap a button to copy one module's JSON link, or copy all links at once.</p>
+          <p class="config-help">Tap a module to copy its JSON link, or use <strong>Add to Sora</strong> for one-click install on iOS/macOS.</p>
 
           <div class="module-links" id="moduleLinks"></div>
 
           <div class="config-actions">
+            <button class="btn btn-sora" id="btnAddAllSora" type="button">
+              <span class="material-symbols-outlined icon-sm">add_link</span>
+              Add All to Sora
+            </button>
             <button class="btn btn-secondary" id="copyJson" type="button">
               <span class="material-symbols-outlined icon-sm">content_copy</span>
               <span class="copy-label" id="copyLabel">Copy all module links</span>
@@ -190,6 +228,154 @@
           <div class="pg-status" id="pgStatus" aria-live="polite">
             <span class="dot" id="pgStatusDot" aria-hidden="true"></span>
             <span class="pg-status-text" id="pgStatusText">Idle</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Manifest Creator ===== -->
+    <section class="section section-creator" id="creator">
+      <div class="section-head">
+        <h2><span class="material-symbols-outlined icon-heading">edit_note</span> Manifest Creator</h2>
+        <p class="section-intro">Build a valid Sora module manifest <code>.json</code> file visually — fill the fields and copy your manifest.</p>
+      </div>
+      <div class="creator-grid">
+        <div class="creator-form">
+          <div class="creator-field">
+            <label class="creator-label" for="crName">Module Name <span class="req">*</span></label>
+            <input class="creator-input" id="crName" type="text" placeholder="e.g. My Anime Module" />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="crId">Module ID <span class="req">*</span></label>
+            <input class="creator-input" id="crId" type="text" placeholder="e.g. my-anime-module" />
+          </div>
+          <div class="creator-row">
+            <div class="creator-field">
+              <label class="creator-label" for="crVersion">Version</label>
+              <input class="creator-input" id="crVersion" type="text" placeholder="1.0.0" />
+            </div>
+            <div class="creator-field">
+              <label class="creator-label" for="crLang">Language</label>
+              <select class="creator-input" id="crLang">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="pt">Portuguese</option>
+                <option value="ja">Japanese</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="ar">Arabic</option>
+                <option value="multi">Multi</option>
+              </select>
+            </div>
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="crScript">Script URL <span class="req">*</span></label>
+            <input class="creator-input" id="crScript" type="url" placeholder="https://example.com/module.js" />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="crDescription">Description</label>
+            <input class="creator-input" id="crDescription" type="text" placeholder="Short description of the module" />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="crAuthor">Author</label>
+            <input class="creator-input" id="crAuthor" type="text" placeholder="your username" />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label" for="crLogo">Logo URL <span class="opt">(optional)</span></label>
+            <input class="creator-input" id="crLogo" type="url" placeholder="https://example.com/logo.png" />
+          </div>
+          <div class="creator-field">
+            <label class="creator-label">Supported Features</label>
+            <div class="creator-checks">
+              <label class="creator-check"><input type="checkbox" id="crFeatSearch" checked /> Search</label>
+              <label class="creator-check"><input type="checkbox" id="crFeatEpisodes" checked /> Episodes</label>
+              <label class="creator-check"><input type="checkbox" id="crFeatStreams" checked /> Streams</label>
+              <label class="creator-check"><input type="checkbox" id="crFeatDownload" /> Downloads</label>
+            </div>
+          </div>
+          <div class="creator-actions">
+            <button class="btn btn-primary" id="crGenerate" type="button">
+              <span class="material-symbols-outlined icon-sm">auto_fix_high</span> Generate Manifest
+            </button>
+            <button class="btn btn-soft" id="crReset" type="button">
+              <span class="material-symbols-outlined icon-sm">refresh</span> Reset
+            </button>
+          </div>
+        </div>
+        <div class="creator-preview">
+          <div class="creator-preview-header">
+            <span class="card-label">Preview</span>
+            <button class="btn btn-soft btn-tiny" id="crCopy" type="button">
+              <span class="material-symbols-outlined icon-sm">content_copy</span> Copy JSON
+            </button>
+          </div>
+          <pre class="creator-output" id="crOutput"><code id="crCode">// Fill the form and click Generate Manifest</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section class="section section-faq" id="faq">
+      <div class="section-head">
+        <h2><span class="material-symbols-outlined icon-heading">help</span> FAQ</h2>
+        <p class="section-intro">Answers to common questions about installing and using Sora modules.</p>
+      </div>
+      <div class="faq-list" id="faqList">
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>How do I add a module to Sora?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p>On this page, click the <strong>"Add to Sora"</strong> button on any module card. This opens the Sora app and automatically installs the module. You can also copy the JSON link and paste it manually in <strong>Sora → Settings → Modules → Add Module</strong>.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>Why does the "Add to Sora" button not open the app?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p>The <code>sora://</code> deep-link only works on iOS or macOS with the Sora app installed. On Android or Windows, copy the JSON link manually instead. If you're on Safari/Chrome iOS, make sure you have Sora installed from the <a href="https://sora.jm26.net" target="_blank" rel="noopener noreferrer">Sora website</a>.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>A module is not working — what do I do?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p>Run the <strong>Test Playground</strong> on this page to check if the module's API is responding. If it fails, the source site may be down or the module may need updating. Check the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repo</a> for the latest version.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>Do these modules work with Luna and Shirox?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p>Yes — most modules here support <strong>Sora</strong> and <strong>Luna</strong>. Some (like <em>HydraHD Shirox</em>) are tailored for <strong>Shirox</strong>. Each module card shows its app compatibility badges so you can identify which apps are supported at a glance.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>How do I create and submit my own module?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p>Use the <a href="#creator">Manifest Creator</a> above to generate your <code>module.json</code> manifest. Then read the <a href="https://soradocs.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer">Sora Module Documentation</a> and open a pull request on the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false">
+            <span>What is the difference between the Web Host and GitHub links?</span>
+            <span class="material-symbols-outlined faq-chevron">expand_more</span>
+          </button>
+          <div class="faq-a">
+            <p><strong>Web Host links</strong> (<code>xdfkecraft.qzz.io</code>) are served from the free hosting server — they load slightly faster in some regions. <strong>GitHub links</strong> (<code>raw.githubusercontent.com</code>) are always the most up-to-date and bypass host caching. Use GitHub links for the freshest version.</p>
           </div>
         </div>
       </div>
