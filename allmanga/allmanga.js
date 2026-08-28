@@ -15,15 +15,15 @@ const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslat
 
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
-// Known-good keygen snapshot (build 136, epoch 2955) — captured live on
-// 2026-08-22 (see documentation/keygen-live-capture-prompt.md). The module can
-// also self-bootstrap fresh keys when the API reports AA_CRYPTO_STALE (see
-// aaLiveKeys below), so this snapshot only seeds the first request.
+// Known-good keygen snapshot (build 141, epoch 2956) — captured live on
+// 2026-08-27. The module can also self-bootstrap fresh keys when the API
+// reports AA_CRYPTO_STALE (see aaLiveKeys below), so this snapshot only
+// seeds the first request.
 const FALLBACK_KEYGEN = {
-    build_id: '136',
-    epoch: 2955,
+    build_id: '141',
+    epoch: 2956,
     lane: 'k7',
-    key: 'deeb2732190ceee0d84c7668d79b64ddcd5f27b9f858f2327fe29a7841b7b5da',
+    key: '29871584c01d4486536557457224255140e79ec90cc5229342790998f5a54917',
     static_key: 'Xot36i3lK3:v1'
 };
 
@@ -59,7 +59,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.9.0');
+if (typeof console !== 'undefined') console.log('allmanga module v1.9.1');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
