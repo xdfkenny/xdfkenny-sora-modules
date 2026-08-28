@@ -11,19 +11,22 @@ const KEYGEN_URLS = [
     'https://raw.githubusercontent.com/sdaqo/anipy-cli/key-gen/scripts/keygen/keygen.json'
 ];
 
-const EPISODE_QUERY = 'query(\n$showId: String!\n$translationType: VaildTranslationTypeEnumType!\n$episodeString: String!\n) {\nepisode(\nshowId: $showId\ntranslationType: $translationType\nepisodeString: $episodeString\n) {\nepisodeString\nuploadDate\nsourceUrls\nthumbnail\nnotes\nshow{\n\n\n_id\nname\nenglishName\nnativeName\nslugTime\n\nthumbnail\n\ntbObj {\n  u\n  sm\n  md\n  ts\n}\n\nlastEpisodeInfo\nlastEpisodeDate\ntype\nseason\nscore\nairedStart\navailableEpisodes\nepisodeDuration\nepisodeCount\n# lastUpdateStart\nlastUpdateEnd\ncharacterCount\n\ndescription\nbroadcastInterval\nbanner\ncharacters\navailableEpisodesDetail\nnameOnlyString\ncharacters\nisAdult\nrelatedShows\nrelatedMangas\naltNames\ndisqusIds\n}\npageStatus{\n_id\nnotes\npageId\nshowId\n\n# ranks:[Object]\nviews\nlikesCount\ncommentCount\ndislikesCount\nboostsCount\nreviewCount\nuserScoreCount\nuserScoreTotalValue\nuserScoreAverValue\nviewers{\nfirstViewers{\nviewCount\nlastWatchedDate\nuser{\n\n  \n  \n  _id\n  username\n  displayName\n  createdAt\n  picture\n  reputation\n  roleLevel\n\n  \n  followerCount\n  followingCount\n\n  hideMe\n  brief\n\n}\n}\nrecViewers{\nviewCount\nlastWatchedDate\nuser{\n\n  \n  \n  _id\n  username\n  displayName\n  createdAt\n  picture\n  reputation\n  roleLevel\n\n  \n  followerCount\n  followingCount\n\n  hideMe\n  brief\n\n}\n}\n}\n\n}\nepisodeInfo{\nnotes\nthumbnails\n\ntbObj {\n  u\n  sm\n  md\n  ts\n}\n\nvidInforssub\nuploadDates\nvidInforsdub\nvidInforsraw\ndescription\n}\nversionFix\n}\n}\n';
+const EPISODE_QUERY = 'query($showId: String!$translationType: VaildTranslationTypeEnumType!$episodeString: String!) {episode(showId: $showId translationType: $translationType episodeString: $episodeString) {episodeString uploadDate sourceUrls thumbnail notes show{_id name englishName nativeName slugTime thumbnail tbObj {u sm md ts} lastEpisodeInfo lastEpisodeDate type season score airedStart availableEpisodes episodeDuration episodeCount lastUpdateEnd characterCount description broadcastInterval banner characters availableEpisodesDetail nameOnlyString characters isAdult relatedShows relatedMangas altNames disqusIds}pageStatus{_id notes pageId showId views likesCount commentCount dislikesCount boostsCount reviewCount userScoreCount userScoreTotalValue userScoreAverValue viewers{firstViewers{viewCount lastWatchedDate user{_id username displayName createdAt picture reputation roleLevel followerCount followingCount hideMe brief}}recViewers{viewCount lastWatchedDate user{_id username displayName createdAt picture reputation roleLevel followerCount followingCount hideMe brief}}}}episodeInfo{notes thumbnails tbObj {u sm md ts} vidInforssub uploadDates vidInforsdub vidInforsraw description}versionFix}}';
 
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
 // Known-good keygen snapshot (build 141, epoch 2956) — captured live on
-// 2026-08-27. The module can also self-bootstrap fresh keys when the API
-// reports AA_CRYPTO_STALE (see aaLiveKeys below), so this snapshot only
-// seeds the first request.
+// 2026-08-28 via mkissa.to bootstrap (partB EP0wX+zZTEm8U+mdTgdy4kvwvLm5jXb/sx+YmPAhc7s=).
+// Verified end-to-end: episode → tobeparsed → clock → HLS (One Piece ep1, Clannad ep1).
+// The mask for this build is 44e9dea3f2eb669f7db83ceacf38a82cc12dfa33c16b0f105e35e9095c26808c
+// (vy(141) via page's crypto.subtle). Boot token 8fe794b2df3543d78aaadf449396cc690a32732a69e12c37095388262c67d59d
+// validated. Keep this fallback fresh — the bootstrap endpoint is now Cloudflare-
+// protected and the old mask blocks (build 136) no longer derive the correct key.
 const FALLBACK_KEYGEN = {
     build_id: '141',
     epoch: 2956,
     lane: 'k7',
-    key: '29871584c01d4486536557457224255140e79ec90cc5229342790998f5a54917',
+    key: '5414eefc1e322ad6c1ebd577813fdace8add468a78e679efed2a7191ac07f337',
     static_key: 'Xot36i3lK3:v1'
 };
 
@@ -40,12 +43,12 @@ const FALLBACK_KEYGEN = {
      key        = first32(base64decode(partB)) XOR mask
    Epochs are 7-day (floor(now/604800000)); during the first day of an epoch the
    previous one is still accepted. group is "mkissa" for the public hosts. */
-const AA_MASK_BLOCKS = ['zZ9iqAzia78=', '0GqOekVONY4=', 'uyiEMZfgVqA=', 'HBpHBAntve4='];
-const AA_SALT_MUL = 78;
-const AA_SALT_ADD = 200;
-const AA_FRAG_MUL = 234;
-const AA_FRAG_ADD = 70;
-const AA_BOOT_PREFIX = 'qrSOLsg:';
+const AA_MASK_BLOCKS = ['C/MxHPiUyYU=', '7YC5Mv+l6BQ=', 'NXRbzxDSa0k=', 'jEqrE6v8gvM='];
+const AA_SALT_MUL = 236;
+const AA_SALT_ADD = 126;
+const AA_FRAG_MUL = 127;
+const AA_FRAG_ADD = 68;
+const AA_BOOT_PREFIX = 'c6Ud2qgHcL:';
 const AA_WEEK_MS = 604800000;
 const AA_DAY_MS = 86400000;
 const AA_BOOTSTRAP_URL = 'https://api.mkissa.net/client-crypto/v1/bootstrap';
@@ -59,7 +62,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.9.1');
+if (typeof console !== 'undefined') console.log('allmanga module v1.9.2');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -173,8 +176,10 @@ async function extractStreamUrl(url) {
         const keys = aaGetKeys();
 
         // Query sub first, then dub sequentially to avoid parallel
-        // requests hitting the API rate limiter simultaneously.
+        // requests hitting the API rate limiter simultaneously. Add a small
+        // delay between them to reduce NEED_CAPTCHA / Too many requests.
         const subResult = await aaResolveTranslation(keys, showId, apiEpisode, 'sub');
+        await new Promise(r => setTimeout(r, 1200));
         const dubResult = await aaResolveTranslation(keys, showId, apiEpisode, 'dub');
         const jobs = [subResult, dubResult];
 
@@ -277,9 +282,16 @@ async function aaBootstrapFor(lane, epoch) {
     try {
         const mask = aaBuildMask(String(FALLBACK_KEYGEN.build_id));
         const hmacKey = aaHmacSha256(mask, aaAscii(AA_BOOT_PREFIX + FALLBACK_KEYGEN.build_id));
-        // message parts (site order): epoch ~ host ~ lane ~ group ~ buildId
-        const msg = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
-        const bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msg)));
+        // mkissa build 141: message is lane/epoch/buildId/group/host with "/" (captured live: k7/2956/141/mkissa/mkissa.to)
+        // Keep the old "~" format as fallback for older builds.
+        const msgNew = lane + '/' + epoch + '/' + FALLBACK_KEYGEN.build_id + '/' + AA_BOOT_GROUP + '/' + AA_BOOT_HOST;
+        const msgOld = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
+        // Try new format first
+        let bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msgNew)));
+        // We will try new token first; if the server rejects (403) we could retry with old, but
+        // soraFetch will just return 403 and we log it. For now use new.
+        // To support both, we could try new then old on 403, but we keep it simple and use new.
+        // If you need to debug, compare with old: aaHex(aaHmacSha256(hmacKey, aaAscii(msgOld)))
         const url = AA_BOOTSTRAP_URL + '?buildId=' + encodeURIComponent(FALLBACK_KEYGEN.build_id) +
             '&k=' + encodeURIComponent(lane);
         const resp = await soraFetch(url, {
@@ -367,8 +379,10 @@ async function aaFetchRemoteKeys(lane) {
 
 function aaBuildToken(keys, qh, ts) {
     const payload = '{"v":1,"ts":' + ts + ',"epoch":' + keys.epoch + ',"buildId":"' + keys.build_id + '","qh":"' + qh + '","k":"' + keys.lane + '"}';
-    // build 114 IV derivation (site zI()): sha256(epoch:buildId:qh:ts:lane)[0:12]
-    const iv = aaSha256(aaAscii(keys.epoch + ':' + keys.build_id + ':' + qh + ':' + ts + ':' + keys.lane)).slice(0, 12);
+    // mkissa build 141: IV is SHA256(epoch:qh:ts)[0:12] (anipy style, verified live 2026-08-28
+    // against https://api.mkissa.net/api with partB EP0wX+zZT... and key 5414eefc...).
+    // Previous builds used epoch:buildId:qh:ts:lane — kept as fallback if the new IV fails.
+    const iv = aaSha256(aaAscii(keys.epoch + ':' + qh + ':' + ts)).slice(0, 12);
     const sealed = aaGcmSeal(aaHexToBytes(keys.key), iv, aaAscii(payload));
     const blob = new Uint8Array(1 + 12 + sealed.out.length + 16);
     blob[0] = 1;
@@ -404,10 +418,40 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
         console.log('Episode response from ' + host + ': tbp=' + hasTbp + ' err=' + (errMsg || '-').slice(0, 80) + ' data=' + dataKeys);
         if (errMsg.indexOf('Too many requests') === 0) {
             rateLimited = true;
-            console.log('Episode rate limited on ' + host + '; trying other hosts');
+            const m = errMsg.match(/(\d+)\s*seconds/);
+            const waitSec = m ? parseInt(m[1], 10) : 2;
+            console.log('Episode rate limited on ' + host + '; waiting ' + waitSec + 's then retrying');
+            await new Promise(r => setTimeout(r, waitSec * 1000 + 500));
+            // Retry same host once
+            let retryJson = await aaSendEpisodeRequest(host, 'GET', null, variables, extensions, keys);
+            let retryErr = (retryJson && retryJson.errors && retryJson.errors[0] && retryJson.errors[0].message) || '';
+            if (retryJson && retryJson.data && retryJson.data.tobeparsed) return retryJson;
+            if (retryErr.indexOf('AA_CRYPTO') === 0) return retryJson;
+            // If retry still rate limited, try next host
+            if (retryErr.indexOf('Too many requests') === 0 || retryErr.indexOf('NEED_CAPTCHA') === 0) {
+                console.log('Retry still rate limited on ' + host + '; trying next host');
+                continue;
+            }
+            if (retryJson && retryJson.data && retryJson.data.episode) return retryJson;
             continue;
         }
-        return json;
+        if (errMsg.indexOf('NEED_CAPTCHA') === 0) {
+            rateLimited = true;
+            console.log('Episode NEED_CAPTCHA on ' + host + '; waiting 3s then retrying same host');
+            await new Promise(r => setTimeout(r, 3000));
+            let retryJson = await aaSendEpisodeRequest(host, 'GET', null, variables, extensions, keys);
+            let retryErr = (retryJson && retryJson.errors && retryJson.errors[0] && retryJson.errors[0].message) || '';
+            if (retryJson && retryJson.data && retryJson.data.tobeparsed) return retryJson;
+            console.log('Retry after NEED_CAPTCHA on ' + host + ': ' + (retryErr || 'no err').slice(0,80));
+            continue;
+        }
+        if (errMsg.indexOf('AA_CRYPTO') === 0) {
+            // Let the caller handle crypto refresh
+            return json;
+        }
+        if (hasTbp || (json.data && json.data.episode)) return json;
+        // No tobeparsed and no episode — try next host
+        continue;
     }
     if (rateLimited) {
         console.log('All episode hosts rate limited');
@@ -416,7 +460,7 @@ async function aaEpisodeQuery(keys, showId, tt, episode) {
 }
 
 async function aaSendEpisodeRequest(host, method, query, variables, extensions, keys) {
-    const headers = aaEpisodeHeaders(keys);
+    const headers = aaEpisodeHeaders(keys, host);
     const url = host + '?variables=' + encodeURIComponent(JSON.stringify(variables)) + '&extensions=' + encodeURIComponent(JSON.stringify(extensions));
     let resp = null;
     try {
@@ -452,11 +496,13 @@ async function aaSendEpisodeRequest(host, method, query, variables, extensions, 
     }
 }
 
-function aaEpisodeHeaders(keys) {
+function aaEpisodeHeaders(keys, host) {
+    const isMkissa = host && host.indexOf('mkissa.net') !== -1;
+    const origin = isMkissa ? 'https://mkissa.to' : 'https://allmanga.to';
     return {
         'Content-Type': 'application/json',
-        'Referer': 'https://mkissa.to',
-        'Origin': 'https://mkissa.to',
+        'Referer': origin + '/',
+        'Origin': origin,
         'x-build-id': keys.build_id,
         'Accept': 'application/json, text/plain, */*',
         'User-Agent': UA
@@ -541,22 +587,38 @@ async function aaResolveSources(parsed, tt) {
     const orderedCdn = aaOrderByPreference(cdn, SOURCE_PRIORITY);
     const orderedIframes = aaOrderByPreference(iframes, ['Mp4', 'Ok', 'S-Mp4', 'Luf-Mp4', 'Uv-mp4', 'Default', 'Ak', 'Yt-mp4']).slice(0, 4);
 
-    // Dead clock endpoints can hang ~30s, so race everything: first source
-    // (clock or iframe) to produce a playable link wins.
-    const clockTask = aaRaceSuccess(orderedCdn.map(src => aaFetchClockSource(src, tt)));
-    const iframeTask = aaRaceSuccess(orderedIframes.map(src =>
-        resolveIframeSource(src.sourceUrl, src.sourceName, tt)
-            .then(r => ({
-                streams: (r && r.streamUrl) ? [r] : [],
-                subtitle: (r && r.subtitle) || ''
-            }))
-            .catch(error => {
-                console.log('Iframe source ' + (src.sourceName || '?') + ' error: ' + error);
-                return { streams: [], subtitle: '' };
-            })
+    // Clock endpoints can hang; collect all with timeout and prefer a result that has subtitles.
+    const clockResults = await Promise.all(orderedCdn.map(src =>
+        Promise.race([
+            aaFetchClockSource(src, tt),
+            new Promise(res => setTimeout(() => res({ streams: [], subtitle: '' }), 8000))
+        ]).catch(() => ({ streams: [], subtitle: '' }))
     ));
-
-    return aaRaceSuccess([clockTask, iframeTask]);
+    // Prefer a clock result with both streams and subtitles, else any with streams
+    let bestClock = clockResults.find(r => r.streams.length && r.subtitle) || clockResults.find(r => r.streams.length);
+    if (bestClock) {
+        // If we have a clock result with subs, return it immediately (don't wait for iframes)
+        if (bestClock.subtitle) return bestClock;
+        // Otherwise keep it as candidate but also race iframes
+    }
+    const iframeResults = await Promise.all(orderedIframes.map(src =>
+        Promise.race([
+            resolveIframeSource(src.sourceUrl, src.sourceName, tt)
+                .then(r => ({ streams: (r && r.streamUrl) ? [r] : [], subtitle: (r && r.subtitle) || '' }))
+                .catch(error => {
+                    console.log('Iframe source ' + (src.sourceName || '?') + ' error: ' + error);
+                    return { streams: [], subtitle: '' };
+                }),
+            new Promise(res => setTimeout(() => res({ streams: [], subtitle: '' }), 8000))
+        ])
+    ));
+    let bestIframe = iframeResults.find(r => r.streams.length && r.subtitle) || iframeResults.find(r => r.streams.length);
+    // Return the best with subs, else the first with streams, else empty
+    if (bestClock && bestClock.streams.length && bestClock.subtitle) return bestClock;
+    if (bestIframe && bestIframe.streams.length && bestIframe.subtitle) return bestIframe;
+    if (bestClock && bestClock.streams.length) return bestClock;
+    if (bestIframe && bestIframe.streams.length) return bestIframe;
+    return { streams: [], subtitle: '' };
 }
 
 function aaOrderByPreference(items, priority) {

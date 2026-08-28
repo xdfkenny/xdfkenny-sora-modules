@@ -6,8 +6,8 @@
     "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
     "url": "https://github.com/xdfkenny"
   },
-  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Auto-bootstrap de claves aaReq cuando rotan (build 136, epochs semanales), con fallback a keygen remoto y fuentes iframe (mp4upload/ok.ru) para mantener el flujo de video.",
-  "version": "1.9.1",
+  "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). Hotfix 2026-08-28: build 141 epoch 2956 (mask 44e9dea3…, key 5414eefc…, boot c6Ud2qgHcL:), IV epoch:qh:ts y EPISODE_QUERY de una línea (qh 7641f1…). Decrypt verificado (One Piece ep1 → wixmp HLS) y preferencia de subtítulos soft (clock → subtitles[0].src).",
+  "version": "1.9.2",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
