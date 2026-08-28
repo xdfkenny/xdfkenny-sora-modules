@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-08-27",
+  "lastUpdated": "2026-08-28",
   "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
   "modules": [
     {
@@ -91,6 +91,15 @@
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/torrentio/torrentio.json",
       "sampleQuery": "one piece"
+    },
+    {
+      "id": "kissasian",
+      "name": "KissAsian",
+      "iconUrl": "https://kissasian.su/assets/img/favicon.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/kissasian/kissasian.json",
+      "sampleQuery": "lovely runner"
     }
   ]
 }

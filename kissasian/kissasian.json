@@ -1,0 +1,32 @@
+{
+  "sourceName": "KissAsian",
+  "iconUrl": "https://kissasian.su/assets/img/favicon.png",
+  "author": {
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "Módulo de KissAsian (kissasian.su) — doramas asiáticos (coreanos, chinos, japoneses, tailandeses) y películas con subtítulos en inglés. Búsqueda vía ajax/filter, episodios vía ajax/ep-list, detalles vía ajax/info y streams HLS desencriptados desde player.dramavideo.se (AES-128-CBC).",
+  "version": "1.0.0",
+  "language": "English (SUB)",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://kissasian.su/",
+  "searchBaseUrl": "https://kissasian.su/filter?keyword=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/kissasian/kissasian.js",
+  "type": "movies/shows/anime",
+  "downloadSupport": true,
+  "combo": false,
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": true,
+  "supportsMojuru": false,
+  "supportsDartotsu": false,
+  "supportsSora": true,
+  "supportsShirox": true,
+  "supportsLuna": true,
+  "supportsAnymex": false,
+  "supportsTsumi": false,
+  "supportsHiyoku": false,
+  "supportsEclipse": true
+}
