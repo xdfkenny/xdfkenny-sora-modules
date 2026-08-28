@@ -4,7 +4,7 @@ const KISS_AJAX_FILTER = KISS_BASE + '/ajax/filter';
 const KISS_AJAX_INFO = KISS_BASE + '/ajax/info';
 const KISS_AJAX_EPLIST = KISS_BASE + '/ajax/ep-list';
 const KISS_PLAYER_BASE = 'https://player.dramavideo.se/kr';
-const KISS_BUILD = '1.0.0';
+const KISS_BUILD = '1.0.1';
 console.log('[KissAsian] module loaded v' + KISS_BUILD);
 
 /* MAIN FUNCTIONS */
