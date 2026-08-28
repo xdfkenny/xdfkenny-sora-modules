@@ -62,7 +62,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.9.2');
+if (typeof console !== 'undefined') console.log('allmanga module v1.9.3');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -830,34 +830,13 @@ async function aaLegacyStreams(showId, episode) {
         const ep = eps.find(e => String(e.episodeIdNum) === String(episode)) || eps[0];
         if (!ep) return JSON.stringify({ streams: [], subtitle: '' });
 
-        const streams = [];
-        [['sub', ep.vidInforssub], ['dub', ep.vidInforsdub], ['raw', ep.vidInforsraw]].forEach(function (pair) {
-            var label = pair[0];
-            var info = pair[1];
-            if (!info || !info.vidPath) return;
-            var path = String(info.vidPath).trim();
-            if (/^https?:\/\//i.test(path)) {
-                streams.push({
-                    title: label.toUpperCase() + ' ' + (info.vidResolution ? info.vidResolution + 'p' : 'auto'),
-                    streamUrl: path,
-                    headers: STREAM_HEADERS
-                });
-            } else {
-                CDN_BASES.forEach(function (base) {
-                    streams.push({
-                        title: label.toUpperCase() + ' ' + (info.vidResolution ? info.vidResolution + 'p' : 'auto'),
-                        streamUrl: base + '/' + path.replace(/^\/+/, ''),
-                        headers: {
-                            'Referer': base + '/',
-                            'Origin': base,
-                            'User-Agent': UA
-                        }
-                    });
-                });
-            }
-        });
-
-        return JSON.stringify({ streams, subtitle: '' });
+        // The vidPath fallback (e.g. /data2/media9/.../sub/1.mp4) now returns HTML Error Page
+        // (verified 2026-08-28 for One Piece and Bocchi) — do not return dead CDN URLs.
+        // Only return the legacy streams if the API is not rate-limited with NEED_CAPTCHA.
+        // If we reach here via NEED_CAPTCHA, the caller should have already returned 0 streams.
+        // For now, return 0 to avoid the app's JSON/HLS parser hitting HTML.
+        console.log('Legacy streams: vidPath fallback is dead (returns HTML), returning 0 to avoid JSON/HLS errors');
+        return JSON.stringify({ streams: [], subtitle: '' });
     } catch (error) {
         console.log('Legacy stream error: ' + error);
         return JSON.stringify({ streams: [], subtitle: '' });
