@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-08-28",
+  "lastUpdated": "2026-09-01",
   "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
   "modules": [
     {
@@ -36,6 +36,15 @@
       "category": "anime",
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anidb/anidb.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "anime-nexus",
+      "name": "AnimeNexus",
+      "iconUrl": "https://anime.nexus/favicon-32x32.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anime-nexus/anime-nexus.json",
       "sampleQuery": "one piece"
     },
     {
