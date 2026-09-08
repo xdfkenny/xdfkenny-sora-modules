@@ -91,6 +91,17 @@ const src = require('fs').readFileSync('allmanga-novels/allmanga-novels.js','utf
 - **Persisted-query cache**: GraphQL `PersistedQueryNotFound` → re-send query text once (`documentation/HowtotestNovels.md:131`).
 - **GitHub raw lag**: after push, wait before testing live URL; edit cached file in `~/Library/Containers/me.cranci.sulfur/Data/Documents/` for fast iteration (`documentation/Howtotest.md:28`).
 
+## Known dead ends (don't re-investigate)
+
+- `anime-nexus`: streaming is **not fixable in-module** — HLS requires a
+  stateful WebSocket token service (`prd-socket.anime.nexus`, namespace
+  `/video`) with Turnstile/altcha attestation + AES-GCM wire secret, plus
+  **per-segment** tokens; impossible in a fetchv2-only, no-WebSocket runtime
+  and unfulfillable by the consumer player. Only self-hosted token proxy works.
+  Full evidence: `documentation/anime-nexus-stream-protection.md:1`. Stream
+  *metadata* endpoint works with `X-Client-Fingerprint`/`X-Fingerprint` +
+  session cookie, but that alone cannot produce a playable m3u8.
+
 ## Adding / editing a module
 
 1. Copy `henaojara/henaojara.json` as manifest template or `novel-examples/` for novels.
