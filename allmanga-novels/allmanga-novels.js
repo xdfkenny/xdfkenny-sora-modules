@@ -36,37 +36,41 @@ const KEYGEN_URLS = [
     'https://raw.githubusercontent.com/sdaqo/anipy-cli/key-gen/scripts/keygen/keygen.json'
 ];
 
-// Known-good keygen snapshot (build 136, epoch 2955) — captured live on
-// 2026-08-22 (same snapshot the anime module v1.8.0 uses). When the API says
-// AA_CRYPTO_STALE/MISSING/EXPIRED the module self-bootstraps fresh keys from
-// the platform crypto endpoint (aaBootstrapFor), with the remote keygen repo
-// as last resort.
+// Key = partB XOR mask(166); mask bytes verified byte-for-byte against the app's
+// sy('166') via page crypto.subtle. Boot token algorithm (two-stage HMAC) verified:
+//   f    = HMAC(mask, AA_BOOT_PREFIX + build_id)
+//   boot = hex(HMAC(f, group:lane:epoch:host:build_id))   // ":"-joined, full host
+// Node reproduction matched the app's r4() token exactly. API accepts the derived
+// key (wrong key -> AA_CRYPTO_STALE). Keep this fallback fresh — the bootstrap
+// endpoint is now Cloudflare-protected in-app.
 const FALLBACK_KEYGEN = {
-    build_id: '136',
-    epoch: 2955,
+    build_id: '166',
+    epoch: 2957,
     lane: 'k7',
-    key: 'deeb2732190ceee0d84c7668d79b64ddcd5f27b9f858f2327fe29a7841b7b5da',
+    key: '43724f7d46135c6cdb2824f00c4ee272a0fff52f89681213140c6c2b80af8d21',
     static_key: 'Xot36i3lK3:v1'
 };
 
-// Self-bootstrap inputs, identical to allmanga anime build 136 scheme:
+// Self-bootstrap inputs (extracted from the mkissa.to crypto chunk, build 166).
+// The client derives its own AES key without any secret server round-trip:
 //   embed[i]   = concat(base64decode(mask blocks))          [32 bytes]
 //   salt[i]    = (buildId.charCodeAt(i % len) || 0)
 //                ^ ((i * AA_SALT_MUL + AA_SALT_ADD) & 255)
 //   linear[i]  = ((i >> 3) * AA_FRAG_MUL + (i % 8) * AA_FRAG_ADD) & 255
 //   mask[i]    = embed[i] ^ salt[i] ^ linear[i]
 //   hmacKey    = HMAC-SHA256(mask, AA_BOOT_PREFIX + buildId)
-//   bootTok    = hex(HMAC-SHA256(hmacKey, `${epoch}~${host}~${lane}~${group}~${buildId}`))
+//   bootTok    = hex(HMAC-SHA256(hmacKey, `${group}:${lane}:${epoch}:${host}:${buildId}`))
 //   GET {AA_BOOTSTRAP_URL}?buildId=<id>&k=<lane>  (x-build-id / x-aa-boot headers)
 //   key        = first32(base64decode(partB)) XOR mask
 // Epochs are 7-day (floor(now/604800000)); during the first day of an epoch the
-// previous one is still accepted. group is "mkissa" for the public hosts.
-const AA_MASK_BLOCKS = ['zZ9iqAzia78=', '0GqOekVONY4=', 'uyiEMZfgVqA=', 'HBpHBAntve4='];
-const AA_SALT_MUL = 78;
-const AA_SALT_ADD = 200;
-const AA_FRAG_MUL = 234;
-const AA_FRAG_ADD = 70;
-const AA_BOOT_PREFIX = 'qrSOLsg:';
+// previous one is still accepted. group is "mkissa" for the public hosts, and the
+// boot message uses the FULL host (with TLD), not the stripped first segment.
+const AA_MASK_BLOCKS = ['0VmOiOTlfQ0=', 'F/SlaG5999I=', 'VTm6fMS7BdQ=', 'LIQNr2OipeQ='];
+const AA_SALT_MUL = 165;
+const AA_SALT_ADD = 115;
+const AA_FRAG_MUL = 197;
+const AA_FRAG_ADD = 200;
+const AA_BOOT_PREFIX = 'ld1faaOf3G:';
 const AA_WEEK_MS = 604800000;
 const AA_DAY_MS = 86400000;
 const AA_BOOTSTRAP_URL = 'https://api.mkissa.net/client-crypto/v1/bootstrap';
@@ -81,7 +85,7 @@ const DEFAULT_CHAPTER_HEAD = 'https://aln.youtube-anime.com/';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-console.log('[AllMangaNovels] module script loaded v1.1.4 (build 136 keygen + self-bootstrap, kanzen-env safe)');
+console.log('[AllMangaNovels] module script loaded v1.2.0 (build 166 keygen + self-bootstrap, kanzen-env safe)');
 
 /* ---- fetch bridge --------------------------------------------------------- */
 
@@ -509,8 +513,10 @@ function aaUtf8ToStr(bytes) {
 
 function aaBuildToken(keys, qh, ts) {
     const payload = '{"v":1,"ts":' + ts + ',"epoch":' + keys.epoch + ',"buildId":"' + keys.build_id + '","qh":"' + qh + '","k":"' + keys.lane + '"}';
-    // build 114 IV derivation (site zI()): sha256(epoch:buildId:qh:ts:lane)[0:12]
-    const iv = aaSha256(aaAscii(keys.epoch + ':' + keys.build_id + ':' + qh + ':' + ts + ':' + keys.lane)).slice(0, 12);
+    // mkissa build 141: IV is SHA256(epoch:qh:ts)[0:12] (anipy style, verified live 2026-08-28
+    // against https://api.mkissa.net/api with partB EP0wX+zZT... and key 5414eefc...).
+    // Previous builds used epoch:buildId:qh:ts:lane — kept as fallback if the new IV fails.
+    const iv = aaSha256(aaAscii(keys.epoch + ':' + qh + ':' + ts)).slice(0, 12);
     const sealed = aaGcmSeal(aaHexToBytes(keys.key), iv, aaAscii(payload));
     const blob = new Uint8Array(1 + 12 + sealed.out.length + 16);
     blob[0] = 1;
@@ -601,9 +607,12 @@ async function aaBootstrapFor(lane, epoch) {
     try {
         const mask = aaBuildMask(String(FALLBACK_KEYGEN.build_id));
         const hmacKey = aaHmacSha256(mask, aaAscii(AA_BOOT_PREFIX + FALLBACK_KEYGEN.build_id));
-        // message parts (site order): epoch ~ host ~ lane ~ group ~ buildId
-        const msg = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
-        const bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msg)));
+        // mkissa build 166: message is group/lane/epoch/host/buildId joined by ":"
+        // (captured live: "mkissa:k7:2957:mkissa.to:166" — full host with TLD).
+        // Keep the old "~" format as fallback for older builds.
+        const msgNew = AA_BOOT_GROUP + ':' + lane + ':' + epoch + ':' + AA_BOOT_HOST + ':' + FALLBACK_KEYGEN.build_id;
+        // const msgOld = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
+        const bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msgNew)));
         const url = AA_BOOTSTRAP_URL + '?buildId=' + encodeURIComponent(FALLBACK_KEYGEN.build_id) +
             '&k=' + encodeURIComponent(lane);
         const resp = await soraFetch(url, {

@@ -15,22 +15,24 @@ const EPISODE_QUERY = 'query($showId: String!$translationType: VaildTranslationT
 
 const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4', 'Mp4'];
 
-// Known-good keygen snapshot (build 141, epoch 2956) — captured live on
-// 2026-08-28 via mkissa.to bootstrap (partB EP0wX+zZTEm8U+mdTgdy4kvwvLm5jXb/sx+YmPAhc7s=).
-// Verified end-to-end: episode → tobeparsed → clock → HLS (One Piece ep1, Clannad ep1).
-// The mask for this build is 44e9dea3f2eb669f7db83ceacf38a82cc12dfa33c16b0f105e35e9095c26808c
-// (vy(141) via page's crypto.subtle). Boot token 8fe794b2df3543d78aaadf449396cc690a32732a69e12c37095388262c67d59d
-// validated. Keep this fallback fresh — the bootstrap endpoint is now Cloudflare-
-// protected and the old mask blocks (build 136) no longer derive the correct key.
+// Known-good keygen snapshot (build 166, epoch 2957) — captured live on
+// 2026-09-08 via mkissa.to bootstrap (partB 0M3a/rOE8dmkIAc5mXwvsorKaTWGbLq1rTm9yMUoL1o=).
+// Key = partB XOR mask(166); mask bytes verified byte-for-byte against the app's
+// sy('166') via page crypto.subtle. Boot token algorithm (two-stage HMAC) verified:
+//   f    = HMAC(mask, AA_BOOT_PREFIX + build_id)
+//   boot = hex(HMAC(f, group:lane:epoch:host:build_id))   // ":"-joined, full host
+// Node reproduction matched the app's r4() token exactly. API accepts the derived
+// key (wrong key -> AA_CRYPTO_STALE). Keep this fallback fresh — the bootstrap
+// endpoint is now Cloudflare-protected in-app.
 const FALLBACK_KEYGEN = {
-    build_id: '141',
-    epoch: 2956,
+    build_id: '166',
+    epoch: 2957,
     lane: 'k7',
-    key: '5414eefc1e322ad6c1ebd577813fdace8add468a78e679efed2a7191ac07f337',
+    key: '43724f7d46135c6cdb2824f00c4ee272a0fff52f89681213140c6c2b80af8d21',
     static_key: 'Xot36i3lK3:v1'
 };
 
-/* Self-bootstrap inputs (extracted from the mkissa.to crypto chunk, build 136).
+/* Self-bootstrap inputs (extracted from the mkissa.to crypto chunk, build 166).
    The client derives its own AES key without any secret server round-trip:
      embed[i]   = concat(base64decode(mask blocks))          [32 bytes]
      salt[i]    = (buildId.charCodeAt(i % len) || 0)
@@ -38,17 +40,18 @@ const FALLBACK_KEYGEN = {
      linear[i]  = ((i >> 3) * AA_FRAG_MUL + (i % 8) * AA_FRAG_ADD) & 255
      mask[i]    = embed[i] ^ salt[i] ^ linear[i]
      hmacKey    = HMAC-SHA256(mask, AA_BOOT_PREFIX + buildId)
-     bootTok    = hex(HMAC-SHA256(hmacKey, `${epoch}~${host}~${lane}~${group}~${buildId}`))
+     bootTok    = hex(HMAC-SHA256(hmacKey, `${group}:${lane}:${epoch}:${host}:${buildId}`))
      GET {AA_BOOTSTRAP_URL}?buildId=<id>&k=<lane>  (x-build-id / x-aa-boot headers)
      key        = first32(base64decode(partB)) XOR mask
    Epochs are 7-day (floor(now/604800000)); during the first day of an epoch the
-   previous one is still accepted. group is "mkissa" for the public hosts. */
-const AA_MASK_BLOCKS = ['C/MxHPiUyYU=', '7YC5Mv+l6BQ=', 'NXRbzxDSa0k=', 'jEqrE6v8gvM='];
-const AA_SALT_MUL = 236;
-const AA_SALT_ADD = 126;
-const AA_FRAG_MUL = 127;
-const AA_FRAG_ADD = 68;
-const AA_BOOT_PREFIX = 'c6Ud2qgHcL:';
+   previous one is still accepted. group is "mkissa" for the public hosts, and the
+   boot message uses the FULL host (with TLD), not the stripped first segment. */
+const AA_MASK_BLOCKS = ['0VmOiOTlfQ0=', 'F/SlaG5999I=', 'VTm6fMS7BdQ=', 'LIQNr2OipeQ='];
+const AA_SALT_MUL = 165;
+const AA_SALT_ADD = 115;
+const AA_FRAG_MUL = 197;
+const AA_FRAG_ADD = 200;
+const AA_BOOT_PREFIX = 'ld1faaOf3G:';
 const AA_WEEK_MS = 604800000;
 const AA_DAY_MS = 86400000;
 const AA_BOOTSTRAP_URL = 'https://api.mkissa.net/client-crypto/v1/bootstrap';
@@ -62,7 +65,7 @@ const CDN_BASES = [
 
 let aaKeyCache = { keys: null, ts: 0 };
 
-if (typeof console !== 'undefined') console.log('allmanga module v1.9.3');
+if (typeof console !== 'undefined') console.log('allmanga module v1.10.0');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -93,7 +96,7 @@ async function searchResults(keyword) {
         const results = [];
         const seen = new Set();
         shows.forEach(show => {
-            const href = `${BASE_URL}/bangumi/${show._id}`;
+            const href = `${BASE_URL}/anime/${show._id}`;
             const title = cleanText(show.englishName || show.name || '');
             if (!title || !show._id || seen.has(href)) return;
             seen.add(href);
@@ -148,7 +151,7 @@ async function extractEpisodes(url) {
         const episodes = eps
             .filter(ep => ep.episodeIdNum !== undefined && ep.episodeIdNum !== null)
             .map(ep => ({
-                href: `${BASE_URL}/bangumi/${showId}/p-${ep.episodeIdNum}`,
+                href: `${BASE_URL}/anime/${showId}/p-${ep.episodeIdNum}`,
                 number: ep.episodeIdNum
             }))
             .sort((a, b) => a.number - b.number);
@@ -235,7 +238,7 @@ function aaGetKeys() {
     };
 }
 
-/* ---- live self-bootstrap (build 136 scheme) ------------------------------ */
+/* ---- live self-bootstrap (build 166 scheme) ------------------------------ */
 
 // Pure-JS HMAC-SHA256 over the module's existing aaSha256 (RFC 2104).
 function aaHmacSha256(key, msg) {
@@ -282,9 +285,10 @@ async function aaBootstrapFor(lane, epoch) {
     try {
         const mask = aaBuildMask(String(FALLBACK_KEYGEN.build_id));
         const hmacKey = aaHmacSha256(mask, aaAscii(AA_BOOT_PREFIX + FALLBACK_KEYGEN.build_id));
-        // mkissa build 141: message is lane/epoch/buildId/group/host with "/" (captured live: k7/2956/141/mkissa/mkissa.to)
+        // mkissa build 166: message is group/lane/epoch/host/buildId joined by ":"
+        // (captured live: "mkissa:k7:2957:mkissa.to:166" — full host with TLD).
         // Keep the old "~" format as fallback for older builds.
-        const msgNew = lane + '/' + epoch + '/' + FALLBACK_KEYGEN.build_id + '/' + AA_BOOT_GROUP + '/' + AA_BOOT_HOST;
+        const msgNew = AA_BOOT_GROUP + ':' + lane + ':' + epoch + ':' + AA_BOOT_HOST + ':' + FALLBACK_KEYGEN.build_id;
         const msgOld = epoch + '~' + AA_BOOT_HOST + '~' + lane + '~' + AA_BOOT_GROUP + '~' + FALLBACK_KEYGEN.build_id;
         // Try new format first
         let bootTok = aaHex(aaHmacSha256(hmacKey, aaAscii(msgNew)));
@@ -1311,12 +1315,12 @@ function unpack(source) {
 }
 
 function extractShowId(url) {
-    const match = String(url || '').match(/\/bangumi\/([^\/?#]+)/);
+    const match = String(url || '').match(/\/anime\/([^\/?#]+)/);
     return match ? match[1] : '';
 }
 
 function parseEpisodeUrl(url) {
-    const match = String(url || '').match(/\/bangumi\/([^\/?#]+)\/p-([^\/?#]+)/);
+    const match = String(url || '').match(/\/anime\/([^\/?#]+)\/p-([^\/?#]+)/);
     return match ? { showId: match[1], episode: match[2] } : null;
 }
 
