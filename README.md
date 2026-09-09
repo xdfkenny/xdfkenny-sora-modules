@@ -2,7 +2,7 @@
 
 <h1 align="center">xdfkenny modules</h1>
 
-<p align="center"><b>random ai agent vibe coded modules for anime streaming.</b></p>
+<p align="center"><b>Streaming modules for anime, movies, manga and novels.</b></p>
 
 <p align="center">
   <a href="#overview">Overview</a> •
@@ -13,7 +13,7 @@
 
 ## Overview
 
-xdfkenny modules engineer with ai agents xdddddddddd 🤪🤪🤪🤪🤪🤪🤪🤪🤪🤪
+Curated collection of streaming modules.
 
 | Surface | Route | Description | Data Source |
 | :--- | :--- | :--- | :--- |
@@ -74,4 +74,4 @@ The framework leverages a high-performance **fetchv2** bridge to handle complex 
 
 ---
 
-<p align="center"><sub>Written by <b>Vibe Coding</b> with multiples AI agents</sub></p>
+<p align="center"><sub>Built and maintained by xdfkenny</sub></p>

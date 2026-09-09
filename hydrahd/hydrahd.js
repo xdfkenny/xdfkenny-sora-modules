@@ -15,7 +15,7 @@ const SCS_TOKEN_XOR = [59,12,39,40,36,113,116,116,115,53,123,16,115,3,37,38,42,1
 
 // Load marker: visible in the app's logs, so we can tell which script version is
 // actually running after a re-add (raw CDN can lag behind the pushed commit).
-console.log('[HydraHD] module script loaded v2.2.1 (incremental Beta landing)');
+console.log('[HydraHD] module script loaded v2.3.0 (IMDb poster enrichment)');
 
 // The app's JavaScriptCore may predate ES2020: polyfill Promise.allSettled so a
 // single rejected worker can never abort the whole stream extraction.
@@ -264,11 +264,77 @@ async function searchResults(keyword) {
                 });
             }
         }
+        try {
+            await Promise.all(results.map(function(r) { return enrichSearchPoster(r); }));
+        } catch (e) {
+            console.error('Poster enrichment error:', e);
+        }
         return JSON.stringify(results);
     } catch (error) {
         console.error('Search error:', error);
         return JSON.stringify([]);
     }
+}
+
+// ---- Poster enrichment -------------------------------------------------------
+// The search page only ships the site's own TMDB w342 thumbnail, which renders
+// soft at card size. Two keyless upgrades, in order:
+//   * always: re-serve the SAME native TMDB art at high resolution (w1280) —
+//     zero extra requests, never wrong art;
+//   * movies only: exact-title Cinemeta lookup (keyless, time-boxed, memoized)
+//     resolves the IMDb id, then serves the real IMDb poster from
+//     images.metahub.space (verified 200 with no Referer). Series are never
+//     guessed at: Cinemeta's ambiguous names ("Spider-Man" = 1967 vs 1994)
+//     make mismatched art more likely than a soft poster, so they keep the
+//     upgraded native artwork.
+const TMDB_HIRES_POSTER_WIDTH = 'w1280';
+const METAHUB_POSTER_URL = 'https://images.metahub.space/poster/original/';
+const posterImdbMemo = {};
+const POSTER_MEMO_MAX = 60;
+
+function upgradePosterToHiRes(image) {
+    if (typeof image !== 'string' || !image) return image;
+    return image.replace(/^https?:\/\/image\.tmdb\.org\/t\/p\/[^/]+\/(.+)$/,
+        'https://image.tmdb.org/t/p/' + TMDB_HIRES_POSTER_WIDTH + '/$1');
+}
+
+async function resolveMovieImdbId(title) {
+    const clean = cleanTitleForMeta(title);
+    if (!clean || clean.length < 2) return null;
+    const key = 'movie:' + clean.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(posterImdbMemo, key)) return posterImdbMemo[key];
+    let result = null;
+    try {
+        const body = await softRace((async function() {
+            const r = await soraFetch(CINEMETA_URL + '/catalog/movie/top/search=' + encodeURIComponent(clean) + '.json');
+            return r ? r.text() : null;
+        })(), 8500);
+        if (body) {
+            const data = JSON.parse(body);
+            const metas = (data && data.metas) || [];
+            const lower = clean.toLowerCase();
+            const exact = metas.find(function(m) {
+                return String(m && m.name || '').trim().toLowerCase() === lower;
+            });
+            if (exact && /^tt\d+$/.test(String(exact.id || ''))) result = String(exact.id);
+        }
+    } catch (e) { /* keep the upgraded native poster */ }
+    posterImdbMemo[key] = result;
+    const keys = Object.keys(posterImdbMemo);
+    if (keys.length > POSTER_MEMO_MAX) delete posterImdbMemo[keys[0]];
+    return result;
+}
+
+async function enrichSearchPoster(result) {
+    if (!result || !result.image) return;
+    const nativeHiRes = upgradePosterToHiRes(result.image);
+    result.image = nativeHiRes || result.image;
+    const href = String(result.href || '');
+    if (href.indexOf('/movie/') === -1) return; // series: never guess at IMDb art
+    try {
+        const imdbId = await resolveMovieImdbId(result.title);
+        if (imdbId) result.image = METAHUB_POSTER_URL + imdbId + '/img';
+    } catch (e) { /* upgraded native poster already in place */ }
 }
 
 function getPageDetails(html) {
