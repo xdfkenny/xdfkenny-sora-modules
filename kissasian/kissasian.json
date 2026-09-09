@@ -1,0 +1,29 @@
+{
+  "sourceName": "KissAsian",
+  "iconUrl": "https://kissasian.su/favicon.ico",
+  "author": {
+    "name": "xdfkenny",
+    "icon": "https://yt3.googleusercontent.com/NHr6Y6qhYIUeoyIBdgeEYArXI1_ebVcLAuf562jPB6WSFTunOwPVuWC90eAG1zmeD6_Wy9_0mTs=s160-c-k-c0x00ffffff-no-rj",
+    "url": "https://github.com/xdfkenny"
+  },
+  "description": "Módulo de KissAsian - Dramas y shows asiáticos gratuitos. Búsqueda por título, categorías y géneros. Extracción de detalles, episodios y streams de drama coreano, chino, taiwanés, japonés y otros asiáticos.",
+  "version": "1.0.0",
+  "language": "English",
+  "baseUrl": "https://kissasian.su",
+  "searchBaseUrl": "https://kissasian.su/search/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/kissasian/kissasian.js",
+  "type": "anime",
+  "streamType": "HLS",
+  "asyncJS": true,
+  "quality": "1080p",
+  "downloadSupport": false,
+  "softsub": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsDartotsu": false,
+  "supportsAnymex": false,
+  "supportsTsumi": false,
+  "supportsHiyoku": false,
+  "supportsShirox": false,
+  "supportsMojuru": false
+}
