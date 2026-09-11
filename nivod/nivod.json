@@ -1,0 +1,28 @@
+{
+  "sourceName": "Nivod",
+  "iconUrl": "https://www.nivod.cc/static/nivod/image/logo/logo_512x512.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.1",
+  "language": "Chinese",
+  "languageType": [
+    "Native"
+  ],
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://www.nivod.cc/",
+  "searchBaseUrl": "https://www.nivod.cc/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nivod/nivod.js",
+  "type": "anime/movies/shows",
+  "asyncJS": true,
+  "softsub": true,
+  "downloadSupport": false,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nivod/nivod.js"
+}

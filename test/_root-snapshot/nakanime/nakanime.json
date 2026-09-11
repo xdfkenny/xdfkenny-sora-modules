@@ -1,0 +1,24 @@
+{
+  "sourceName": "Nakanime",
+  "iconUrl": "https://nakanime.tv/favicon.ico",
+  "author": {
+    "name": "MXFia19",
+    "icon": "https://i.pinimg.com/1200x/89/78/33/89783349d3270e4ab071db9a038db8ea.jpg",
+    "url": "https://github.com/MXFia19"
+  },
+  "version": "1.0.22",
+  "language": "French",
+  "streamType": "HLS/MP4",
+  "quality": "1080p",
+  "baseUrl": "https://nakanime.tv/",
+  "searchBaseUrl": "https://nakanime.tv/api/catalog/search?q=",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nakanime/nakanime.js",
+  "type": "anime",
+  "downloadSupport": true,
+  "asyncJS": true,
+  "softsub": false,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "changelog": "fix ok.ru/mail.ru 403 on iOS: stream Referer must be the CDN's own origin (same-origin), not my.mail.ru, and NO cookie (verified vs working browser request)",
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nakanime/nakanime.js"
+}

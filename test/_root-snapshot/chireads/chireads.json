@@ -1,0 +1,26 @@
+{
+  "sourceName": "ChiReads",
+  "iconUrl": "https://chireads.com/wp-content/uploads/2020/04/2020LOGO-2.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.1",
+  "language": "French",
+  "languageType": [
+    "Native"
+  ],
+  "streamType": "novels",
+  "quality": "N/A",
+  "baseUrl": "https://chireads.com/",
+  "searchBaseUrl": "https://chireads.com/search/%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/chireads/chireads.js",
+  "type": "novels",
+  "asyncJS": true,
+  "novel": true,
+  "downloadSupport": false,
+  "supportsSora": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/chireads/chireads.js"
+}

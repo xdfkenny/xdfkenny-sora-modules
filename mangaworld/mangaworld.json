@@ -1,0 +1,24 @@
+{
+  "sourceName": "MangaWorld",
+  "iconUrl": "https://www.mangaworld.mx/public/assets/seo/favicon-96x96.png",
+  "version": "1.0.0",
+  "language": "Italian",
+  "languageType": [
+    "Translated"
+  ],
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangaworld/mangaworld.js",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "type": "mangas",
+  "supportsDartotsu": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsEclipse": true,
+  "supportsShirox": true,
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangaworld/mangaworld.js",
+  "streamType": "mangas",
+  "quality": "N/A",
+  "asyncJS": true
+}

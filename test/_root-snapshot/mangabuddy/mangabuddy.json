@@ -1,0 +1,24 @@
+{
+  "sourceName": "MangaBuddy",
+  "iconURL": "https://mangabuddy.com/static/sites/mangabuddy/icons/apple-touch-icon.png",
+  "version": "2.0",
+  "language": "English",
+  "languageType": [
+    "Translated"
+  ],
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangabuddy/mangabuddy.js",
+  "author": {
+    "name": "50/50",
+    "iconURL": "https://files.catbox.moe/741wp7.png"
+  },
+  "type": "mangas",
+  "supportsDartotsu": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsEclipse": true,
+  "supportsShirox": true,
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangabuddy/mangabuddy.js",
+  "streamType": "mangas",
+  "quality": "N/A",
+  "asyncJS": true
+}

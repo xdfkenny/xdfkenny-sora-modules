@@ -1,0 +1,2474 @@
+{
+  "generatedAt": "2026-09-11T01:27:32.161Z",
+  "concurrency": 6,
+  "summary": {
+    "ACTIVE": 56,
+    "PARTIAL": 0,
+    "INACTIVE": 0
+  },
+  "results": [
+    {
+      "id": "123anime/123anime.json",
+      "source": "123Anime",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/123anime/123anime.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/123anime/123anime.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 28,
+          "sample": [
+            "One Piece",
+            "One Piece: Heroines",
+            "One Piece: Dr. Chopper's Adventure Checkup - The Last Records That a Genius Left Behind"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Barely surviving in a barrel after passing through a terrible whirlpool at sea, carefree Monkey D. Luffy ends up aboard a ship under attack by fearsome pirates. Despite being a naive-looking teenager, he is not to be underestimated. Unmatched in battle, Luffy is a pirate himself who resolutely pursues the coveted One Piece treasure and the King of the Pirates title that comes with it. The late King of the Pirates, Gol D. Roger, stirred up the world before his death by disclosing the whereabouts of his hoard of riches and daring everyone to obtain it. Ever since then, countless powerful pirates have sailed dangerous seas for the prized One Piece only to never return. Although Luffy lacks a crew and a proper ship, he is endowed with a superhuman ability and an unbreakable spirit that make him not only a formidable adversary but also an inspiration to many. As he faces numerous challenges with a big smile on his face, Luffy gathers one-of-a-kind companions to join him in his ambitious endeavor, together embracing perils and wonders on their once-in-a-lifetime adventure. [Written by MAL Rewrite]",
+          "aliases": "One Piece",
+          "airdate": "1999"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 50
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://stream-proxy-397vf67bnod.simplepostrequest.workers.dev/?url=https%3A%2F%2Fimgcdn44"
+          ]
+        }
+      },
+      "ms": 5336
+    },
+    {
+      "id": "aether/aether.json",
+      "source": "Aether",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aether/aether.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aether/aether.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 20,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: 3 season(s)",
+          "airdate": "Released: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAw3KyVaDMBQA0F_KYBRcUlo4FKIkL",
+            "https://cdn.neuronix.sbs/segment/870ef25928d341e5849b8eaa6b5b2448/?token1=c47e7d4e5ea94dfa",
+            "https://tiki.aether.cx/e27374b81c7da3be49db5b2898810c21/master.m3u8"
+          ]
+        }
+      },
+      "ms": 4362
+    },
+    {
+      "id": "airflix/airflix.json",
+      "source": "Airflix",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/airflix/airflix.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/airflix/airflix.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAwXBXXeCIBgA4L_ER3hql03QmLEjy",
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAw3OW3KCMBQA0C2RxEDpn608inAdy",
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAw3M22KCIAAA0F9CyZV7dIlLgybKR"
+          ]
+        }
+      },
+      "ms": 2236
+    },
+    {
+      "id": "aksv/aksv.json",
+      "source": "AK.SV",
+      "type": "movies/shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aksv/aksv.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aksv/aksv.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 5,
+          "sample": [
+            "ONE PIECE الموسم الثاني",
+            "ون بيس مدبلج",
+            "One Piece الموسم الاول"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "مشاهدة و تحميل مسلسل ONE PIECE الموسم الثاني يدور العمل حول معتمرًا قبعته المصنوعة من القشّ، ينطلق القرصان الشاب \"مونكي دي لوفي\" بمعية فريقه المتنوّع، في رحلة ملحمية بحثًا عن كنز، في هذه النسخة التمثيلية المقتبسة من سلسلة المانغا الشهيرة.",
+          "aliases": "اكشن, NETFLIX, فانتازيا",
+          "airdate": "2026"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 8
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://s205d1.downet.net/download/1789176409/6aa358d9941e7/One.Piece.S02E01.WEB-DL.AKWAM."
+          ]
+        }
+      },
+      "ms": 4040
+    },
+    {
+      "id": "an1me/an1me.json",
+      "source": "An1me",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/an1me/an1me.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/an1me/an1me.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 105,
+          "sample": [
+            "Anime",
+            "Anime",
+            "Anime"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "N/A",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://an1me.to/anime_attribute/sub/"
+          ]
+        }
+      },
+      "ms": 4267
+    },
+    {
+      "id": "anidub/anidub.json",
+      "source": "AniDub",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anidub/anidub.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anidub/anidub.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 40,
+          "sample": [
+            "Любовный Ван-Пис",
+            "Ван-Пис: Героини",
+            "Ван-Пис: Запись приключений доктора Чоппера — Баллада отца и дочери"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Сюжет этого гэг-манга-спин-оффа строится вокруг трёх старшеклассников: парня, его девушки и «третьего лишнего» — фанатика Ван-Пис. Их имена созвучны именам Соломенной шляпы, а сама троица создаёт фан-клуб, посвящённый Ван-Пис. 61293 7 Koisuru One Piece 2025 Япония 61293",
+          "aliases": "Любовный Ван-Пис смотреть аниме онлайн бесплатно на сайте",
+          "airdate": "2025"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 4
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vd575.okcdn.ru/?expires=1789176409540&srcIp=201.208.188.171&pr=90&srcAg=CHROME&ms="
+          ]
+        }
+      },
+      "ms": 3789
+    },
+    {
+      "id": "aniliberty/aniliberty.json",
+      "source": "AniLiberty",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aniliberty/aniliberty.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aniliberty/aniliberty.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 11,
+          "sample": [
+            "Ван-Пис",
+            "Ван-Пис: Героини",
+            "Ванпанчмен"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Гол Д. Роджер — король пиратов, добившийся за свою жизнь богатства, славы и власти - спрятал где-то на просторах этого мира загадочное сокровище, которое все называют «Ван-Пис». После смерти Роджера множество смельчаков кинулись на поиски этого сокровища. Так наступила великая эпоха пиратов! \r\nПаренёк по имени Луффи из маленькой прибрежной деревушки тоже мечтает стать королём пиратом. Ещё в детстве он ненароком съел дьявольский плод «Резина-Резина» и приобрёл невероятные способности. Повзрослев, он покинул родные места в погоне за величайшим сокровищем!",
+          "aliases": "Duration: 25m",
+          "airdate": "Unknown"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 9
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://cache.libria.fun/videos/media/ts/10290/1/1080/6e7f45803b46cbc95dc61af79f55cb93.m3u",
+            "https://cache.libria.fun/videos/media/ts/10290/1/720/69ebd857ac3003ccfdb30c195ae1640b.m3u8",
+            "https://cache.libria.fun/videos/media/ts/10290/1/480/6ad8b225309fc4bcb4fa2feba4ea8cf1.m3u8"
+          ]
+        }
+      },
+      "ms": 1831
+    },
+    {
+      "id": "anime-sama/anime-sama.json",
+      "source": "Anime-Sama",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anime-sama/anime-sama.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anime-sama/anime-sama.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 5,
+          "sample": [
+            "One Piece",
+            "One Outs",
+            "One Punch Man"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Cliquer sur une pub est le meilleur moyen de nous soutenir.",
+          "aliases": "Anime-Sama",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1368
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://prx-1328-ant.vmpx.online/hls2/01/02888/3c5re3dv0g4u_,n,l,.urlset/master.m3u8?t=qYc",
+            "https://video.sibnet.ru/v/e7fdcc0ca40516cb135169796ac7f525/4826196.mp4",
+            "https://video.sibnet.ru/v/b2b3d459d94e13ca78d61ba97339e05e/4833453.mp4"
+          ]
+        }
+      },
+      "ms": 39261
+    },
+    {
+      "id": "animeav1/animeav1.json",
+      "source": "AnimeAV1",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animeav1/animeav1.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animeav1/animeav1.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 20,
+          "sample": [
+            "One Piece",
+            "One Piece: Heroines",
+            "One Piece: Gyojin Tou-hen"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Apenas sobreviviendo en un barril tras pasar por un terrible remolino en el mar, el despreocupado Monkey D. Luffy termina a bordo de un barco bajo ataque de temibles piratas. A pesar de parecer un adolescente ingenuo, no se le debe subestimar. Inigualable en combate, Luffy es un pirata que persigue resueltamente el codiciado tesoro de One Piece y el título de Rey de los Piratas que lo acompaña.\n\nEl difunto Rey de los Piratas, Gol D. Roger, agitou al mundo antes de su muerte al revelar la ubicación de su tesoro y desafiar a todos a conseguirlo. Desde entonces, innumerables poderosos piratas han navegado por mares peligrosos en busca del preciado One Piece, solo para nunca regresar. Aunque Luffy carece de una tripulación y de un barco adecuado, posee una habilidad sobrehumana y un espíritu indomable que lo convierten no solo en un formidable adversario, sino también en una inspiración para muchos.\n\nMientras enfrenta numerosos desafíos con una gran sonrisa en su rostro, Luffy reúne compañeros únicos para unirse a él en su ambicioso empeño, abrazando juntos los peligros y maravillas en su aventura única en la vida.",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 50
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://player.zilla-networks.com/m3u8/7601658844858539e438dceee32e7924"
+          ]
+        }
+      },
+      "ms": 2582
+    },
+    {
+      "id": "animedefenders/animedefenders.json",
+      "source": "AnimeDefenders",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animedefenders/animedefenders.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animedefenders/animedefenders.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 20,
+          "sample": [
+            "ONE PIECE HEROINES",
+            "ONE PIECE: Gyojin Tou-hen",
+            "ONE PIECE STAMPEDE"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "N/A",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "https://playeng.animeapps.top/r2/cachesub/202607051717001080p67330700373019392/index.m3u8",
+            "https://playeng.animeapps.top/r2/cachesub/20260705171659720p70404466195754275/index.m3u8"
+          ]
+        }
+      },
+      "ms": 2840
+    },
+    {
+      "id": "animegg/animegg.json",
+      "source": "AnimeGG",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animegg/animegg.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animegg/animegg.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 78,
+          "sample": [
+            "One Piece: Episode of Merry - Mou Hitori no Nakama no Monogatari",
+            "One Piece",
+            "Toriko"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "The story arcs aboard the Straw Hat Crew's first ship Going Merry (Merry Go in some adaptations) are recreated with brand-new animation, from Luffy and Usopp's fight and Robin's disappearance to the crew's final farewell to the ship. Going Merry is treated as another member of the Straw Hats as Luffy, Zoro, Nami, and the rest of the crew set sail for the legendary treasure, the One Piece.",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://www.animegg.org/play/265000/video.mp4?for=101789090012487"
+          ]
+        }
+      },
+      "ms": 2441
+    },
+    {
+      "id": "animeland/animeland.json",
+      "source": "AnimeLand",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animeland/animeland.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animeland/animeland.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 9,
+          "sample": [
+            "One Piece Adventure of Nebulandia",
+            "One Piece Episode of Sorajima",
+            "One Piece Densetsu no Log! Akagami no Shanks!"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "This special will have the Straw Hats fight Foxy again in the New World on Nebulandia, an island that nullifies Devil Fruit powers.",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://animesource.me/cache/opnebulandiadub1.html.mp4"
+          ]
+        }
+      },
+      "ms": 1836
+    },
+    {
+      "id": "animelib/animelib.json",
+      "source": "AnimeLib",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animelib/animelib.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animelib/animelib.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 60,
+          "sample": [
+            "ONE PIECE",
+            "One Piece Film: Red",
+            "One Piece: Baron Omatsuri and the Secret Island"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Голд Роджер – король пиратов, добившийся за свою жизнь богатства, славы и власти, спрятал где-то на просторах этого мира загадочное сокровище, которое все называют «One Piece». После смерти Роджера множество смельчаков кинулись на поиски этого большого куша. И наступила великая эра пиратов!\nВот и паренек по имени Луффи, живущий в маленькой прибрежной деревушке, мечтает стать пиратом. Ещё в детстве он ненароком съел плод резина-резина и приобрел невероятные способности. Повзрослев, он покидает родные места в погоне за величайшим сокровищем!",
+          "aliases": "ONE PIECE, One Piece, Большой куш, Ван Пис, Ван-Пис, Ванпис, Одним куском, ワンピース",
+          "airdate": "1999-10-20"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1177
+        },
+        "stream": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "https://cloud.solodcdn.com/useruploads/8d53f9b5-059c-49d9-9141-b5eb96b3af1f/8a48e1f657b1ef",
+            "https://cloud.solodcdn.com/useruploads/0b007a2d-b8a3-4219-9a50-9a0a45016787/c91b3d22036fa3",
+            "https://cloud.solodcdn.com/useruploads/8932b2a7-9f02-41a1-9fce-9456a430e3bf/d4a0a797255444"
+          ]
+        }
+      },
+      "ms": 3982
+    },
+    {
+      "id": "animenosub/animenosub.json",
+      "source": "AnimeNoSub",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animenosub/animenosub.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animenosub/animenosub.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 9,
+          "sample": [
+            "One Piece: Heroines",
+            "ONE PIECE Season 2 (Live Action)",
+            "One Piece DUB"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Go behind the runway as style icon Nami stars in a life-changing fashion show, observe wise Robin as she helps to decipher an ancient tablet with Koala and Sabo, watch as solemn Princess Vivi receives a love letter from an unexpected admirer, and check out Ghost Princess Perona’s battle over the last bottle of wine with Zoro and Mihawk!",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "https://box-1400-p10.vmeas.cloud/hls2/04/02598/g4keh8hl6py5_,n,l,.urlset/master.m3u8?t=M2a",
+            "https://box-c-o-l-1.vmcld.space/hls2/03/02598/4fs3gjlqw8jx_,n,l,.urlset/master.m3u8?t=bbL5"
+          ]
+        }
+      },
+      "ms": 3897
+    },
+    {
+      "id": "AnimeUnity/AnimeUnity.json",
+      "source": "AnimeUnity",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/AnimeUnity/AnimeUnity.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/AnimeUnity/animeunity.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 30,
+          "sample": [
+            "One Piece",
+            "One Piece: Oounabara ni Hirake! Dekkai Dekkai Chichi no Yume! (ITA)",
+            "One Piece: Oounabara ni Hirake! Dekkai Dekkai Chichi no Yume!"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Monkey D. Rufy è un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, però, della capacità di nuotare. L'obiettivo che lo ha spinto in mare è quello ambizioso di diventare il Re dei pirati. Dovrà, dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata.Nella sua avventura, Rufy riunirà intorno a lui una ciurma e si troverà in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
+          "aliases": "N/A",
+          "airdate": "1999"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 120
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://au-d1-05.vix-content.net/download/4/2/91/291bf7a2-8a8d-4c43-bdc7-474263feebcb/1080"
+          ]
+        }
+      },
+      "ms": 5221
+    },
+    {
+      "id": "animevost/animevost.json",
+      "source": "AnimeVost",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animevost/animevost.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/animevost/animevost.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 24,
+          "sample": [
+            "Ван Пис: Бегство",
+            "Ван Пис (пайлот)",
+            "Ван Пис (фильм первый)"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Пленникам, посаженным на цепь правительства, предложено устроить резню. Выжившие смогут стать свободными людьми. Наследник демона выжил. Прошло да года. Единственным человеком, обладавшим властью, могуществом и богатством был король пиратов Голден Роджер. Последние слова пирата перед его кончиной отправили множество людей в море. Говорил он о своем наследии и о том, что получить его может любой желающий. Сокровища были оставлены в одном месте. Началась великая эра пиратов. Планируется устройство фестиваля пиратов Буэно-феста. Также будет проводиться пиратская выставка. Команды пиратов мчат на фестиваль.\n\r\n\n\r\nДональд открывает фестиваль, а исполнять песни будет Энн. Вызов от самого кроля пиратов брошен, и прибывшим на фестиваль предстоит сразиться друг с другом в поиске сокровищ. Ньюстас Кид и его команда настроены серьезно. Сражение за сокровища Голден Роджера будет явно нескучным. Довольно скоро небо заволокло дымом. Дьявольский флот может с легкостью уничтожить всех пиратов. В сундуке Роджера находится настоящий Ван-Пис. В ход идет мощное оружие: гравитационный меч, тысячи восьмидесяти фунтовая пушка, ультимативная тигровая охота и другие средства.",
+          "aliases": "Type: полнометражный фильм",
+          "airdate": "2019"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "http://video.animetop.info/720/2147414641.mp4",
+            "http://video.animetop.info/2147414641.mp4"
+          ]
+        }
+      },
+      "ms": 1678
+    },
+    {
+      "id": "AnimeWorld/AnimeWorld.json",
+      "source": "AnimeWorld",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/AnimeWorld/AnimeWorld.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/AnimeWorld/animeworld.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 40,
+          "sample": [
+            "One Piece",
+            "One Piece (ITA)",
+            "One Piece: Episode of Skypiea"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Monkey D. Rufy è un giovane pirata sognatore che da piccolo ha inavvertitamente mangiato il frutto del diavolo Gom Gom che lo rende \"elastico\", permettendogli di allungarsi e deformarsi a piacimento, a scapito, però, della capacità  di nuotare. L'obiettivo che lo ha spinto in mare è quello ambizioso di diventare il Re dei pirati. Dovrà, dunque, ritrovare il leggendario \"One Piece\", il magnifico tesoro lasciato dal mitico pirata Gol D. Roger probabilmente sull'isola di Raftel, alla fine della Rotta Maggiore, mai ritrovato e sogno di ogni pirata. Nella sua avventura, Rufy riunirà intorno a lui una ciurma e si troverà in mezzo a situazioni bizzarre e stravaganti, tanto almeno quanto lo sono i personaggi, amici o nemici, presenti nell'universo che lo circonda, che raggiungono spesso livelli assurdi e grotteschi e che donano all'opera un'atmosfera surreale e divertente.",
+          "aliases": "One Piece",
+          "airdate": "20 Ottobre 1999"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1177
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://srv26-marte.sweetpixel.org/DDL/ANIME/OnePieceSUBITA/OnePiece_Ep_0001_SUB_ITA.mp4"
+          ]
+        }
+      },
+      "ms": 4362
+    },
+    {
+      "id": "anineko/anineko.json",
+      "source": "AniNeko",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anineko/anineko.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anineko/anineko.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 30,
+          "sample": [
+            "One Piece",
+            "Toriko",
+            "One Piece Movie 9: Episode of Chopper Plus - Fuyu ni Saku, Kiseki no Sakura"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Gold Roger was known as the &quot;Pirate King,&quot; the strongest and most infamous being to have sailed the Grand Line. The capture and execution of Roger by the World Government brought a change throughout the world. His last words before his death revealed the existence of the greatest treasure in the world, One Piece. It was this revelation that brought about the Grand Age of Pirates, men who dreamed of finding One Piece—which promises an unlimited amount of riches and fame—and quite possibly the pinnacle of glory and the title of the Pirate King.\r\n\r\nEnter Monkey Luffy, a 17-year-old boy who defies your standard definition of a pirate. Rather than the popular persona of a wicked, hardened, toothless pirate ransacking villages for fun, Luffy&#039;s reason for being a pirate is one of pure wonder: the thought of an exciting adventure that leads him to intriguing people and ultimately, the promised treasure. Following in the footsteps of his childhood hero, Luffy and his crew travel across the Grand Line, experiencing crazy adventures, unveiling dark mysteries and battling strong enemies, all in order to reach the most coveted of all fortunes—One Piece.\r\n\r\n[Written by MAL Rewrite]",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1177
+        },
+        "stream": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "https://znOMC6AzQ2DC.premilkyway.com/hls2/01/12839/7s8h2dhneqk7_o/master.m3u8?t=jiU1-sMjeZ",
+            "https://znOMC6AzQ2DC.premilkyway.com/hls2/01/12525/8ekp2e9yut3l_n/master.m3u8?t=a1sVILUZV9",
+            "https://dRRh37sQOSRl.premilkyway.com/hls2/01/12532/eonzbwwgpoeu_,l,n,h,.urlset/master.m3u8"
+          ]
+        }
+      },
+      "ms": 5541
+    },
+    {
+      "id": "anitube/anitube.json",
+      "source": "AniTube",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anitube/anitube.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/anitube/anitube.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "One Piece: Heroines – Todos os Episódios",
+            "One Piece: A Série 2ª Temporada Dublado – Todos os Episódios",
+            "One Piece Log – Fish-Man Island Saga – Todos os Episódios"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "One Piece: Heroines\nA novel apresenta várias histórias curtas focadas nas garotas de One Piece, mostrando elas em situações inusitadas ou apenas vivendo o seu dia a dia.",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://cdn-s01.mywallpaper-4k-image.net/stream/o/one-piece-heroines/01.mp4/index.m3u8"
+          ]
+        }
+      },
+      "ms": 5848
+    },
+    {
+      "id": "aniwave/aniwave.json",
+      "source": "Aniwave",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aniwave/aniwave.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/aniwave/aniwave.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 24,
+          "sample": [
+            "One Piece",
+            "One Piece: Clockwork Island Adventure",
+            "One Piece: The Movie"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Barely surviving in a barrel after passing through a terrible whirlpool at sea, carefree Monkey D. Luffy ends up aboard a ship under attack by fearsome pirates. Despite being a naive-looking teenager, he is not to be underestimated. Unmatched in battle, Luffy is a pirate himself who resolutely pursues the coveted One Piece treasure and the King of the Pirates title that comes with it.The late King of the Pirates, Gol D. Roger, stirred up the world before his death by disclosing the whereabouts of his hoard of riches and daring everyone to obtain it. Ever since then, countless powerful pirates have sailed dangerous seas for the prized One Piece only to never return. Although Luffy lacks a crew and a proper ship, he is endowed with a superhuman ability and an unbreakable spirit that make him not only a formidable adversary but also an inspiration to many.As he faces numerous challenges with a big smile on his face, Luffy gathers one-of-a-kind companions to join him in his ambitious endeavor, together embracing perils and wonders on their once-in-a-lifetime adventure.",
+          "aliases": "One Piece, OP, ONE PIECE, One Piece",
+          "airdate": "Aired: Oct 20, 1999 to ?"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1177
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "https://ru-cdn1.echovideo.to/cdn/092e3d2d14736a0ad53867906eb1495fdefdbcea5dbde581b5705e2a3",
+            "https://ru-ri-cdn3.echovideo.to/cdn/092e3d2d14736a0ad538679073b9222b1d52ab0487f34532ed2c4a"
+          ]
+        }
+      },
+      "ms": 6262
+    },
+    {
+      "id": "blackCloverPace/blackCloverPace.json",
+      "source": "Black Clover Pace",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/blackCloverPace/blackCloverPace.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/blackCloverPace/blackCloverPace.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "Black Clover Pace [SUB]",
+            "Black Clover Pace [DUB]"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Title: Black Clover Pace [SUB]\nFile Count: 29",
+          "aliases": "Title: Black Clover Pace [SUB]\nFile Count: 29",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 29
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://pixeldrain.net/api/file/d7xNJbwb?download"
+          ]
+        }
+      },
+      "ms": 1486
+    },
+    {
+      "id": "borucut/borucut.json",
+      "source": "Borucut",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/borucut/borucut.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/borucut/borucut.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 5,
+          "sample": [
+            "Chunin Exams/Versus Momoshiki Arc",
+            "Mujina Bandits Arc",
+            "Ao/Vessel Arc"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Title: Chunin Exams/Versus Momoshiki Arc\nFile Count: 5",
+          "aliases": "Title: Chunin Exams/Versus Momoshiki Arc\nFile Count: 5",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 5
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://pixeldrain.net/api/file/Ly7PvjBu?download"
+          ]
+        }
+      },
+      "ms": 2152
+    },
+    {
+      "id": "chireads/chireads.json",
+      "source": "ChiReads",
+      "type": "novels",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/chireads/chireads.json",
+      "keyword": "solo leveling",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → text"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/chireads/chireads.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 43,
+          "sample": [
+            "Le Maître des Secrets | Lord of the Mysteries | 诡秘之主",
+            "La Tribulation des Myriades de Races_万族之劫",
+            "Le Monde des Mages | Warlock of the Magus World | 巫界术士"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "No description available",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "chapters": {
+          "ok": true,
+          "count": 738
+        },
+        "text": {
+          "ok": true,
+          "length": 11689,
+          "sample": "Chapitre 05 &#8211; Apparence Officielle\n\nPourquoi ce fou de Gehrman Sparrow aurait-il besoin de quelqu&#8217;un pour ré"
+        }
+      },
+      "ms": 9086
+    },
+    {
+      "id": "concentratedBleach/concentratedBleach.json",
+      "source": "Concentrated Bleach",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/concentratedBleach/concentratedBleach.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/concentratedBleach/concentratedBleach.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "01 - Substitute Soul Reaper [Sub]",
+            "02 - Soul Society [Sub]",
+            "03 - Arrancar [Sub]"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "",
+          "aliases": "",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 9
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://pixeldrain.com/api/filesystem/%2FrwPVCu7Z%2F01%20-%20Substitute%20Soul%20Reaper%20"
+          ]
+        }
+      },
+      "ms": 1551
+    },
+    {
+      "id": "dbzRecut/dbzRecut.json",
+      "source": "DBZ Recut",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/dbzRecut/dbzRecut.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/dbzRecut/dbzRecut.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 4,
+          "sample": [
+            "Saiyan Arc",
+            "Freeza Arc",
+            "Cell Arc"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Title: DBZ Recut - Saiyan Arc\nFile Count: 17",
+          "aliases": "Title: DBZ Recut - Saiyan Arc\nFile Count: 17",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://pixeldrain.net/api/file/3ftz4zKv?download"
+          ]
+        }
+      },
+      "ms": 1213
+    },
+    {
+      "id": "dragonballrecut/dragonballrecut.json",
+      "source": "Dragon Ball Recut",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/dragonballrecut/dragonballrecut.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/dragonballrecut/dragonballrecut.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "Dragon Ball Recut"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "",
+          "aliases": "",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 82
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://archive.org/download/dragon-ball-recut/Dragon.Ball.Recut.E01.v2.Bulma.and.Son.Goku"
+          ]
+        }
+      },
+      "ms": 1144
+    },
+    {
+      "id": "gidonline/gidonline.json",
+      "source": "GidOnline",
+      "type": "anime/movies/shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/gidonline/gidonline.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/gidonline/gidonline.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "Сериал: Ван-Пис",
+            "Ван-Пис: Красный",
+            "Аниме: Ван-Пис"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Обычный сельский парнишка по имени Манки Д. Лаффи живет в небольшой деревушке Фуша и очень много мечтает. Он грезит о том, чтобы найти легендарное сокровище, когда-то принадлежащее настоящему пирату Голлу Д. Роджеру. Но как воплотить мечту в реальность и с чего начинать поиски сокровища, герой сериала «Ван-Пис», к сожалению, не знает.<br><br>Так бы все и продолжалось в его жизни, если бы судьба не подарила настоящий шанс на реализацию мечты. Манки съедает дьявольский фрукт. Через несколько минут парень уже не тот, что был раньше. Теперь он обладает целым спектром сверхспособностей. Одно из приобретений — невероятная сила. Тело приобретает небывалую гибкость, благодаря которой может растягиваться и гнуться, словно резиновое. С такими способностями он может достичь многого. Даже способен отыскать заветный клад. Понимая, что в одиночку ему никак не справиться, он собирает себе целую команду помощников. Дождавшись совершеннолетия, единомышленники наконец-то отправляются в путешествие. Участники экспедиции настроены скептически, а сам юный герой хочет найти клад и получить почетное звание Короля Пиратов.",
+          "aliases": "Aliases: Сериал: Ван-Пис",
+          "airdate": "Aired: 2023"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 16
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "https://hye1eaipby4w.interkh.com/06_22_25/06/22/19/KVP26X5F/77OYDCX4.mp4/master.m3u8?fckz2",
+            "https://hye1eaipby4w.interkh.com/09_20_23/09/20/14/CZ2VKLPL/T2AG6X5E.mp4/master.m3u8?fckz2"
+          ]
+        }
+      },
+      "ms": 10934
+    },
+    {
+      "id": "imdb/imdb.json",
+      "source": "IMDb",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/imdb/imdb.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/imdb/imdb.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 55,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAw3NSVaDMAAA0CuFRGhxKZJEhvAIG",
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAwXB0XaCIAAA0F9CUI_u0ZNILpiCQ",
+            "https://brandpositioningstudio.site/HXST6ZQIP/pl/H4sIAAAAAAAAAwXB0ZKCIBQA0F8C1Mp9rCRzEleCC"
+          ]
+        }
+      },
+      "ms": 2818
+    },
+    {
+      "id": "iptv-org/iptv-org.json",
+      "source": "IPTV-org",
+      "type": "anime/movies/shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/iptv-org/iptv-org.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/iptv-org/iptv-org.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "One Piece",
+            "One Piece",
+            "One Piece"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "N/A",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://jmp2.uk/plu-624b1c8d4321e200073ee421.m3u8"
+          ]
+        }
+      },
+      "ms": 420
+    },
+    {
+      "id": "kisskh/kisskh.json",
+      "source": "Kisskh",
+      "type": "anime/movies/shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/kisskh/kisskh.json",
+      "keyword": "lovely runner",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/kisskh/kisskh.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 21,
+          "sample": [
+            "Lovely Runner",
+            "My Lovely Liar",
+            "Lovely Writer"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "In the glitzy realm of stardom, Ryu Seon Jae shines as a top-tier celebrity, captivating the spotlight since his debut. Despite the facade of a perfect life, the demanding nature of the entertainment industry has left him utterly exhausted. Im Sol, an ardent admirer, holds an affectionate love for Ryu Seon Jae. A childhood accident derailed her dreams, yet the solace found in Ryu Seon Jae's music on the radio transformed her into an unwavering fan.\r\n\r\nThe narrative takes a poignant turn when Im Sol, reeling from the breaking news of Ryu Seon Jae's tragic demise, experiences a miraculous twist of fate. Transported back 15 years into the past, she confronts Ryu Seon Jae in his 19-year-old high school self. Im Sol grapples with the formidable challenge of altering the trajectory of his future, driven by an unyielding determination to avert the impending tragedy.",
+          "aliases": "",
+          "airdate": "Released: 2024-04-09T01:24:54"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 16
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://hls.cdnvideo11.shop/hls07/8792/Ep1_index.m3u8?v=iju4hadrvsv"
+          ]
+        }
+      },
+      "ms": 2945
+    },
+    {
+      "id": "lmanime/lmanime.json",
+      "source": "LmAnime",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/lmanime/lmanime.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/lmanime/lmanime.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "The Chosen One",
+            "Keyboard Immortal"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "A unique Chinese folkloric suspense anime, set to be the shocking and thrilling masterpiece of 2025! The story follows college student Gao Ying, who, on his way to university, accidentally stumbles into the Great Qing Hotel in Nanting Village. There, he encounters a series of bizarre events and unexpectedly awakens the long-sealed Prince Zhennan, Yin Ting. He is then dragged into a century-spanning catastrophe involving mysterious forces like the Tai Sui and ancient Shamanic powers.",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 16
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://cdndirector.dailymotion.com/cdn/manifest/video/x9rix6o.m3u8?sec=fYCgL6puZWZ68089uJ"
+          ]
+        }
+      },
+      "ms": 6020
+    },
+    {
+      "id": "lncrawler/lncrawler.json",
+      "source": "LnCrawler",
+      "type": "novels",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/lncrawler/lncrawler.json",
+      "keyword": "solo leveling",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → text"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/lncrawler/lncrawler.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 4,
+          "sample": [
+            "Solo Leveling: Ragnarok",
+            "Solo Leveling",
+            "Awakening The Weakest Talent: Only I Level Up"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "No description available",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "chapters": {
+          "ok": true,
+          "count": 228
+        },
+        "text": {
+          "ok": true,
+          "length": 9605,
+          "sample": "<h1>Prologue</h1><p data-uid=\"e4695d76-d0e0-48c9-8361-7b0b96100689\"><strong>A world forsaken by its gods is nothing but "
+        }
+      },
+      "ms": 6993
+    },
+    {
+      "id": "mangabuddy/mangabuddy.json",
+      "source": "MangaBuddy",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangabuddy/mangabuddy.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangabuddy/mangabuddy.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 24,
+          "sample": [
+            "One Piece",
+            "One Piece Episode A",
+            "One Piece dj - Boukyaku Countdown"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Gol D. Roger, a man referred to as the &quot;Pirate King,&quot; is set to be executed by the World Government. But just before his demise, he confirms the existence of a great treasure, One Piece, located somewhere within the vast ocean known as the Grand Line. Announcing that One Piece can be claimed by anyone worthy enough to reach it, the Pirate King is executed and the Great Age of Pirates begins. Twenty-two years later, a young man by the name of Monkey D. Luffy is ready to embark on his own adventure, searching for One Piece and striving to become the new Pirate King. Armed with just a straw hat, a small boat, and an elastic body, he sets out on a fantastic journey to gather his own crew and a worthy ship that will take them across the Grand Line to claim the greatest status on the high seas.",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 1307
+        },
+        "images": {
+          "ok": true,
+          "count": 51
+        }
+      },
+      "ms": 2041
+    },
+    {
+      "id": "mangadex/mangadex.json",
+      "source": "MangaDex",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangadex/mangadex.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangadex/mangadex.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 36,
+          "sample": [
+            "One Piece",
+            "One Piece (Official Colored)",
+            "One Piece: Ace’s Story—The Manga"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "From Viz:\nAs a child, Monkey D. Luffy was inspired to become a pirate by listening to the tales of \"Red-Haired\" Shanks. But his life changed when Luffy accidentally ate the Gum-Gum Devil Fruit and gained the power to stretch like rubber at the cost of never being able to swim again. Years later, still vowing to become the king of the pirates, Luffy sets out on his adventure one guy alone in a rowboat, in search of the legendary \"One Piece,\" said to be the greatest treasure in the world.\n\nThe best-selling manga in history and tied with Superman for the best-selling comics in history.\n\n---\n\n**Note:**  \n**Because a takedown notice was sent to MangaDex from the owners of this series, English fan translations of One Piece are unable to be posted at this time. The series can be read in its entirety at [the official Shonen Jump website,](https://www.viz.com/shonenjump/chapters/one-piece) with the first and latest three chapters available at any time and the rest accessible with a Shonen Jump membership (which costs about $2 a month and can be accessed via a VPN if you are outside the US). The three most recent chapters can also be read on MangaPlus for free by clicking the chapter links below.**\n\n---\n- **The Best-Selling Manga in History**\n- **Won the 41st Japan Cartoonists Association Award Grand Prize alongside Neko Darake in 2012** \n- **Received the Kumamoto Prefecture Honorary Prize in 2018**",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 115
+        },
+        "images": {
+          "ok": true,
+          "count": 53
+        }
+      },
+      "ms": 4670
+    },
+    {
+      "id": "mangafreak/mangafreak.json",
+      "source": "MangaFreak",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangafreak/mangafreak.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangafreak/mangafreak.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 7,
+          "sample": [
+            "One Piece",
+            "One Piece (Databook)",
+            "One Piece - Colored"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Seeking to be the greatest pirate in the world, young Monkey D. Luffy, endowed with stretching powers from the legendary &amp;quot;Gomu Gomu&amp;quot; Devil's fruit, travels towards the Grand Line in search of One Piece, the greatest treasure in the world.",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 1198
+        },
+        "images": {
+          "ok": true,
+          "count": 15
+        }
+      },
+      "ms": 2516
+    },
+    {
+      "id": "mangaworld/mangaworld.json",
+      "source": "MangaWorld",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangaworld/mangaworld.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/mangaworld/mangaworld.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "Nami VS Kalifa",
+            "One Piece",
+            "One Piece - Digital Colored Comics"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "L'account Twitter ufficiale del franchise One Piece di Eiichiro Oda ha annunciato che Boichi disegnerà un altro capitolo \"di copertina\" del manga, questa volta riguardante la lotta tra Nami e Kalifa.",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 1
+        },
+        "images": {
+          "ok": true,
+          "count": 37
+        }
+      },
+      "ms": 3315
+    },
+    {
+      "id": "monoschinos2/monoschinos2.json",
+      "source": "Monoschinos2",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/monoschinos2/monoschinos2.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/monoschinos2/monoschinos2.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 30,
+          "sample": [
+            " One Piece: Heroines",
+            " One Piece Film: Gold Latino",
+            " One Piece - Wano Especial"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://wwv.monoschinos2.net/ver/one-piece-heroines-episodio-1"
+          ]
+        }
+      },
+      "ms": 4866
+    },
+    {
+      "id": "nakanime/nakanime.json",
+      "source": "Nakanime",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nakanime/nakanime.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nakanime/nakanime.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 19,
+          "sample": [
+            "One Piece",
+            "One Piece : Kai",
+            "One Piece, film 1 : Le Film"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Il fut un temps où Gold Roger était le plus grand de tous les pirates, le \"Roi des Pirates\" était son surnom. A sa mort, son trésor d'une valeur inestimable connu sous le nom de \"One Piece\" fut caché quelque part sur \"Grand Line\". De nombreux pirates sont partis à la recherche de ce trésor mais tous sont morts avant même de l'atteindre. Monkey D. Luffy rêve de retrouver ce trésor légendaire et de devenir le nouveau \"Roi des Pirates\". Après avoir mangé un fruit du démon, il possède un pouvoir lui permettant de réaliser son rêve. Il lui faut maintenant trouver un équipage pour partir à l'aventure !",
+          "aliases": "TV • Action & Adventure, Comédie, Animation • Score 87/100",
+          "airdate": "Année : 1999"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1180
+        },
+        "stream": {
+          "ok": true,
+          "count": 7,
+          "sample": [
+            "https://box-1552-e.vmeas.cloud/hls2/03/02108/na2vrsevfe89_,n,l,.urlset/master.m3u8?t=ufaem",
+            "https://ugc-cdn-caching-n3puj0edch8ybn2yyt.cloudwindow-route.com/engine/hls2/01/00271/n0ik",
+            "https://video.sibnet.ru/v/b2b3d459d94e13ca78d61ba97339e05e/4833453.mp4"
+          ]
+        }
+      },
+      "ms": 9529
+    },
+    {
+      "id": "nimegami/nimegami.json",
+      "source": "Nimegami",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nimegami/nimegami.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nimegami/nimegami.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 7,
+          "sample": [
+            "One Piece Film: Red",
+            "One Piece Film: Z",
+            "One Piece Film: Gold"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Sinopsis One Piece Film: Red &#8211; Sebagai seorang anak, Uta—mantan musisi Bajak Laut Rambut Merah dan teman masa kecil Monkey D. Luffy—berjanji bahwa dia akan membangun era kebebasan baru dengan menampilkan musik yang menyenangkan bagi dunia. Luffy dan Kru Topi Jerami tiba di konser live pertama Uta, di mana banyak penggemar berkumpul untuk menikmati nyanyian dunia lain sang diva. Karena trauma masa kecil, Uta memiliki kebencian yang mendalam terhadap bajak laut; reuni bahagianya dengan Luffy terputus ketika dia mengetahui bahwa dia telah menjadi satu. Penolakan Luffy untuk mengubah caranya mengakibatkan Uta melepaskan kekuatannya pada Topi Jerami. Para kru segera mengetahui bahwa pikiran mereka telah terperangkap di dunia mimpi Uta sejak awal konser, sementara tubuh tak sadar mereka tetap tertidur di dunia nyata. Dengan waktu yang cepat habis, Topi Jerami harus menemukan cara untuk melarikan diri dari mimpi buruk atau terjebak dalam mimpi Uta selamanya. [Ditulis oleh MAL Tulis Ulang]",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "https://cdn-cf.berkasdrive.com/public/8f9f02cb6a74f3e541a83625e1df3c2f14e83be8-AQ1Xpj.mp4?",
+            "https://server10.miterequest.my.id/public/8f9f02cb6a74f3e541a83625e1df3c2f14e83be8-AQ1Xpj."
+          ]
+        }
+      },
+      "ms": 5266
+    },
+    {
+      "id": "nivod/nivod.json",
+      "source": "Nivod",
+      "type": "anime/movies/shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nivod/nivod.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/nivod/nivod.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 10,
+          "sample": [
+            "海贼王(真人版) 第一季",
+            "海贼王(真人版) 第三季",
+            "海贼王：女英雄们的故事"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "《航海王》改编自尾田荣一郎创作的日本历史上最畅销的漫画系列，讲述了一场与众不同的传奇公海冒险。蒙奇·D·路飞是一位年轻的冒险家，自记事起就渴望自由的生活。路飞从他的小村庄出发，踏上了一段危险的旅程，去寻找传说中的宝藏大秘宝，立志成为海贼王！但为了找到最终的宝藏，路飞需要召集他一直想要寻找的船员，找到一艘可以航行的船，搜索广阔蔚蓝大海的每一寸，超越海军，一次次地智胜危险的对手。",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 8
+        },
+        "stream": {
+          "ok": true,
+          "count": 14,
+          "sample": [
+            "https://hd.ijycnd.com/play/7axmOjPb/index.m3u8",
+            "https://hn.bfvvs.com/play/Yer6y7Le/index.m3u8",
+            "https://bfikuncdn.com/20230831/pP4ZWby1/index.m3u8"
+          ]
+        }
+      },
+      "ms": 4738
+    },
+    {
+      "id": "onetouch/onetouch.json",
+      "source": "OneTouch TV",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onetouch/onetouch.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onetouch/onetouch.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 2,
+          "sample": [
+            "One Piece Season 2: Into the Grand Line (2026)",
+            "One Piece (2023)"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Luffy and the Straw Hats set sail for the extraordinary Grand Line — a legendary stretch of sea where danger and wonder await at every turn. As they journey through this unpredictable realm in search of the world’s greatest treasure, they’ll encounter bizarre islands and a host of formidable new enemies.",
+          "aliases": "One Piece Season 2: Into the Grand Line, One Piece 2, Won Piisu 2, ワンピース2",
+          "airdate": "2026"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 8
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://aapanel.devcorp.me/assets/58ac58f2-5450-5c08-b6aa-3fad7bd1ad20.m3u8"
+          ]
+        }
+      },
+      "ms": 2739
+    },
+    {
+      "id": "onigashima/onigashima.json",
+      "source": "Onigashima Paced",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onigashima/onigashima.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onigashima/onigashima.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "Onigashima Paced"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Title: Onigashima Paced\nFile Count: 53",
+          "aliases": "Title: Onigashima Paced\nFile Count: 53",
+          "airdate": ""
+        },
+        "episodes": {
+          "ok": true,
+          "count": 53
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://pixeldrain.net/api/file/ZDs9YsGk?download"
+          ]
+        }
+      },
+      "ms": 1273
+    },
+    {
+      "id": "onwave/onwave.json",
+      "source": "OnWave",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onwave/onwave.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/onwave/onwave.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 24,
+          "sample": [
+            "Ван-Пис",
+            "Ван-Пис 14: Паническое бегство",
+            "Ван Пис 2"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Легендарный золотой пират Унан всю свою жизнь собирал сокровища по всему миру. Когда его не стало, за золотом стали охотиться многие, в том числе и команда Луффи.",
+          "aliases": "Original: One Piece: Taose! Kaizoku Gyanzakku | Alt: Ван-Пис (пайлот) /  Большой Куш / Ван-Пис: Победить пирата Ганзака! | Duration: 30m | Episodes: 1 | Studios: Production I.G",
+          "airdate": "1998-07-26"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://cloud.solodcdn.com/useruploads/6af7b6ba-2fcc-4b38-81b9-2d142fcc8618/07c5c0a8ce50da",
+            "https://cloud.solodcdn.com/useruploads/6af7b6ba-2fcc-4b38-81b9-2d142fcc8618/07c5c0a8ce50da",
+            "https://cloud.solodcdn.com/useruploads/6af7b6ba-2fcc-4b38-81b9-2d142fcc8618/07c5c0a8ce50da"
+          ]
+        }
+      },
+      "ms": 2736
+    },
+    {
+      "id": "otaku-streamers/otaku-streamers.json",
+      "source": "Otaku-Streamers",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/otaku-streamers/otaku-streamers.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/otaku-streamers/otaku-streamers.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 8,
+          "sample": [
+            "One Piece",
+            "One Piece: Strong World",
+            "One Piece Film Z"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "It was a time when pirates ruled the seas. Several bands of pirates were battling over the great hidden treasure, One Piece, which was left by the now legendary pirate captain, Gold Roger. There was a young boy who admired the pirates, his name was Monkey D. Luffy. One day, he mistakenly eats the devil's fruit and turns himself into a rubber human being.\n\n\n\nTen years have passed since that incident. Luffy sets out to sail all alone. He sets out to become a great pirate captain and that's when his great adventure begins. \"I'm going to be the Pirate King! I'm going to get One Piece!\".",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1173
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vid17.otaku-streamers.com/s/_WpSvaCetXTabI2CG-tRB6gVJjnNT5QmL28ijXJvmOB0xYWfxnXYyC"
+          ]
+        }
+      },
+      "ms": 6254
+    },
+    {
+      "id": "peachify/peachify.json",
+      "source": "Peachify",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/peachify/peachify.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/peachify/peachify.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vidlink.pro/tv/111110/1/1"
+          ]
+        }
+      },
+      "ms": 2584
+    },
+    {
+      "id": "readnovels/readnovels.json",
+      "source": "ReadNovels",
+      "type": "novels",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/readnovels/readnovels.json",
+      "keyword": "solo leveling",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → text"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/readnovels/readnovels.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 15,
+          "sample": [
+            "Solo Leveling",
+            "Solo Leveling: Ragnarok",
+            "Solo Leveling: Ragnarok"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "10 years ago, after “the Gate” that connected the real world with the monster world opened, some of the ordinary, everyday people received the power to hunt monsters within the Gate. They are known as “Hunters”. However, not all Hunters are powerful. My name is Sung Jin-Woo, an E-rank Hunter. I’m someone who has to risk his life in the lowliest of catacombs, the “World’s Weakest”. Having no skills whatsoever to display, I barely earned the required money by fighting in low-leveled catacombs… at least until I found a hidden catacomb with the hardest difficulty within the D-rank catacombs! In the end, as I was accepting death, I suddenly received a strange power, a quest log that only I could see, a secret to leveling up that only I know about! If I trained in accordance with my quests and hunted monsters, my level would rise. Changing from the weakest Hunter to the strongest S-rank Hunter!",
+          "aliases": "N/A",
+          "airdate": "2022-06-16T22:23:03.951227Z"
+        },
+        "chapters": {
+          "ok": true,
+          "count": 270
+        },
+        "text": {
+          "ok": true,
+          "length": 16153,
+          "sample": "<p>Chapter 1</p>\n<p>Part 0: Prologue</p>\n<p>[Daily Quest is now available.]</p>\n<p>An articulate voice of a young female"
+        }
+      },
+      "ms": 3429
+    },
+    {
+      "id": "scan-sama/scan-sama.json",
+      "source": "Scan Sama",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/scan-sama/scan-sama.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/scan-sama/scan-sama.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "One Piece - Scans (couleur)",
+            "One Piece - Scans (noir et blanc)",
+            "One Punch Man - Scans"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Il fut un temps où Gold Roger était le plus grand de tous les pirates, le \"Roi des Pirates\" était son surnom. A sa mort, son trésor d'une valeur inestimable connu sous le nom de \"One Piece\" fut caché quelque part sur \"Grand Line\". De nombreux pirates sont partis à la recherche de ce trésor mais tous sont morts avant même de l'atteindre. Monkey D. Luffy rêve de retrouver ce trésor légendaire et de devenir le nouveau \"Roi des Pirates\". Après avoir mangé un fruit du démon, il possède un pouvoir lui permettant de réaliser son rêve. Il lui faut maintenant trouver un équipage pour partir à l'aventure !",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 1004
+        },
+        "images": {
+          "ok": true,
+          "count": 55
+        }
+      },
+      "ms": 3283
+    },
+    {
+      "id": "streamcloud/streamcloud.json",
+      "source": "StreamCloud",
+      "type": "shows/movies",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/streamcloud/streamcloud.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/streamcloud/streamcloud.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 20,
+          "sample": [
+            "One Piece - Staffel 2",
+            "One Piece - Staffel 15",
+            "One Piece - Staffel 13"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "In dieser Realverfilmung des erfolgreichen Mangas begibt sich der junge Pirat Monkey D. Ruffy mit seinem Strohhut und seiner Crew auf eine abenteuerliche Schatzsuche.",
+          "aliases": "Country: JP\nGenres: Action & Adventure\nDirectors: Unknown",
+          "airdate": "Released: Unknown"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 16
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://ugc-cdn-caching-n3ad05wdiiynz8qnwf.cloudwindow-route.com/engine/download/01/16765/"
+          ]
+        }
+      },
+      "ms": 2467
+    },
+    {
+      "id": "StreamingUnity/StreamingUnity.json",
+      "source": "StreamingUnity",
+      "type": "shows/movies",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/StreamingUnity/StreamingUnity.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/StreamingUnity/script.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 60,
+          "sample": [
+            "ONE PIECE",
+            "Pieces of a Woman",
+            "Giorno per giorno"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "La storia segue le avventure di Monkey D. Rufy, un ragazzo il cui corpo ha assunto le proprietà della gomma dopo aver inavvertitamente ingerito un frutto del diavolo. Reclutando compagni per formare una ciurma, Rufy esplora la Rotta Maggiore in cerca del leggendario tesoro One Piece e inseguendo il sogno di diventare il nuovo Re dei pirati.",
+          "aliases": "ONE PIECE",
+          "airdate": "2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 16
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vixcloud.co/playlist/682356?token=7a859660eb95b5a22794ea2c96a18efb&expires=1794274"
+          ]
+        }
+      },
+      "ms": 7487
+    },
+    {
+      "id": "toontales/toontales.json",
+      "source": "ToonTales",
+      "type": "shows",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/toontales/toontales.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/toontales/toontales.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 9,
+          "sample": [
+            "Blue Rhythm",
+            "Grand Canyonscope",
+            "The Barnyard Concert"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Mickey plays a bluesy tune on a piano on a stage. Minnie sings. Then an unseen band plays while both sing and dance. Mickey then leads the 9-piece band in",
+          "aliases": "N/A",
+          "airdate": "N/A"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://ww.toontales.net/dd/blue-rhythm.mp4"
+          ]
+        }
+      },
+      "ms": 2367
+    },
+    {
+      "id": "vidcore/vidcore.json",
+      "source": "VidCore",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/vidcore/vidcore.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/vidcore/vidcore.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 3,
+          "sample": [
+            "https://moon.peakstorm.top/r2/cdn2/Z2ZFNG1yRlgyUzh2cVkzNVd1V0FRUTpzOGlUYzU1Mzc3SE5qNDdPa3d",
+            "https://moon.peakstorm.top/r2/cdn2/Z2ZFNG1yRlgyUzh2cVkzNVd1V0FRUTpzOGlUYzU1Mzc3SE5qNDdPa3d",
+            "https://moon.peakstorm.top/s/afc7d47f/ma9yIsUHLd1oEUKmveBRD7G3Bq906aVTDGgvpXZk7gvnWow40jxD"
+          ]
+        }
+      },
+      "ms": 6036
+    },
+    {
+      "id": "videasy/videasy.json",
+      "source": "VidEasy",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/videasy/videasy.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/videasy/videasy.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 8,
+          "sample": [
+            "https://moon.peakstorm.top/r2/cdn1/b1Q1R2dEbTBIT1JXb0NIenZwT3lUUTplQktrZWYxLUhZWkRUMXY2UjF",
+            "https://moon.peakstorm.top/r2/cdn2/Z2ZFNG1yRlgyUzh2cVkzNVd1V0FRUTpzOGlUYzU1Mzc3SE5qNDdPa3d",
+            "https://moon.peakstorm.top/r2/cdn2/Z2ZFNG1yRlgyUzh2cVkzNVd1V0FRUTpzOGlUYzU1Mzc3SE5qNDdPa3d"
+          ]
+        }
+      },
+      "ms": 5056
+    },
+    {
+      "id": "vidfast/vidfast.json",
+      "source": "VidFast",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/vidfast/vidfast.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/vidfast/vidfast.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vidlink.pro/tv/111110/1/1"
+          ]
+        }
+      },
+      "ms": 2617
+    },
+    {
+      "id": "voir-anime/voir-anime.json",
+      "source": "VoirAnime",
+      "type": "anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/voir-anime/voir-anime.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/voir-anime/voir-anime.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 10,
+          "sample": [
+            "ONE PIECE HEROINES",
+            "One Piece Log: Fish-Man Island Saga",
+            "ONE PIECE FAN LETTER"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "Une autre vision de One Piece\nPlace à Nami, Robin, Nefertari Vivi ou encore Perona pour des aventures sous un jour nouveau. Qu'il s'agisse de manipulations dans un magasin de chaussures, d'un improbable écrit d'un passé enfoui ou d'un cœur à prendre...",
+          "aliases": "Voiranime",
+          "airdate": "Jul 5, 2026"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 1
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://ugc-cdn-caching-n3htrqvbfyjeooqofq.cloudwindow-route.com/engine/hls2/01/17691/uh25"
+          ]
+        }
+      },
+      "ms": 8318
+    },
+    {
+      "id": "weebcentral/weebcentral.json",
+      "source": "WeebCentral",
+      "type": "mangas",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/weebcentral/weebcentral.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "search → chapters → images"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/weebcentral/weebcentral.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 6,
+          "sample": [
+            "One Piece",
+            "One Piece Party",
+            "Piece of Cake"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "As a child, Monkey D. Luffy dreamed of becoming the King of the Pirates. But his life changed when he accidentally gained the power to stretch like rubber...at the cost of never being able to swim again! Now Luffy, with the help of a motley collection of nakama, is setting off in search of \"One Piece,\" said to be the greatest treasure in the world...",
+          "aliases": "",
+          "airdate": ""
+        },
+        "chapters": {
+          "ok": true,
+          "count": 1192
+        },
+        "images": {
+          "ok": true,
+          "count": 15
+        }
+      },
+      "ms": 2125
+    },
+    {
+      "id": "xpass/xpass.json",
+      "source": "XPass",
+      "type": "shows/movies/anime",
+      "manifest": "../../../AppData/Local/Temp/opencode/root-promoted-audit/xpass/xpass.json",
+      "keyword": "one piece",
+      "status": {
+        "level": "ACTIVE",
+        "reason": "full pipeline resolves"
+      },
+      "load": {
+        "ok": true,
+        "script": "../../../AppData/Local/Temp/opencode/root-promoted-audit/xpass/xpass.js"
+      },
+      "steps": {
+        "search": {
+          "ok": true,
+          "count": 70,
+          "sample": [
+            "ONE PIECE",
+            "One Piece",
+            "One Piece Heroines"
+          ]
+        },
+        "details": {
+          "ok": true,
+          "description": "With his straw hat and ragtag crew, young pirate Monkey D. Luffy goes on an epic voyage for treasure.",
+          "aliases": "Duration: Unknown",
+          "airdate": "Aired: 2023-08-31"
+        },
+        "episodes": {
+          "ok": true,
+          "count": 17
+        },
+        "stream": {
+          "ok": true,
+          "count": 1,
+          "sample": [
+            "https://vidlink.pro/tv/111110/1/1"
+          ]
+        }
+      },
+      "ms": 2120
+    }
+  ]
+}

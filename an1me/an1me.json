@@ -1,0 +1,33 @@
+{
+  "sourceName": "An1me",
+  "iconUrl": "https://an1me.to/assets/apple-touch-icon.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.4",
+  "language": "Greek",
+  "languageType": [
+    "Subbed"
+  ],
+  "streamType": "HLS",
+  "encrypted": true,
+  "quality": "1080p",
+  "baseUrl": "https://an1me.to/",
+  "searchBaseUrl": "https://an1me.to/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/an1me/an1me.js",
+  "type": "anime",
+  "asyncJS": true,
+  "softsub": false,
+  "downloadSupport": false,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsShirox": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/an1me/an1me.js"
+}

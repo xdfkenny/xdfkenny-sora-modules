@@ -1,0 +1,26 @@
+{
+  "sourceName": "AK.SV",
+  "iconUrl": "https://i.ibb.co/fdyjNhkb/icon-number-255763.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.6",
+  "language": "Arabic",
+  "languageType": [
+    "Subbed"
+  ],
+  "streamType": "MP4",
+  "quality": "1080p",
+  "baseUrl": "https://ak.sv/",
+  "searchBaseUrl": "https://ak.sv/search?q=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aksv/aksv.js",
+  "asyncJS": true,
+  "type": "movies/shows",
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aksv/aksv.js"
+}

@@ -1,0 +1,29 @@
+{
+  "sourceName": "IPTV-org",
+  "iconUrl": "https://files.catbox.moe/q9hxx0.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.0",
+  "language": "English",
+  "languageType": [
+    "Native"
+  ],
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://iptv-org.github.io/",
+  "searchBaseUrl": "https://iptv-org.github.io/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/iptv-org/iptv-org.js",
+  "type": "anime/movies/shows",
+  "asyncJS": true,
+  "softsub": true,
+  "downloadSupport": false,
+  "note": "USE DEFAULT PLAYER - USE DEFAULT PLAYER - USE DEFAULT PLAYER - USE DEFAULT PLAYER",
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/iptv-org/iptv-org.js"
+}

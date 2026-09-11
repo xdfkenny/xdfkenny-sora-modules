@@ -1,0 +1,26 @@
+{
+  "sourceName": "LnCrawler",
+  "iconUrl": "https://files.catbox.moe/ec7bnh.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.0",
+  "language": "English",
+  "languageType": [
+    "Translated"
+  ],
+  "streamType": "novels",
+  "quality": "N/A",
+  "baseUrl": "https://lncrawler.monster/",
+  "searchBaseUrl": "https://lncrawler.monster/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/lncrawler/lncrawler.js",
+  "type": "novels",
+  "asyncJS": true,
+  "novel": true,
+  "downloadSupport": false,
+  "supportsSora": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/lncrawler/lncrawler.js"
+}

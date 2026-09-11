@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>xdfkenny modules — Sora Module Library</title>
-  <meta name="description" content="Browse and install xdfkenny's Sora module library — anime, manga, torrent and debrid modules for Sora, Luna, and Shirox. One-click Add to Sora." />
+  <meta name="description" content="xdfkenny's Sora module library — streaming modules for anime, movies, manga and novels for Sora, Luna, and Shirox." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23E1F5FE'/%3E%3Cpath d='M16 5l9.5 5.5v11L16 27l-9.5-5.5v-11z' fill='%237EC8E3'/%3E%3Cpath d='M16 9.5L22 13v6l-6 3.5-6-3.5v-6z' fill='%23FFFFFF' opacity='.9'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,203 +29,37 @@
         <span class="nav-toggle-bar"></span>
       </button>
       <div class="nav-links" id="navLinks">
-        <a class="nav-link" href="#modules">Library</a>
-        <a class="nav-link" href="#creator">Request Module</a>
-        <a class="nav-link" href="#faq">FAQ</a>
+        <a class="nav-link" href="modules/">Library</a>
         <a class="nav-link nav-link-ext" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   </nav>
 
   <!-- ===== Hero ===== -->
-  <header class="hero" id="top">
-    <div class="hero-snow" aria-hidden="true"></div>
-    <div class="hero-hex hex-1" aria-hidden="true"></div>
-    <div class="hero-hex hex-2" aria-hidden="true"></div>
-    <div class="hero-hex hex-3" aria-hidden="true"></div>
-    <div class="hero-inner">
-      <p class="eyebrow">Soft Cryo Modules</p>
-      <h1 class="hero-title">xdfkenny <span>modules</span></h1>
-      <p class="hero-sub">Streaming modules for anime, movies, manga and novels.</p>
-      <p class="hero-desc">A collection of JavaScript modules for Sora, Luna and Shirox — clean, reusable and focused on reliability.</p>
-      <div class="hero-cta">
-        <a class="btn btn-primary" id="btnHeroAddSora" href="sora://default_page?url=https%3A%2F%2Fxdfkenny.dpdns.org%2Fxdfkenny-sora-modules%2F%3Fembed%3Dtrue">
-          <span class="material-symbols-outlined icon-sm">add_link</span> Add All to Sora
-        </a>
-        <a class="btn btn-secondary" href="#modules">Browse Library <span class="arrow" aria-hidden="true">→</span></a>
-        <a class="btn btn-ghost" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">View on GitHub</a>
-      </div>
-    </div>
-  </header>
-
   <main id="main">
-
-    <!-- ===== Module Library ===== -->
-    <section class="section" id="modules">
-      <div class="section-head">
-        <h2>Module Library</h2>
-        <p class="section-intro">Explore and install modular anime, manga, and stream resolution providers for Sora, Luna, and Shirox.</p>
-      </div>
-
-      <!-- Library Search & Category Filter Bar -->
-      <div class="library-controls">
-        <div class="search-box">
-          <span class="material-symbols-outlined search-icon">search</span>
-          <input type="text" id="libSearch" class="search-input" placeholder="Search modules by name, provider, language, or tags..." aria-label="Search modules" />
-          <button type="button" id="libSearchClear" class="search-clear" aria-label="Clear search" hidden><span class="material-symbols-outlined icon-sm">close</span></button>
+    <header class="hero" id="top">
+      <div class="hero-snow" aria-hidden="true"></div>
+      <div class="hero-hex hex-1" aria-hidden="true"></div>
+      <div class="hero-hex hex-2" aria-hidden="true"></div>
+      <div class="hero-hex hex-3" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <p class="eyebrow">Soft Cryo Modules</p>
+        <h1 class="hero-title">xdfkenny <span>modules</span></h1>
+        <p class="hero-sub">Streaming modules for anime, movies, manga and novels.</p>
+        <p class="hero-desc">A collection of JavaScript modules for Sora, Luna and Shirox — clean, reusable and focused on reliability.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" id="btnHeroAddSora" href="sora://default_page?url=https%3A%2F%2Fxdfkenny.dpdns.org%2Fxdfkenny-sora-modules%2Fmodules%2F%3Fembed%3Dtrue">
+            <span class="material-symbols-outlined icon-sm">add_link</span> Add All to Sora
+          </a>
+          <a class="btn btn-secondary" href="modules/">Browse Library <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn-ghost" href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">View on GitHub</a>
         </div>
-
-        <div class="filter-pills-row">
-          <div class="filter-group" id="categoryFilters">
-            <button type="button" class="filter-pill active" data-category="all"><span class="material-symbols-outlined icon-sm">grid_view</span> All</button>
-            <button type="button" class="filter-pill" data-category="anime"><span class="material-symbols-outlined icon-sm">movie</span> Anime</button>
-            <button type="button" class="filter-pill" data-category="movie"><span class="material-symbols-outlined icon-sm">theaters</span> Movies</button>
-            <button type="button" class="filter-pill" data-category="manga"><span class="material-symbols-outlined icon-sm">auto_stories</span> Manga</button>
-            <button type="button" class="filter-pill" data-category="novel"><span class="material-symbols-outlined icon-sm">menu_book</span> Novels</button>
-            <button type="button" class="filter-pill" data-category="torrent"><span class="material-symbols-outlined icon-sm">download</span> Torrents</button>
-          </div>
-
-          <div class="filter-group filter-group-apps" id="appFilters">
-            <span class="filter-label">App:</span>
-            <button type="button" class="filter-pill filter-pill-app active" data-app="all">All</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="sora"><span class="material-symbols-outlined icon-sm">play_circle</span> Sora</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="luna"><span class="material-symbols-outlined icon-sm">dark_mode</span> Luna</button>
-            <button type="button" class="filter-pill filter-pill-app" data-app="shirox"><span class="material-symbols-outlined icon-sm">bolt</span> Shirox</button>
-          </div>
+        <div class="status-pill" aria-live="polite">
+          <span class="dot pulse" aria-hidden="true"></span>
+          <span class="status-text"><b id="heroCount">0</b> modules ready</span>
         </div>
       </div>
-
-      <div class="library-summary" aria-live="polite">
-        <span class="pill">Showing <b id="cShowing">0</b> / <b id="cTotal">0</b> modules</span>
-      </div>
-
-      <div class="grid" id="grid"></div>
-    </section>
-
-    <!-- ===== Request Module ===== -->
-    <section class="section section-creator" id="creator">
-      <div class="section-head">
-        <h2><span class="material-symbols-outlined icon-heading">mail</span> Request a Module</h2>
-        <p class="section-intro">Can't find what you need? Request a new module — please include your Discord username so we can contact you about the status of your request.</p>
-      </div>
-      <div class="creator-grid">
-        <div class="creator-form">
-          <div class="creator-field">
-            <label class="creator-label" for="rqName">Module / Website Name <span class="req">*</span></label>
-            <input class="creator-input" id="rqName" type="text" placeholder="e.g. AnimeFire, MangaFire..." required />
-          </div>
-          <div class="creator-row">
-            <div class="creator-field">
-              <label class="creator-label" for="rqLang">Language <span class="req">*</span></label>
-              <select class="creator-input" id="rqLang" required>
-                <option value="">Select language</option>
-                <option value="English">English</option>
-                <option value="Spanish">Spanish</option>
-                <option value="Portuguese">Portuguese</option>
-                <option value="Japanese">Japanese</option>
-                <option value="French">French</option>
-                <option value="German">German</option>
-                <option value="Italian">Italian</option>
-                <option value="Korean">Korean</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Arabic">Arabic</option>
-                <option value="Multi">Multi</option>
-              </select>
-            </div>
-            <div class="creator-field">
-              <label class="creator-label" for="rqDiscord">Discord Username <span class="req">*</span></label>
-              <input class="creator-input" id="rqDiscord" type="text" placeholder="e.g. xdfkenny#1234" required />
-            </div>
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="rqUrl">Source URL <span class="req">*</span></label>
-            <input class="creator-input" id="rqUrl" type="url" placeholder="https://example.com" required />
-          </div>
-          <div class="creator-field">
-            <label class="creator-label" for="rqReason">Reason / Details <span class="req">*</span></label>
-            <textarea class="creator-input" id="rqReason" rows="4" placeholder="Why do you want this module? Any details about the site..." required></textarea>
-          </div>
-          <p class="creator-hint"><span class="material-symbols-outlined icon-sm">info</span> Please specify your Discord username correctly so we can contact you about the status of your module request.</p>
-          <div class="creator-actions">
-            <button class="btn btn-primary" id="rqSubmit" type="button">
-              <span class="material-symbols-outlined icon-sm">send</span> Send Request
-            </button>
-            <button class="btn btn-soft" id="rqReset" type="button">
-              <span class="material-symbols-outlined icon-sm">refresh</span> Reset
-            </button>
-          </div>
-          <p class="creator-status" id="rqStatus" aria-live="polite"></p>
-        </div>
-        <div class="creator-preview">
-          <div class="creator-preview-header">
-            <span class="card-label">What happens next?</span>
-          </div>
-          <div class="creator-output" style="white-space: normal; line-height: 1.7;">
-            <p style="margin:0 0 12px;color:rgba(255,255,255,0.9);font-size:0.9rem">Your request will be sent directly to our Discord. We review requests daily and will contact you on Discord about the status.</p>
-            <ul style="margin:0;padding-left:18px;color:rgba(255,255,255,0.7);font-size:0.85rem">
-              <li>Include a valid, accessible URL</li>
-              <li>Mention language and content type (anime/manga/movie/torrent)</li>
-              <li>Double-check your Discord username</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== FAQ ===== -->
-    <section class="section section-faq" id="faq">
-      <div class="section-head">
-        <h2><span class="material-symbols-outlined icon-heading">help</span> FAQ</h2>
-        <p class="section-intro">Answers to common questions about installing and using Sora modules.</p>
-      </div>
-      <div class="faq-list" id="faqList">
-        <div class="faq-item">
-          <button class="faq-q" aria-expanded="false">
-            <span>How do I add a module to Sora?</span>
-            <span class="material-symbols-outlined faq-chevron">expand_more</span>
-          </button>
-          <div class="faq-a">
-            <p>On this page, click the <strong>"Add to Sora"</strong> button on any module card. This opens the Sora app and automatically installs the module. You can also copy the JSON link and paste it manually in <strong>Sora → Settings → Modules → Add Module</strong>.</p>
-          </div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-q" aria-expanded="false">
-            <span>Why does the "Add to Sora" button not open the app?</span>
-            <span class="material-symbols-outlined faq-chevron">expand_more</span>
-          </button>
-          <div class="faq-a">
-            <p>The <code>sora://</code> deep-link only works on iOS or macOS with the Sora app installed. On Android or Windows, copy the JSON link manually instead. If you're on Safari/Chrome iOS, make sure you have Sora installed from the <a href="https://sora.jm26.net" target="_blank" rel="noopener noreferrer">Sora website</a>.</p>
-          </div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-q" aria-expanded="false">
-            <span>A module is not working — what do I do?</span>
-            <span class="material-symbols-outlined faq-chevron">expand_more</span>
-          </button>
-          <div class="faq-a">
-            <p>The source site may be temporarily down or the module may need updating. Check the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repo</a> for the latest version and open an issue if it persists.</p>
-          </div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-q" aria-expanded="false">
-            <span>Do these modules work with Luna and Shirox?</span>
-            <span class="material-symbols-outlined faq-chevron">expand_more</span>
-          </button>
-          <div class="faq-a">
-            <p>Yes — most modules here support <strong>Sora</strong> and <strong>Luna</strong>. Some (like <em>HydraHD Shirox</em>) are tailored for <strong>Shirox</strong>. Each module card shows its app compatibility badges so you can identify which apps are supported at a glance.</p>
-          </div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-q" aria-expanded="false">
-            <span>How do I create and submit my own module?</span>
-            <span class="material-symbols-outlined faq-chevron">expand_more</span>
-          </button>
-          <div class="faq-a">
-            <p>Use the <a href="#creator">Manifest Creator</a> above to generate your <code>module.json</code> manifest. Then read the <a href="https://soradocs.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer">Sora Module Documentation</a> and open a pull request on the <a href="https://github.com/xdfkenny/xdfkenny-sora-modules" target="_blank" rel="noopener noreferrer">GitHub repository</a>.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    </header>
   </main>
 
   <!-- ===== Footer ===== -->

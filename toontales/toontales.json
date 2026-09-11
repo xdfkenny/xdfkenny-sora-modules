@@ -1,0 +1,29 @@
+{
+  "sourceName": "ToonTales",
+  "iconUrl": "https://www.toontales.net/wp-content/uploads/cropped-favicon-192x192.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.0",
+  "language": "English",
+  "languageType": [
+    "Native"
+  ],
+  "streamType": "mp4",
+  "encrypted": true,
+  "quality": "1080p",
+  "baseUrl": "https://www.toontales.net/",
+  "searchBaseUrl": "https://www.toontales.net/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/toontales/toontales.js",
+  "type": "shows",
+  "asyncJS": true,
+  "softsub": false,
+  "downloadSupport": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/toontales/toontales.js"
+}

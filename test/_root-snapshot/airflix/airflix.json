@@ -1,0 +1,29 @@
+{
+  "sourceName": "Airflix",
+  "iconUrl": "https://img.icons8.com/color/48/netflix.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.1",
+  "language": "English",
+  "languageType": [
+    "Subbed"
+  ],
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://streamdata.vaplayer.ru/",
+  "searchBaseUrl": "https://streamdata.vaplayer.ru/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/airflix/airflix.js",
+  "type": "shows/movies/anime",
+  "asyncJS": true,
+  "softsub": true,
+  "downloadSupport": false,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "jsonUrl": "https://git.luna-app.eu/50n50/sources/raw/branch/main/airflix/airflix.json",
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/airflix/airflix.js"
+}

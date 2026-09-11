@@ -1,0 +1,32 @@
+{
+  "sourceName": "AnimeLib",
+  "iconUrl": "https://i.ibb.co/rfktbGyD/Untitled-design.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.6",
+  "language": "Russian",
+  "languageType": [
+    "Dubbed"
+  ],
+  "streamType": "MP4 & HLS",
+  "quality": "4K",
+  "baseUrl": "https://animelib.org/ru",
+  "searchBaseUrl": "https://animelib.org/ru",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animelib/animelib.js",
+  "type": "anime",
+  "asyncJS": true,
+  "softsub": true,
+  "downloadSupport": false,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsAnymex": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsShirox": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animelib/animelib.js"
+}

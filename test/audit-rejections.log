@@ -1,0 +1,44 @@
+[2026-09-09T05:36:59.671Z] ReferenceError: getChapterImages is not defined
+    at main (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:167:20)
+    at eval (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:171:1)
+    at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:181:10)
+    at runUnitInner (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:354:11)
+    at runUnit (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:331:28)
+    at worker (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:522:25)
+    at Function.from (<anonymous>)
+    at runAll (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:528:27)
+    at C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:575:24
+    at Object.<anonymous> (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:581:3)
+[2026-09-09T05:39:07.928Z] ReferenceError: getChapterImages is not defined
+    at main (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:167:20)
+    at eval (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:171:1)
+    at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:181:10)
+    at runUnitInner (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:354:11)
+    at runUnit (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:331:28)
+    at worker (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:522:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Promise.all (index 5)
+    at async runAll (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:528:3)
+    at async C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:575:18
+[2026-09-09T05:44:47.267Z] ReferenceError: getChapterImages is not defined
+    at main (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:167:20)
+    at eval (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:171:1)
+    at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:181:10)
+    at runUnitInner (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:355:11)
+    at runUnit (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:332:28)
+    at worker (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:534:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Promise.all (index 4)
+    at async runAll (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:540:3)
+    at async C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:587:18
+[2026-09-09T06:07:17.240Z] ReferenceError: getChapterImages is not defined
+    at main (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:167:20)
+    at eval (eval at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:169:19), <anonymous>:171:1)
+    at loadModule (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:181:10)
+    at runUnitInner (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:365:11)
+    at runUnit (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:342:28)
+    at worker (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:544:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Promise.all (index 0)
+    at async runAll (C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:550:3)
+    at async C:\Users\xdfke\Desktop\DEV\xdfkenny-sora-modules\test\audit_examples.js:597:18

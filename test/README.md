@@ -1,5 +1,31 @@
 # Test harnesses
 
+## `examples/` library audit — `audit_examples.js`
+
+Full health check for every module folder under `examples/` (116 units:
+video / novel / manga contracts). Loads each manifest + script **from local
+disk** with the same `fetchv2`/curl sandbox as `server.js` (per-module cookie
+jar, system curl first) and runs the full pipeline:
+
+- video: `searchResults` → `extractDetails` → `extractEpisodes` → `extractStreamUrl`
+- novel: `searchResults` → `extractDetails` → `extractChapters` → `extractText`
+- manga: `searchResults` → `extractDetails` → `extractChapters` → `extractImages`
+
+```
+node test/audit_examples.js                        # full sweep
+$env:AUDIT_FILTER='mangadex|lncrawler'; node test/audit_examples.js  # subset
+$env:AUDIT_CONCURRENCY='8'; node test/audit_examples.js              # speed
+node test/audit_basecheck.js                       # baseUrl reachability probe
+node test/build_audit_report.js                    # merge both into audit-examples.md
+```
+
+Outputs `test/audit-examples.json` (full per-step detail),
+`test/audit-examples.md` (summary), `test/audit-rejections.log` (top-level
+async errors from modules that ship `main()` scaffolding, e.g. mangapark).
+Keywords default to `one piece` / `solo leveling` with a few per-site
+overrides (`KEYWORDS` map). Modules with non-standard function names
+(e.g. `kaliscan` → `searchContent`) are reported as shape-incompatible.
+
 ## `hydrahd-copy/` — verbatim baseline
 Unmodified copies of the four hydrahd files as of commit `1fd46d6` (v2.2.1 /
 shirox manifest 1.2.1). Reference snapshot only.

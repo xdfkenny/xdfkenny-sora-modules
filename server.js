@@ -460,14 +460,19 @@ const server = http.createServer(async (req, res) => {
     if (!filePath.startsWith(ROOT)) {
       res.writeHead(403); return res.end('Forbidden');
     }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('404 Not Found');
-      }
-      const ext = path.extname(filePath).toLowerCase();
-      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-      res.end(req.method === 'HEAD' ? undefined : data);
+    // Mirror GitHub Pages: a request for a directory serves its index.html
+    // (e.g. /modules -> /modules/index.html).
+    fs.stat(filePath, (statErr, stats) => {
+      if (!statErr && stats.isDirectory()) filePath = path.join(filePath, 'index.html');
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          return res.end('404 Not Found');
+        }
+        const ext = path.extname(filePath).toLowerCase();
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.end(req.method === 'HEAD' ? undefined : data);
+      });
     });
     return;
   }

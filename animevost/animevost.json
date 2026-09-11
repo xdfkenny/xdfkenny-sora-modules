@@ -1,0 +1,21 @@
+{
+  "sourceName": "AnimeVost",
+  "iconUrl": "https://git.luna-app.eu/emp0ry/sources/raw/branch/main/animevost/logo.png",
+  "author": {
+    "name": "anonymous",
+    "icon": "https://git.luna-app.eu/avatars/11bb6ee2fdba48e70ee21594f4ac96344358be3bb9770732ba8c406b5cda98f0?size=512$0"
+  },
+  "version": "1.0.4",
+  "language": "Russian",
+  "streamType": "MP4",
+  "quality": "720p",
+  "baseUrl": "https://api.animevost.org/v1/",
+  "searchBaseUrl": "https://api.animevost.org/v1/search?name=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animevost/animevost.js",
+  "asyncJS": true,
+  "streamAsyncJS": false,
+  "softsub": false,
+  "type": "anime",
+  "downloadSupport": false,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animevost/animevost.js"
+}

@@ -1,0 +1,32 @@
+{
+  "sourceName": "AnimeGG",
+  "iconUrl": "https://files.catbox.moe/caq4am.png",
+  "author": {
+    "name": "50/50",
+    "icon": "https://files.catbox.moe/741wp7.png"
+  },
+  "version": "1.0.1",
+  "language": "English",
+  "languageType": [
+    "Subbed"
+  ],
+  "streamType": "mp4",
+  "quality": "1080p",
+  "baseUrl": "https://www.animegg.org/",
+  "searchBaseUrl": "https://www.animegg.org/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animegg/animegg.js",
+  "type": "anime",
+  "asyncJS": true,
+  "softsub": true,
+  "downloadSupport": true,
+  "supportsSora": true,
+  "supportsLuna": true,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsAnymex": true,
+  "supportsTsumi": true,
+  "supportsHiyoku": true,
+  "supportsShirox": true,
+  "supportsEclipse": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animegg/animegg.js"
+}

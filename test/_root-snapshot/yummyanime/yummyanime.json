@@ -1,0 +1,26 @@
+{
+  "iconUrl": "https://site.yummyani.me/img/icon/yummy-192.png",
+  "iconURL": "https://site.yummyani.me/img/icon/yummy-192.png",
+  "author": {
+    "name": "emp0ry",
+    "icon": "https://avatars.githubusercontent.com/u/64217088"
+  },
+  "description": "YummyAnime — Sora module promoted from the examples library.",
+  "version": "1.0.4",
+  "language": "Russian",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://api.yani.tv",
+  "searchBaseUrl": "https://api.yani.tv/search?limit=30&q=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yummyanime/yummyanime.js",
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yummyanime/yummyanime.js",
+  "type": "anime",
+  "asyncJS": true,
+  "streamAsyncJS": true,
+  "downloadSupport": false,
+  "softsub": false,
+  "supportsMojuru": true,
+  "supportsDartotsu": true,
+  "supportsSora": true,
+  "supportsLuna": true
+}

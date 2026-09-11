@@ -1,0 +1,18 @@
+{
+  "sourceName": "AnimeUnity",
+  "iconUrl": "https://raw.githubusercontent.com/cranci1/Ryu/2f10226aa087154974a70c1ec78aa83a47daced9/Ryu/Assets.xcassets/Sources/AnimeUnity.imageset/apple-touch-icon.jpg",
+  "author": {
+    "name": "sobet",
+    "icon": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQPQ1qIiALbM3xDWGsuJzu6ItaQGwb9ICRRw&s"
+  },
+  "version": "1.1.1",
+  "language": "Italian",
+  "streamType": "mp4",
+  "quality": "720p",
+  "baseUrl": "https://animeunity.so",
+  "searchBaseUrl": "https://www.animeunity.so/archivio?title=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/AnimeUnity/animeunity.js",
+  "asyncJS": true,
+  "type": "anime",
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/AnimeUnity/animeunity.js"
+}

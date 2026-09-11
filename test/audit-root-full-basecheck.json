@@ -1,0 +1,621 @@
+{
+  "generatedAt": "2026-09-11T01:41:46.226Z",
+  "results": [
+    {
+      "id": "123anime/123anime.json",
+      "url": "https://123animehub.cc/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://123animehub.cc/"
+    },
+    {
+      "id": "airflix/airflix.json",
+      "url": "https://streamdata.vaplayer.ru/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://streamdata.vaplayer.ru/"
+    },
+    {
+      "id": "allmanga-novels/allmanga-novels.json",
+      "url": "https://allmanga.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://allmanga.to/"
+    },
+    {
+      "id": "allmanga/allmanga.json",
+      "url": "https://allmanga.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://allmanga.to/"
+    },
+    {
+      "id": "anime-nexus/anime-nexus.json",
+      "url": "https://anime.nexus/",
+      "ok": false,
+      "status": 403,
+      "code": "",
+      "note": "",
+      "final": "https://anime.nexus/"
+    },
+    {
+      "id": "anidb/anidb.json",
+      "url": "https://anidb.app/",
+      "ok": false,
+      "status": 503,
+      "code": "",
+      "note": "",
+      "final": "https://anidb.app/"
+    },
+    {
+      "id": "aniliberty/aniliberty.json",
+      "url": "https://aniliberty.top/api/v1/",
+      "ok": false,
+      "status": 404,
+      "code": "",
+      "note": "",
+      "final": "https://aniliberty.top/api/v1/"
+    },
+    {
+      "id": "an1me/an1me.json",
+      "url": "https://an1me.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://an1me.to/"
+    },
+    {
+      "id": "anidub/anidub.json",
+      "url": "https://anidub.org/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://anidub.org/"
+    },
+    {
+      "id": "aether/aether.json",
+      "url": "https://aether.bar/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://aether.ist/"
+    },
+    {
+      "id": "animeav1/animeav1.json",
+      "url": "https://animeav1.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://animeav1.com/"
+    },
+    {
+      "id": "aksv/aksv.json",
+      "url": "https://ak.sv/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://akwam.ss/"
+    },
+    {
+      "id": "anime-sama/anime-sama.json",
+      "url": "https://anime-sama.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://anime-sama.to/"
+    },
+    {
+      "id": "animegg/animegg.json",
+      "url": "https://www.animegg.org/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.animegg.org/"
+    },
+    {
+      "id": "animenosub/animenosub.json",
+      "url": "https://vidmoly.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://vidmoly.to/"
+    },
+    {
+      "id": "animeland/animeland.json",
+      "url": "https://w7.animeland.tv/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://w7.animeland.tv/"
+    },
+    {
+      "id": "animedefenders/animedefenders.json",
+      "url": "https://ee.anih1.top",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://cloud.google.com/"
+    },
+    {
+      "id": "aniwave/aniwave.json",
+      "url": "https://aniwaves.ru/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://aniwaves.ru/"
+    },
+    {
+      "id": "animelib/animelib.json",
+      "url": "https://animelib.org/ru",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://animelib.org/ru"
+    },
+    {
+      "id": "animevost/animevost.json",
+      "url": "https://api.animevost.org/v1/",
+      "ok": false,
+      "status": 404,
+      "code": "",
+      "note": "",
+      "final": "https://api.animevost.org/v1/"
+    },
+    {
+      "id": "blackCloverPace/blackCloverPace.json",
+      "url": "https://pixeldrain.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://pixeldrain.net/"
+    },
+    {
+      "id": "borucut/borucut.json",
+      "url": "https://pixeldrain.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://pixeldrain.net/"
+    },
+    {
+      "id": "concentratedBleach/concentratedBleach.json",
+      "url": "https://pixeldrain.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://pixeldrain.net/"
+    },
+    {
+      "id": "dbzRecut/dbzRecut.json",
+      "url": "https://pixeldrain.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://pixeldrain.net/"
+    },
+    {
+      "id": "AnimeWorld/AnimeWorld.json",
+      "url": "https://animeworld.ac/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.animeworld.ac/"
+    },
+    {
+      "id": "comix/comix.json",
+      "url": "https://comix.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://comix.to/"
+    },
+    {
+      "id": "AnimeUnity/AnimeUnity.json",
+      "url": "https://animeunity.so",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.animeunity.so/"
+    },
+    {
+      "id": "flixlatam/flixlatam.json",
+      "url": "https://flixlatam.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://flixlatam.com/"
+    },
+    {
+      "id": "dragonballrecut/dragonballrecut.json",
+      "url": "https://archive.org/details/dragon-ball-recut/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://archive.org/details/dragon-ball-recut/"
+    },
+    {
+      "id": "anineko/anineko.json",
+      "url": "https://anineko.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://anineko.to/"
+    },
+    {
+      "id": "iptv-org/iptv-org.json",
+      "url": "https://iptv-org.github.io/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://iptv-org.github.io/"
+    },
+    {
+      "id": "chireads/chireads.json",
+      "url": "https://chireads.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://chireads.com/"
+    },
+    {
+      "id": "hydrahd/hydrahd-shirox.json",
+      "url": "https://hydrahd.ws/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://hydrahd.ws/"
+    },
+    {
+      "id": "mangabuddy/mangabuddy.json",
+      "url": "",
+      "ok": false,
+      "status": 0,
+      "code": "",
+      "note": "no baseUrl"
+    },
+    {
+      "id": "mangadex/mangadex.json",
+      "url": "",
+      "ok": false,
+      "status": 0,
+      "code": "",
+      "note": "no baseUrl"
+    },
+    {
+      "id": "mangafreak/mangafreak.json",
+      "url": "",
+      "ok": false,
+      "status": 0,
+      "code": "",
+      "note": "no baseUrl"
+    },
+    {
+      "id": "mangaworld/mangaworld.json",
+      "url": "",
+      "ok": false,
+      "status": 0,
+      "code": "",
+      "note": "no baseUrl"
+    },
+    {
+      "id": "hydrahd/hydrahd.json",
+      "url": "https://hydrahd.ws/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://hydrahd.ws/"
+    },
+    {
+      "id": "imdb/imdb.json",
+      "url": "https://www.imdb.com/",
+      "ok": true,
+      "status": 202,
+      "code": "",
+      "note": "",
+      "final": "https://www.imdb.com/"
+    },
+    {
+      "id": "anitube/anitube.json",
+      "url": "https://www.anitube.news/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.anitube.zip/"
+    },
+    {
+      "id": "kisskh/kisskh.json",
+      "url": "https://kisskh.do/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://kisskh.do/"
+    },
+    {
+      "id": "henaojara/henaojara.json",
+      "url": "https://animejara.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://animejara.com/"
+    },
+    {
+      "id": "onigashima/onigashima.json",
+      "url": "https://pixeldrain.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://pixeldrain.net/"
+    },
+    {
+      "id": "lncrawler/lncrawler.json",
+      "url": "https://lncrawler.monster/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://lncrawler.monster/"
+    },
+    {
+      "id": "lmanime/lmanime.json",
+      "url": "https://lmanime.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://lmanime.com/"
+    },
+    {
+      "id": "onetouch/onetouch.json",
+      "url": "https://s1.devcorp.me/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://s1.devcorp.me/"
+    },
+    {
+      "id": "nakanime/nakanime.json",
+      "url": "https://nakanime.tv/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://nakanime.tv/"
+    },
+    {
+      "id": "kissasian/kissasian.json",
+      "url": "https://kissasian.su/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://kissasian.su/"
+    },
+    {
+      "id": "nimegami/nimegami.json",
+      "url": "https://nimegami.id/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://nimegami.id/"
+    },
+    {
+      "id": "gidonline/gidonline.json",
+      "url": "https://gidonline.eu/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://gidonline.eu/"
+    },
+    {
+      "id": "nivod/nivod.json",
+      "url": "https://www.nivod.cc/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.nivod.cc/"
+    },
+    {
+      "id": "onwave/onwave.json",
+      "url": "https://onwavedub.org/api/v1",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://onwavedub.org/api/v1"
+    },
+    {
+      "id": "scan-sama/scan-sama.json",
+      "url": "https://anime-sama.to/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://anime-sama.to/"
+    },
+    {
+      "id": "monoschinos2/monoschinos2.json",
+      "url": "https://wwv.monoschinos2.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://vww.monoschinos2.net/"
+    },
+    {
+      "id": "peachify/peachify.json",
+      "url": "https://peachify.top/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://peachify.top/"
+    },
+    {
+      "id": "streamcloud/streamcloud.json",
+      "url": "https://streamcloud.sx/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://streamcloud.sx/"
+    },
+    {
+      "id": "weebcentral/weebcentral.json",
+      "url": "",
+      "ok": false,
+      "status": 0,
+      "code": "",
+      "note": "no baseUrl"
+    },
+    {
+      "id": "otaku-streamers/otaku-streamers.json",
+      "url": "https://otaku-streamers.com/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://otaku-streamers.com/mobile/"
+    },
+    {
+      "id": "readnovels/readnovels.json",
+      "url": "https://readnovel.eu/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://readnovel.eu/"
+    },
+    {
+      "id": "toontales/toontales.json",
+      "url": "https://www.toontales.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.toontales.net/"
+    },
+    {
+      "id": "yfsp/yfsp.json",
+      "url": "https://www.yfsp.tv/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://www.yfsp.tv/"
+    },
+    {
+      "id": "torrentio/torrentio.json",
+      "url": "https://torrentio.strem.fun/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://torrentio.strem.fun/configure"
+    },
+    {
+      "id": "xpass/xpass.json",
+      "url": "https://play.xpass.top/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://play.xpass.top/"
+    },
+    {
+      "id": "voir-anime/voir-anime.json",
+      "url": "https://voir-anime.to",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://voir-anime.to/"
+    },
+    {
+      "id": "videasy/videasy.json",
+      "url": "https://player.videasy.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://player.videasy.to/"
+    },
+    {
+      "id": "vidfast/vidfast.json",
+      "url": "https://vidfast.pro/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://vidfast.vc/"
+    },
+    {
+      "id": "vidcore/vidcore.json",
+      "url": "https://vidcore.net/",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://vidcore.io/"
+    },
+    {
+      "id": "yummyanime/yummyanime.json",
+      "url": "https://api.yani.tv",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://api.yani.tv/swagger"
+    },
+    {
+      "id": "StreamingUnity/StreamingUnity.json",
+      "url": "https://streamingcommunityz.us/it",
+      "ok": true,
+      "status": 200,
+      "code": "",
+      "note": "",
+      "final": "https://streamingcommunityz.taxi/"
+    }
+  ]
+}

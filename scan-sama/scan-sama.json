@@ -1,0 +1,21 @@
+{
+  "sourceName": "Scan Sama",
+  "iconURL": "https://raw.githubusercontent.com/Anime-Sama/IMG/img/autres/logo.png",
+  "version": "1.2.3",
+  "language": "French",
+  "languageType": [
+    "Translated"
+  ],
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/scan-sama/scan-sama.js",
+  "author": {
+    "name": "MXFia19",
+    "iconURL": "https://i.pinimg.com/1200x/89/78/33/89783349d3270e4ab071db9a038db8ea.jpg"
+  },
+  "type": "mangas",
+  "baseURL": "https://anime-sama.to/",
+  "searchBaseURL": "https://anime-sama.to/catalogue/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/scan-sama/scan-sama.js",
+  "streamType": "mangas",
+  "quality": "N/A",
+  "asyncJS": true
+}

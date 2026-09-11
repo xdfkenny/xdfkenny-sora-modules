@@ -10,9 +10,11 @@ Curated Sora/Luna/Shirox scraper modules (anime/movies/manga/novels/torrents). N
 <module>/           # e.g. henaojara/, anidb/, hydrahd/, comix/, torrentio/, yfsp/, allmanga-novels/
   <module>.json     # manifest — metadata + scriptUrl
   <module>.js       # scraper — single file, no imports
-modules.json        # global index consumed by index.html + server.js
+modules.json        # global index consumed by modules.js + server.js
 server.js           # status/test harness (Node)
-index.html + script.js + styles.css  # GitHub Pages frontend
+index.html + script.js     # home page — topbar/hero landing ('/')
+modules/index.html + modules.js  # full module library ('/modules')
+styles.css                  # shared design system (both pages)
 documentation/      # Howtotest.md, NovelModules.md, SUBTITLES.md, etc.
 test/               # harness snapshots: hydrahd-copy/, stremio-subs-test/
 *.patch             # Luna/Kanzen reader fixes (reference only)

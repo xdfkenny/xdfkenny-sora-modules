@@ -1,0 +1,21 @@
+{
+  "sourceName": "OnWave",
+  "iconUrl": "https://onwavedub.org/logo.png",
+  "author": {
+    "name": "anonymous",
+    "icon": "https://git.luna-app.eu/avatars/11bb6ee2fdba48e70ee21594f4ac96344358be3bb9770732ba8c406b5cda98f0?size=512$0"
+  },
+  "version": "1.0.3",
+  "language": "Russian",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://onwavedub.org/api/v1",
+  "searchBaseUrl": "https://onwavedub.org/api/v1/catalog?query=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onwave/onwave.js",
+  "asyncJS": true,
+  "streamAsyncJS": true,
+  "softsub": false,
+  "type": "anime",
+  "downloadSupport": false,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onwave/onwave.js"
+}

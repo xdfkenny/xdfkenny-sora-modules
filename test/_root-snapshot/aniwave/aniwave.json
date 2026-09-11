@@ -1,0 +1,22 @@
+{
+  "sourceName": "Aniwave",
+  "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/icon.png",
+  "author": {
+    "name": "ibro",
+    "icon": "https://git.luna-app.eu/ibro/services/raw/branch/main/profile.jpg",
+    "url": "https://github.com/xibrox"
+  },
+  "version": "2.0.27",
+  "language": "English",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://aniwaves.ru/",
+  "searchBaseUrl": "https://aniwaves.ru/filter?keyword=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/aniwave.js",
+  "type": "anime",
+  "downloadSupport": true,
+  "asyncJS": true,
+  "softsub": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/aniwave.js",
+  "iconURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/icon.png"
+}

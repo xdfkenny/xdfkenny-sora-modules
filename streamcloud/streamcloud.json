@@ -1,0 +1,20 @@
+{
+  "sourceName": "StreamCloud",
+  "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/icon.png",
+  "author": {
+    "name": "ibro & Cufiy",
+    "icon": "https://git.luna-app.eu/ibro/services/raw/branch/main/profile.jpg",
+    "url": "https://github.com/xibrox"
+  },
+  "version": "2.0.6",
+  "language": "German",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://streamcloud.sx/",
+  "searchBaseUrl": "https://streamcloud.sx/data/browse/?lang=2&keyword=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/streamcloud.js",
+  "type": "shows/movies",
+  "asyncJS": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/streamcloud.js",
+  "iconURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/icon.png"
+}

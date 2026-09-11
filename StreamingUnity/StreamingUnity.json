@@ -1,0 +1,19 @@
+{
+  "sourceName": "StreamingUnity",
+  "iconUrl": "https://play-lh.googleusercontent.com/-BHc2mPj6oRWk0cjwMn5oYSd7rYl5RW1xn8BWdizIHBuh4cBQ6ev_EsxmA4Trt0o2jQ",
+  "author": {
+    "name": "sobet & alessio",
+    "icon": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQPQ1qIiALbM3xDWGsuJzu6ItaQGwb9ICRRw&s"
+  },
+  "version": "10000000",
+  "language": "Italian",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://streamingcommunityz.us/it",
+  "searchBaseUrl": "https://streamingcommunityz.us/it/archive?title=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/StreamingUnity/script.js",
+  "asyncJS": true,
+  "type": "shows/movies",
+  "settings": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/StreamingUnity/script.js"
+}

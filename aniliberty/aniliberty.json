@@ -1,0 +1,21 @@
+{
+  "sourceName": "AniLiberty",
+  "iconUrl": "https://aniliberty.top/static/favicon-96x96.png",
+  "author": {
+    "name": "anonymous",
+    "icon": "https://git.luna-app.eu/avatars/11bb6ee2fdba48e70ee21594f4ac96344358be3bb9770732ba8c406b5cda98f0?size=512$0"
+  },
+  "version": "1.0.7",
+  "language": "Russian",
+  "streamType": "HLS",
+  "quality": "1080p",
+  "baseUrl": "https://aniliberty.top/api/v1/",
+  "searchBaseUrl": "https://aniliberty.top/api/v1/app/search/releases?query=%s",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniliberty/aniliberty.js",
+  "asyncJS": true,
+  "streamAsyncJS": true,
+  "softsub": false,
+  "type": "anime",
+  "downloadSupport": false,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniliberty/aniliberty.js"
+}

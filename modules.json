@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-01",
+  "lastUpdated": "2026-09-10",
   "repo": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules",
   "modules": [
     {
@@ -44,6 +44,7 @@
       "iconUrl": "https://anime.nexus/favicon-32x32.png",
       "category": "anime",
       "branch": "main",
+      "discontinued": true,
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anime-nexus/anime-nexus.json",
       "sampleQuery": "one piece"
     },
@@ -98,6 +99,7 @@
       "iconUrl": "https://torrentio.strem.fun/images/logo_v1.png",
       "category": "torrent",
       "branch": "main",
+      "discontinued": true,
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/torrentio/torrentio.json",
       "sampleQuery": "one piece"
     },
@@ -109,6 +111,519 @@
       "branch": "main",
       "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/kissasian/kissasian.json",
       "sampleQuery": "lovely runner"
+    },
+    {
+      "id": "aniliberty",
+      "name": "AniLiberty",
+      "iconUrl": "https://aniliberty.top/static/favicon-96x96.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniliberty/aniliberty.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animegg",
+      "name": "AnimeGG",
+      "iconUrl": "https://files.catbox.moe/caq4am.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animegg/animegg.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animevost",
+      "name": "AnimeVost",
+      "iconUrl": "https://animevost.org/apple-touch-icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animevost/animevost.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "iptv-org",
+      "name": "IPTV-org",
+      "iconUrl": "https://files.catbox.moe/q9hxx0.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/iptv-org/iptv-org.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "kisskh",
+      "name": "Kisskh",
+      "iconUrl": "https://files.catbox.moe/wi6a1a.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/kisskh/kisskh.json",
+      "sampleQuery": "lovely runner"
+    },
+    {
+      "id": "lmanime",
+      "name": "LmAnime",
+      "iconUrl": "https://lmanime.com/wp-content/uploads/2022/09/cropped-site-icon-192x192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/lmanime/lmanime.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "lncrawler",
+      "name": "LnCrawler",
+      "iconUrl": "https://files.catbox.moe/ec7bnh.png",
+      "category": "novels",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/lncrawler/lncrawler.json",
+      "sampleQuery": "solo leveling"
+    },
+    {
+      "id": "mangadex",
+      "name": "MangaDex",
+      "iconUrl": "https://files.catbox.moe/ouogm2.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangadex/mangadex.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "nimegami",
+      "name": "Nimegami",
+      "iconUrl": "https://nimegami.id/wp-content/uploads/2018/07/cropped-logo-3v2-192x192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nimegami/nimegami.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "nivod",
+      "name": "Nivod",
+      "iconUrl": "https://www.nivod.cc/static/nivod/image/logo/logo_512x512.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nivod/nivod.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "onetouch",
+      "name": "OneTouch TV",
+      "iconUrl": "https://onetouchtv.xyz/favicon.png",
+      "category": "shows/movies/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onetouch/onetouch.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "onwave",
+      "name": "OnWave",
+      "iconUrl": "https://onwavedub.org/logo.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onwave/onwave.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "yummyanime",
+      "name": "YummyAnime",
+      "iconUrl": "https://site.yummyani.me/img/icon/yummy-192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/yummyanime/yummyanime.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "123anime",
+      "name": "123Anime",
+      "iconUrl": "https://123animehub.cc/assets/favicons/apple-touch-icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/123anime/123anime.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "AnimeUnity",
+      "name": "AnimeUnity",
+      "iconUrl": "https://raw.githubusercontent.com/cranci1/Ryu/2f10226aa087154974a70c1ec78aa83a47daced9/Ryu/Assets.xcassets/Sources/AnimeUnity.imageset/apple-touch-icon.jpg",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/AnimeUnity/AnimeUnity.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "AnimeWorld",
+      "name": "AnimeWorld",
+      "iconUrl": "https://raw.githubusercontent.com/cranci1/Ryu/d48d716ec6c5ef9ae7b3711c117f920b0c7eb1ce/Ryu/Assets.xcassets/Sources/AnimeWorld.imageset/animeworld.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/AnimeWorld/AnimeWorld.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "StreamingUnity",
+      "name": "StreamingUnity",
+      "iconUrl": "https://play-lh.googleusercontent.com/-BHc2mPj6oRWk0cjwMn5oYSd7rYl5RW1xn8BWdizIHBuh4cBQ6ev_EsxmA4Trt0o2jQ",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/StreamingUnity/StreamingUnity.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "aether",
+      "name": "Aether",
+      "iconUrl": "https://aether.bar/favicon.ico",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aether/aether.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "airflix",
+      "name": "AirFlix",
+      "iconUrl": "https://img.icons8.com/color/48/netflix.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/airflix/airflix.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "aksv",
+      "name": "Aksv",
+      "iconUrl": "https://i.ibb.co/fdyjNhkb/icon-number-255763.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aksv/aksv.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "an1me",
+      "name": "An1me",
+      "iconUrl": "https://an1me.to/assets/apple-touch-icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/an1me/an1me.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "anidub",
+      "name": "AniDub",
+      "iconUrl": "https://anidub.org/templates/CinemaBlue/images/jutfun.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anidub/anidub.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "anime-sama",
+      "name": "AnimeSama",
+      "iconUrl": "https://anime-sama.pw/logo_icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anime-sama/anime-sama.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animeav1",
+      "name": "AnimeAv1",
+      "iconUrl": "https://animeav1.com/favicon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animeav1/animeav1.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animedefenders",
+      "name": "AnimeDefenders",
+      "iconUrl": "https://cdn.jsdelivr.net/gh/756751uosmaqy/vjplayer@main/2fcbd487e5cacb41cbe7802d5ccfc0dc.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animedefenders/animedefenders.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animeland",
+      "name": "Animeland",
+      "iconUrl": "https://w7.animeland.tv/wp-content/themes/twentytwelve/SAO2.ico",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animeland/animeland.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animelib",
+      "name": "AnimeLib",
+      "iconUrl": "https://i.ibb.co/rfktbGyD/Untitled-design.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animelib/animelib.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "animenosub",
+      "name": "AnimeNoSub",
+      "iconUrl": "https://i3.wp.com/animenosub.to/wp-content/uploads/2024/04/cropped-favicon-192x192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/animenosub/animenosub.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "anineko",
+      "name": "AniNeko",
+      "iconUrl": "https://files.catbox.moe/6tgiww.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anineko/anineko.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "anitube",
+      "name": "AniTube",
+      "iconUrl": "https://www.anitube.news/wp-content/uploads/cropped-Favicon6-192x192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/anitube/anitube.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "aniwave",
+      "name": "AniWave",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/aniwave/aniwave.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "blackCloverPace",
+      "name": "Black Clover Pace",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/blackCloverPace.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "borucut",
+      "name": "Boruto Cut",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/borucut/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/borucut/borucut.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "chireads",
+      "name": "ChiReads",
+      "iconUrl": "https://chireads.com/wp-content/uploads/2020/04/2020LOGO-2.png",
+      "category": "novels",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/chireads/chireads.json",
+      "sampleQuery": "solo leveling"
+    },
+    {
+      "id": "concentratedBleach",
+      "name": "Concentrated Bleach",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/concentratedBleach/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/concentratedBleach/concentratedBleach.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "dbzRecut",
+      "name": "DBZ Recut",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/dbzRecut/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/dbzRecut/dbzRecut.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "dragonballrecut",
+      "name": "DragonBall Recut",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/dragonballrecut/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/dragonballrecut/dragonballrecut.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "gidonline",
+      "name": "GidOnline",
+      "iconUrl": "https://files.catbox.moe/vo4xzy.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/gidonline/gidonline.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "imdb",
+      "name": "IMDb",
+      "iconUrl": "https://m.media-amazon.com/images/G/01/imdb/images-ANDW73HA/favicon_iPhone_retina_180x180._CB1582158069_UX196_.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/imdb/imdb.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "mangabuddy",
+      "name": "MangaBuddy",
+      "iconUrl": "https://mangabuddy.com/static/sites/mangabuddy/icons/apple-touch-icon.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangabuddy/mangabuddy.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "mangafreak",
+      "name": "MangaFreak",
+      "iconUrl": "https://files.catbox.moe/903u7e.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangafreak/mangafreak.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "mangaworld",
+      "name": "MangaWorld",
+      "iconUrl": "https://www.mangaworld.mx/public/assets/seo/favicon-96x96.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/mangaworld/mangaworld.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "monoschinos2",
+      "name": "MonosChinos 2",
+      "iconUrl": "https://files.catbox.moe/jz9l88.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/monoschinos2/monoschinos2.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "nakanime",
+      "name": "Nakanime",
+      "iconUrl": "https://nakanime.tv/favicon.ico",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/nakanime/nakanime.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "onigashima",
+      "name": "Onigashima",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onigashima/icon.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/onigashima/onigashima.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "otaku-streamers",
+      "name": "Otaku Streamers",
+      "iconUrl": "https://files.catbox.moe/alcwg2.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/otaku-streamers/otaku-streamers.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "peachify",
+      "name": "Peachify",
+      "iconUrl": "https://peachify.top/favicon.ico",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/peachify/peachify.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "readnovels",
+      "name": "ReadNovels",
+      "iconUrl": "https://readnovel.eu/apple-touch-icon.png",
+      "category": "novels",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/readnovels/readnovels.json",
+      "sampleQuery": "solo leveling"
+    },
+    {
+      "id": "scan-sama",
+      "name": "Scan Sama",
+      "iconUrl": "https://raw.githubusercontent.com/Anime-Sama/IMG/img/autres/logo.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/scan-sama/scan-sama.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "streamcloud",
+      "name": "StreamCloud",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/icon.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/streamcloud/streamcloud.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "toontales",
+      "name": "ToonTales",
+      "iconUrl": "https://www.toontales.net/wp-content/uploads/cropped-favicon-192x192.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/toontales/toontales.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "vidcore",
+      "name": "VidCore",
+      "iconUrl": "https://vidcore.net/favicon.ico",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/vidcore/vidcore.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "videasy",
+      "name": "VidEasy",
+      "iconUrl": "https://www.videasy.net/logo.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/videasy/videasy.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "vidfast",
+      "name": "VidFast",
+      "iconUrl": "https://files.catbox.moe/i6r78t.png",
+      "category": "anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/vidfast/vidfast.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "voir-anime",
+      "name": "VoirAnime",
+      "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/IMG_9709.jpg",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/voir-anime.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "weebcentral",
+      "name": "WeebCentral",
+      "iconUrl": "https://favicons.statusgator.com/1bi5zotvuQiK08wI.png",
+      "category": "mangas",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/weebcentral/weebcentral.json",
+      "sampleQuery": "one piece"
+    },
+    {
+      "id": "xpass",
+      "name": "XPass",
+      "iconUrl": "https://img.icons8.com/color/48/netflix.png",
+      "category": "movies/shows/anime",
+      "branch": "main",
+      "manifestUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/xpass/xpass.json",
+      "sampleQuery": "one piece"
     }
   ]
 }

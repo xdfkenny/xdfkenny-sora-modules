@@ -1,0 +1,20 @@
+{
+  "sourceName": "Black Clover Pace",
+  "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/icon.png",
+  "author": {
+    "name": "ibro",
+    "icon": "https://git.luna-app.eu/ibro/services/raw/branch/main/profile.jpg",
+    "url": "https://github.com/xibrox"
+  },
+  "version": "1.0.1",
+  "language": "English",
+  "streamType": "MP4",
+  "quality": "1080p - 720p - 480p",
+  "baseUrl": "https://pixeldrain.net/",
+  "searchBaseUrl": "https://pixeldrain.net/",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/blackCloverPace.js",
+  "type": "anime",
+  "asyncJS": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/blackCloverPace.js",
+  "iconURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/blackCloverPace/icon.png"
+}

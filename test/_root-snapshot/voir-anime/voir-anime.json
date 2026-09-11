@@ -1,0 +1,25 @@
+{
+  "sourceName": "VoirAnime",
+  "iconUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/IMG_9709.jpg",
+  "author": {
+    "name": "MXFia19",
+    "icon": "https://i.pinimg.com/1200x/89/78/33/89783349d3270e4ab071db9a038db8ea.jpg",
+    "url": "https://github.com/MXFia19"
+  },
+  "version": "1.0.7",
+  "language": "French",
+  "streamType": "MP4",
+  "quality": "1080p",
+  "baseUrl": "https://voir-anime.to",
+  "searchBaseUrl": "https://voir-anime.to/?s=",
+  "scriptUrl": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/voir-anime.js",
+  "type": "anime",
+  "downloadSupport": true,
+  "asyncJS": true,
+  "softsub": false,
+  "changelog": "logs Supabase: ajoute ep_number + media_url (l alerte Discord affiche enfin le numero d episode)",
+  "supportsSora": true,
+  "supportsLuna": true,
+  "scriptURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/voir-anime.js",
+  "iconURL": "https://raw.githubusercontent.com/xdfkenny/xdfkenny-sora-modules/main/voir-anime/IMG_9709.jpg"
+}
