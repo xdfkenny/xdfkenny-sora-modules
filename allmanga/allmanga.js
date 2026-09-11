@@ -25,10 +25,10 @@ const SOURCE_PRIORITY = ['Default', 'Yt-mp4', 'S-Mp4', 'Ak', 'Uv-mp4', 'Luf-Mp4'
 // key (wrong key -> AA_CRYPTO_STALE). Keep this fallback fresh — the bootstrap
 // endpoint is now Cloudflare-protected in-app.
 const FALLBACK_KEYGEN = {
-    build_id: '166',
-    epoch: 2957,
+    build_id: '81',
+    epoch: 6889,
     lane: 'k7',
-    key: '43724f7d46135c6cdb2824f00c4ee272a0fff52f89681213140c6c2b80af8d21',
+    key: 'f7bd37902f0d7fc067d82c7a4f9c52dff5f1539561773d38e20012d2b91f442e',
     static_key: 'Xot36i3lK3:v1'
 };
 

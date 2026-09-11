@@ -7,7 +7,7 @@
     "url": "https://github.com/xdfkenny"
   },
   "description": "Módulo de AllManga (allmanga.to) — anime en inglés (sub/dub) vía el flow oficial AllAnime (aaReq + tobeparsed + clock). v1.10.0: keygen build 166 epoch 2957 (mask 0VmOiOT…, key 43724f7d…, boot ld1faaOf3G:, mensaje boot mkissa:k7:2957:mkissa.to:166) + URLs /anime/<CUID> y episodios /p-<n>. v1.9.3: build 141 + manejo NEED_CAPTCHA/rate-limit + vidPath legacy deshabilitado.",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "language": "English (SUB/DUB)",
   "streamType": "HLS/MP4",
   "quality": "1080p",
